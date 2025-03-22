@@ -1,0 +1,952 @@
+Directory and File Tree:
+client/
+    client.go
+    mock_client.go
+    tachibana_client.go
+    dto/
+        request/
+            cancel_order.go
+            cancel_order_all.go
+            correct_order.go
+            genbutu_kabu_list.go
+            new_order.go
+            order_list.go
+            order_list_detail.go
+            shinyou_tategyoku_list.go
+            zan_kai_genbutu_kaituke_syousai.go
+            zan_kai_kanougaku.go
+            zan_kai_kanougaku_suii.go
+            zan_kai_sinyou_sinkidate_syousai.go
+            zan_kai_summary.go
+            zan_real_hosyoukin_ritu.go
+            zan_shinki_kano_ijiritu.go
+            zan_uri_kanousuu.go
+        response/
+            cancel_order.go
+            cancel_order_all.go
+            correct_order.go
+            genbutu_kabu_list.go
+            new_order.go
+            order_list.go
+            order_list_detail.go
+            shinyou_tategyoku_list.go
+            zan_kai_genbutu_kaituke_syousai.go
+            zan_kai_kanougaku.go
+            zan_kai_kanougaku_suii.go
+            zan_kai_sinyou_sinkidate_syousai.go
+            zan_kai_summary.go
+            zan_real_hosyoukin_ritu.go
+            zan_shinki_kano_ijiritu.go
+            zan_uri_kanousuu.go
+    file_concat/
+
+Full File Content:
+client/
+    client.go
+    // infrastructure/client/client.go
+    package client
+    
+    import (
+    "context"
+    )
+    
+    type Client interface {
+    Login(ctx context.Context) (LoginResponse, error)
+    Logout(ctx context.Context) error
+    SendOrder(ctx context.Context, orderRequest OrderRequest) (OrderResponse, error)    //注文
+    GetOrderState(ctx context.Context, orderID string) (OrderStateResponse, error)      // 注文状態確認
+    GetMasterData(ctx context.Context, issueCodes []string) (MasterDataResponse, error) // マスタデータ
+    // GetPrice(ctx context.Context, symbol string) (PriceResponse, error) // 時価情報
+    // ... 他の必要なメソッド ...
+    }
+    mock_client.go
+    tachibana_client.go
+    package client
+    
+    import (
+    "net/url"
+    "sync"
+    "time"
+    )
+    
+    // TachibanaClientImple 構造体の定義
+    type TachibanaClient struct {
+    baseURL         *url.URL // 本番、デモ
+    sUserId         string   // e支店口座のログインＩＤ
+    sPassword       string   // e支店口座のログインパスワード
+    sSecondPassword string   // 第二暗証番号（発注パスワード)
+    
+    loggined   bool         // ログインフラグ
+    requestURL string       // キャッシュする仮想URL（REQUEST)
+    masterURL  string       // キャッシュする仮想URL（Master)
+    priceURL   string       // キャッシュする仮想URL（Price)
+    eventURL   string       // キャッシュする仮想URL（EVENT)
+    expiry     time.Time    // 仮想URLの有効期限
+    mu         sync.RWMutex // 排他制御用
+    p_no       int64        // p_no の連番管理用
+    p_NoMu     sync.Mutex   // pNo の排他制御用
+    
+    targetIssueCodes []string
+    // masterData       *domain.MasterData // リポジトリから取得するマスターデータの要否確認
+    
+    }
+    dto/
+        request/
+            cancel_order.go
+            // request/cancel_order.go
+            package request
+            
+            // ReqCancelOrder は株式取消注文のリクエストを表すDTO
+            type ReqCancelOrder struct {
+            P_no            string `json:"p_no"`            // p_no
+            P_sd_date       string `json:"p_sd_date"`       // システム日付
+            SJsonOfmt       string `json:"sJsonOfmt"`       // JSON出力フォーマット
+            SCLMID          string `json:"sCLMID"`          // 機能ID, CLMKabuCancelOrder
+            SOrderNumber    string `json:"sOrderNumber"`    // 注文番号, CLMKabuNewOrder.sOrderNumber
+            SEigyouDay      string `json:"sEigyouDay"`      // 営業日, CLMKabuNewOrder.sEigyouDay
+            SSecondPassword string `json:"sSecondPassword"` // 第二パスワード
+            }
+            cancel_order_all.go
+            // request/cancel_order_all.go
+            package request
+            
+            // ReqCancelOrderAll は株式一括取消のリクエストを表すDTO
+            type ReqCancelOrderAll struct {
+            P_no            string `json:"p_no"`            // p_no
+            P_sd_date       string `json:"p_sd_date"`       // システム日付
+            SJsonOfmt       string `json:"sJsonOfmt"`       // JSON出力フォーマット
+            SCLMID          string `json:"sCLMID"`          // 機能ID, CLMKabuCancelOrderAll
+            SSecondPassword string `json:"sSecondPassword"` // 第二パスワード
+            }
+            correct_order.go
+            // request/correct_order.go
+            package request
+            
+            // ReqCorrectOrder は株式訂正注文のリクエストを表すDTO
+            type ReqCorrectOrder struct {
+            P_no              string `json:"p_no"`              // p_no
+            P_sd_date         string `json:"p_sd_date"`         // システム日付
+            SJsonOfmt         string `json:"sJsonOfmt"`         // JSON出力フォーマット
+            SCLMID            string `json:"sCLMID"`            // 機能ID, CLMKabuCorrectOrder
+            SOrderNumber      string `json:"sOrderNumber"`      // 注文番号, CLMKabuNewOrder.sOrderNumber
+            SEigyouDay        string `json:"sEigyouDay"`        // 営業日, CLMKabuNewOrder.sEigyouDay
+            SCondition        string `json:"sCondition"`        // 執行条件, *：変更なし, 0：指定なし, 2：寄付, 4：引け, 6：不成
+            SOrderPrice       string `json:"sOrderPrice"`       // 注文値段, *：変更なし, 0：成行に変更
+            SOrderSuryou      string `json:"sOrderSuryou"`      // 注文数量, *：変更なし
+            SOrderExpireDay   string `json:"sOrderExpireDay"`   // 注文期日, *：変更なし, 0：当日
+            SGyakusasiZyouken string `json:"sGyakusasiZyouken"` // 逆指値条件, *：変更なし, 0：成行に変更
+            SGyakusasiPrice   string `json:"sGyakusasiPrice"`   // 逆指値値段, *：変更なし, 0：成行に変更
+            SSecondPassword   string `json:"sSecondPassword"`   // 第二パスワード
+            }
+            genbutu_kabu_list.go
+            // request/genbutu_kabu_list.go
+            package request
+            
+            // ReqGenbutuKabuList は現物保有銘柄一覧のリクエストを表すDTO
+            type ReqGenbutuKabuList struct {
+            P_no       string `json:"p_no"`       // p_no
+            P_sd_date  string `json:"p_sd_date"`  // システム日付
+            SJsonOfmt  string `json:"sJsonOfmt"`  // JSON出力フォーマット
+            SCLMID     string `json:"sCLMID"`     // 機能ID, CLMGenbutuKabuList
+            SIssueCode string `json:"sIssueCode"` // 銘柄コード, 指定あり：指定１銘柄, 指定なし：全保有銘柄
+            }
+            new_order.go
+            // request/new_order.go
+            package request
+            
+            // ReqNewOrder は株式新規注文のリクエストを表すDTO
+            type ReqNewOrder struct {
+            P_no                      string          `json:"p_no"`                      // p_no
+            P_sd_date                 string          `json:"p_sd_date"`                 // システム日付
+            SJsonOfmt                 string          `json:"sJsonOfmt"`                 // JSON出力フォーマット
+            SCLMID                    string          `json:"sCLMID"`                    // 機能ID, CLMKabuNewOrder
+            SZyoutoekiKazeiC          string          `json:"sZyoutoekiKazeiC"`          // 譲渡益課税区分, 1：特定, 3：一般, 5：NISA, 6：N成長
+            SIssueCode                string          `json:"sIssueCode"`                // 銘柄コード
+            SSizyouC                  string          `json:"sSizyouC"`                  // 市場, 00：東証
+            SBaibaiKubun              string          `json:"sBaibaiKubun"`              // 売買区分, 1：売, 3：買, 5：現渡, 7：現引
+            SCondition                string          `json:"sCondition"`                // 執行条件, 0：指定なし, 2：寄付, 4：引け, 6：不成
+            SOrderPrice               string          `json:"sOrderPrice"`               // 注文値段, *：指定なし, 0：成行
+            SOrderSuryou              string          `json:"sOrderSuryou"`              // 注文株数
+            SGenkinShinyouKubun       string          `json:"sGenkinShinyouKubun"`       // 現金信用区分, 0：現物, 2：新規(制度信用6ヶ月), 4：返済(制度信用6ヶ月), 6：新規(一般信用6ヶ月), 8：返済(一般信用6ヶ月)
+            SOrderExpireDay           string          `json:"sOrderExpireDay"`           // 注文期日, 0：当日
+            SGyakusasiOrderType       string          `json:"sGyakusasiOrderType"`       // 逆指値注文種別, 0：通常, 1：逆指値, 2：通常＋逆指値
+            SGyakusasiZyouken         string          `json:"sGyakusasiZyouken"`         // 逆指値条件, 0：指定なし
+            SGyakusasiPrice           string          `json:"sGyakusasiPrice"`           // 逆指値値段, *：指定なし, 0：成行
+            STatebiType               string          `json:"sTatebiType"`               // 建日種類, *：指定なし（現物または新規）, 1：個別指定, 2：建日順, 3：単価益順, 4：単価損順
+            STategyokuZyoutoekiKazeiC string          `json:"sTategyokuZyoutoekiKazeiC"` // 建玉譲渡益課税区分, *：現引、現渡以外の取引, 1：特定, 3：一般
+            SSecondPassword           string          `json:"sSecondPassword"`           // 第二パスワード
+            ACLMKabuHensaiData        []ReqHensaiData `json:"aCLMKabuHensaiData"`        // 返済リスト
+            }
+            
+            // ReqHensaiData　返済リスト
+            type ReqHensaiData struct {
+            STategyokuNumber string `json:"sTategyokuNumber"` // 	新規建玉番号
+            STatebiZyuni     string `json:"sTatebiZyuni"`     // 建日順位
+            SOrderSuryou     string `json:"sOrderSuryou"`     // 注文数量
+            }
+            order_list.go
+            // request/order_list.go
+            package request
+            
+            // ReqOrderList は注文一覧のリクエストを表すDTO
+            type ReqOrderList struct {
+            P_no                string `json:"p_no"`                // p_no
+            P_sd_date           string `json:"p_sd_date"`           // システム日付
+            SJsonOfmt           string `json:"sJsonOfmt"`           // JSON出力フォーマット
+            SCLMID              string `json:"sCLMID"`              // 機能ID, CLMOrderList
+            SIssueCode          string `json:"sIssueCode"`          // 銘柄コード  (任意), 指定あり：指定１銘柄, 指定なし：全保有銘柄
+            SSikkouDay          string `json:"sSikkouDay"`          // 注文執行予定日（営業日） (任意), 指定あり：指定１営業日, 指定なし：全保有営業日
+            SOrderSyoukaiStatus string `json:"sOrderSyoukaiStatus"` // 注文照会状態 (任意), ""：指定なし, 1：未約定, 2：全部約定, 3：一部約定, 4：訂正取消(可能な注文）, 5：未約定+一部約定
+            }
+            order_list_detail.go
+            // request/order_list_detail.go
+            package request
+            
+            // ReqOrderListDetail は注文約定一覧（詳細）のリクエストを表すDTO
+            type ReqOrderListDetail struct {
+            P_no         string `json:"p_no"`         // p_no
+            P_sd_date    string `json:"p_sd_date"`    // システム日付
+            SJsonOfmt    string `json:"sJsonOfmt"`    // JSON出力フォーマット
+            SCLMID       string `json:"sCLMID"`       // 機能ID, CLMOrderListDetail
+            SOrderNumber string `json:"sOrderNumber"` // 注文番号, CLMKabuNewOrder.sOrderNumber 参照
+            SEigyouDay   string `json:"sEigyouDay"`   // 営業日, CLMKabuNewOrder.sEigyouDay 参照
+            }
+            shinyou_tategyoku_list.go
+            // request/shinyou_tategyoku_list.go
+            package request
+            
+            // ReqShinyouTategyokuList は信用建玉一覧のリクエストを表すDTO
+            type ReqShinyouTategyokuList struct {
+            P_no       string `json:"p_no"`       // p_no
+            P_sd_date  string `json:"p_sd_date"`  // システム日付
+            SJsonOfmt  string `json:"sJsonOfmt"`  // JSON出力フォーマット
+            SCLMID     string `json:"sCLMID"`     // 機能ID, CLMShinyouTategyokuList
+            SIssueCode string `json:"sIssueCode"` // 銘柄コード, 指定あり：指定１銘柄, 指定なし：全保有銘柄
+            }
+            zan_kai_genbutu_kaituke_syousai.go
+            // request/zan_kai_genbutu_kaituke_syousai.go
+            package request
+            
+            // ReqZanKaiGenbutuKaitukeSyousai は現物株式買付可能額詳細のリクエストを表すDTO
+            type ReqZanKaiGenbutuKaitukeSyousai struct {
+            P_no         string `json:"p_no"`         // p_no
+            P_sd_date    string `json:"p_sd_date"`    // システム日付
+            SJsonOfmt    string `json:"sJsonOfmt"`    // JSON出力フォーマット
+            SCLMID       string `json:"sCLMID"`       // 機能ID, CLMZanKaiGenbutuKaitukeSyousai
+            SHitukeIndex string `json:"sHitukeIndex"` // 日付インデックス, 3:第4営業日, 4:第5営業日, 5:第6営業日
+            }
+            zan_kai_kanougaku.go
+            // request/zan_kai_kanougaku.go
+            package request
+            
+            // ReqZanKaiKanougaku は買余力のリクエストを表すDTO
+            type ReqZanKaiKanougaku struct {
+            P_no       string `json:"p_no"`       // p_no
+            P_sd_date  string `json:"p_sd_date"`  // システム日付
+            SJsonOfmt  string `json:"sJsonOfmt"`  // JSON出力フォーマット
+            SCLMID     string `json:"sCLMID"`     // 機能ID, CLMZanKaiKanougaku
+            SIssueCode string `json:"sIssueCode"` // 銘柄コード  未使用
+            SSizyouC   string `json:"sSizyouC"`   // 市場      未使用
+            }
+            zan_kai_kanougaku_suii.go
+            // request/zan_kai_kanougaku_suii.go
+            package request
+            
+            // ReqZanKaiKanougakuSuii は可能額推移のリクエストを表すDTO
+            type ReqZanKaiKanougakuSuii struct {
+            P_no      string `json:"p_no"`      // p_no
+            P_sd_date string `json:"p_sd_date"` // システム日付
+            SJsonOfmt string `json:"sJsonOfmt"` // JSON出力フォーマット
+            SCLMID    string `json:"sCLMID"`    // 機能ID, CLMZanKaiKanougakuSuii
+            }
+            zan_kai_sinyou_sinkidate_syousai.go
+            // request/zan_kai_sinyou_sinkidate_syousai.go
+            package request
+            
+            // ReqZanKaiSinyouSinkidateSyousai は信用新規建て可能額詳細のリクエストを表すDTO
+            type ReqZanKaiSinyouSinkidateSyousai struct {
+            P_no         string `json:"p_no"`         // p_no
+            P_sd_date    string `json:"p_sd_date"`    // システム日付
+            SJsonOfmt    string `json:"sJsonOfmt"`    // JSON出力フォーマット
+            SCLMID       string `json:"sCLMID"`       // 機能ID, CLMZanKaiSinyouSinkidateSyousai
+            SHitukeIndex string `json:"sHitukeIndex"` // 日付インデックス, 0:第1営業日, 1:第2営業日, 2:第3営業日, 3:第4営業日, 4:第5営業日, 5:第6営業日
+            }
+            zan_kai_summary.go
+            // request/zan_kai_summary.go
+            package request
+            
+            // ReqZanKaiSummary は可能額サマリーのリクエストを表すDTO
+            type ReqZanKaiSummary struct {
+            P_no      string `json:"p_no"`      // p_no
+            P_sd_date string `json:"p_sd_date"` // システム日付
+            SJsonOfmt string `json:"sJsonOfmt"` // JSON出力フォーマット
+            SCLMID    string `json:"sCLMID"`    // 機能ID, CLMZanKaiSummary
+            }
+            zan_real_hosyoukin_ritu.go
+            // request/zan_real_hosyoukin_ritu.go
+            package request
+            
+            // ReqZanRealHosyoukinRitu はリアル保証金率のリクエストを表すDTO
+            type ReqZanRealHosyoukinRitu struct {
+            P_no      string `json:"p_no"`      // p_no
+            P_sd_date string `json:"p_sd_date"` // システム日付
+            SJsonOfmt string `json:"sJsonOfmt"` // JSON出力フォーマット
+            SCLMID    string `json:"sCLMID"`    // 機能ID, CLMZanRealHosyoukinRitu
+            }
+            zan_shinki_kano_ijiritu.go
+            // request/zan_shinki_kano_ijiritu.go
+            package request
+            
+            // ReqZanShinkiKanoIjiritu は建余力＆本日維持率のリクエストを表すDTO
+            type ReqZanShinkiKanoIjiritu struct {
+            P_no       string `json:"p_no"`       // p_no
+            P_sd_date  string `json:"p_sd_date"`  // システム日付
+            SJsonOfmt  string `json:"sJsonOfmt"`  // JSON出力フォーマット
+            SCLMID     string `json:"sCLMID"`     // 機能ID, CLMZanShinkiKanoIjiritu
+            SIssueCode string `json:"sIssueCode"` // 銘柄コード 未使用
+            SSizyouC   string `json:"sSizyouC"`   // 市場 未使用
+            }
+            zan_uri_kanousuu.go
+            // request/zan_uri_kanousuu.go
+            package request
+            
+            // ReqZanUriKanousuu は売却可能数量のリクエストを表すDTO
+            type ReqZanUriKanousuu struct {
+            P_no       string `json:"p_no"`       // p_no
+            P_sd_date  string `json:"p_sd_date"`  // システム日付
+            SJsonOfmt  string `json:"sJsonOfmt"`  // JSON出力フォーマット
+            SCLMID     string `json:"sCLMID"`     // 機能ID, CLMZanUriKanousuu
+            SIssueCode string `json:"sIssueCode"` // 銘柄コード
+            }
+        response/
+            cancel_order.go
+            // response/cancel_order.go
+            package response
+            
+            // ResCancelOrder は株式取消注文のレスポンスを表すDTO
+            type ResCancelOrder struct {
+            P_no                   string `json:"p_no"`                   // p_no
+            SCLMID                 string `json:"sCLMID"`                 // 機能ID, CLMKabuCancelOrder
+            SResultCode            string `json:"sResultCode"`            // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText            string `json:"sResultText"`            // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SOrderNumber           string `json:"sOrderNumber"`           // 注文番号, 要求設定値
+            SEigyouDay             string `json:"sEigyouDay"`             // 営業日, 要求設定値
+            SOrderUkewatasiKingaku string `json:"sOrderUkewatasiKingaku"` // 注文受渡金額
+            SOrderDate             string `json:"sOrderDate"`             // 注文日時, YYYYMMDDHHMMSS
+            }
+            cancel_order_all.go
+            // response/cancel_order_all.go
+            package response
+            
+            // ResCancelOrderAll は株式一括取消のレスポンスを表すDTO
+            type ResCancelOrderAll struct {
+            P_no        string `json:"p_no"`        // p_no
+            SCLMID      string `json:"sCLMID"`      // 機能ID, CLMKabuCancelOrderAll
+            SResultCode string `json:"sResultCode"` // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText string `json:"sResultText"` // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            }
+            correct_order.go
+            // response/correct_order.go
+            package response
+            
+            // ResCorrectOrder は株式訂正注文のレスポンスを表すDTO
+            type ResCorrectOrder struct {
+            P_no                   string `json:"p_no"`                   // p_no
+            SCLMID                 string `json:"sCLMID"`                 // 機能ID, CLMKabuCorrectOrder
+            SResultCode            string `json:"sResultCode"`            // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText            string `json:"sResultText"`            // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SOrderNumber           string `json:"sOrderNumber"`           // 注文番号, 要求設定値
+            SEigyouDay             string `json:"sEigyouDay"`             // 営業日, 要求設定値
+            SOrderUkewatasiKingaku string `json:"sOrderUkewatasiKingaku"` // 注文受渡金額
+            SOrderTesuryou         string `json:"sOrderTesuryou"`         // 注文手数料
+            SOrderSyouhizei        string `json:"sOrderSyouhizei"`        // 注文消費税
+            SOrderDate             string `json:"sOrderDate"`             // 注文日時, YYYYMMDDHHMMSS
+            }
+            genbutu_kabu_list.go
+            // response/genbutu_kabu_list.go
+            package response
+            
+            // ResGenbutuKabuList は現物保有銘柄一覧のレスポンスを表すDTO
+            type ResGenbutuKabuList struct {
+            P_no                              string           `json:"p_no"`                              // p_no
+            SCLMID                            string           `json:"sCLMID"`                            // 機能ID, CLMGenbutuKabuList
+            SResultCode                       string           `json:"sResultCode"`                       // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText                       string           `json:"sResultText"`                       // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode                      string           `json:"sWarningCode"`                      // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText                      string           `json:"sWarningText"`                      // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SIssueCode                        string           `json:"sIssueCode"`                        // 銘柄コード, 要求設定値
+            SIppanGaisanHyoukagakuGoukei      string           `json:"sIppanGaisanHyoukagakuGoukei"`      // 概算評価額合計　(一般口座残高)
+            SIppanGaisanHyoukaSonekiGoukei    string           `json:"sIppanGaisanHyoukaSonekiGoukei"`    // 概算評価損益合計(一般口座残高)
+            SNisaGaisanHyoukagakuGoukei       string           `json:"sNisaGaisanHyoukagakuGoukei"`       // 概算評価額合計　(NISA口座残高)
+            SNisaGaisanHyoukaSonekiGoukei     string           `json:"sNisaGaisanHyoukaSonekiGoukei"`     // 概算評価損益合計(NISA口座残高)
+            SNseityouGaisanHyoukagakuGoukei   string           `json:"sNseityouGaisanHyoukagakuGoukei"`   // 概算評価額合計　(N成長口座残高)
+            SNseityouGaisanHyoukaSonekiGoukei string           `json:"sNseityouGaisanHyoukaSonekiGoukei"` // 概算評価損益合計(N成長口座残高)
+            STokuteiGaisanHyoukagakuGoukei    string           `json:"sTokuteiGaisanHyoukagakuGoukei"`    // 概算評価額合計　(特定口座残高)
+            STokuteiGaisanHyoukaSonekiGoukei  string           `json:"sTokuteiGaisanHyoukaSonekiGoukei"`  // 概算評価損益合計(特定口座残高)
+            STotalGaisanHyoukagakuGoukei      string           `json:"sTotalGaisanHyoukagakuGoukei"`      // 概算評価額合計　(残高合計)
+            STotalGaisanHyoukaSonekiGoukei    string           `json:"sTotalGaisanHyoukaSonekiGoukei"`    // 概算評価損益合計(残高合計)
+            AGenbutuKabuList                  []ResGenbutuKabu `json:"aGenbutuKabuList"`                  // 現物保有リスト
+            }
+            
+            // ResGenbutuKabu 現物保有リストの要素
+            type ResGenbutuKabu struct {
+            SUriOrderWarningCode            string `json:"sUriOrderWarningCode"`            // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SUriOrderWarningText            string `json:"sUriOrderWarningText"`            // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SUriOrderIssueCode              string `json:"sUriOrderIssueCode"`              // 銘柄コード, 保有銘柄コード
+            SUriOrderZyoutoekiKazeiC        string `json:"sUriOrderZyoutoekiKazeiC"`        // 譲渡益課税区分, CLMKabuNewOrder.sZyoutoekiKazeiC 参照
+            SUriOrderZanKabuSuryou          string `json:"sUriOrderZanKabuSuryou"`          // 残高株数
+            SUriOrderUritukeKanouSuryou     string `json:"sUriOrderUritukeKanouSuryou"`     // 売付可能株数
+            SUriOrderGaisanBokaTanka        string `json:"sUriOrderGaisanBokaTanka"`        // 概算簿価単価
+            SUriOrderHyoukaTanka            string `json:"sUriOrderHyoukaTanka"`            // 評価単価
+            SUriOrderGaisanHyoukagaku       string `json:"sUriOrderGaisanHyoukagaku"`       // 評価金額
+            SUriOrderGaisanHyoukaSoneki     string `json:"sUriOrderGaisanHyoukaSoneki"`     // 評価損益
+            SUriOrderGaisanHyoukaSonekiRitu string `json:"sUriOrderGaisanHyoukaSonekiRitu"` // 評価損益率(%)
+            SSyuzituOwarine                 string `json:"sSyuzituOwarine"`                 // 前日終値, 該当値取得不可時:""
+            SZenzituHi                      string `json:"sZenzituHi"`                      // 前日比, 該当値取得不可時:""
+            SZenzituHiPer                   string `json:"sZenzituHiPer"`                   // 前日比(%), 該当値取得不可時:""
+            SUpDownFlag                     string `json:"sUpDownFlag"`                     // 騰落率Flag(%), 前日比(%)取得不可時:""
+            SNissyoukinKasikabuZan          string `json:"sNissyoukinKasikabuZan"`          // 証金貸株残, 該当値取得不可時:""
+            }
+            new_order.go
+            // response/new_order.go
+            package response
+            
+            // ResNewOrder は株式新規注文のレスポンスを表すDTO
+            type ResNewOrder struct {
+            P_no                   string `json:"p_no"`                   // p_no
+            SCLMID                 string `json:"sCLMID"`                 // 機能ID, CLMKabuNewOrder
+            SResultCode            string `json:"sResultCode"`            // 結果コード, 0：正常
+            SResultText            string `json:"sResultText"`            // 結果テキスト, 正常:""
+            SWarningCode           string `json:"sWarningCode"`           // 警告コード, 0：正常
+            SWarningText           string `json:"sWarningText"`           // 警告テキスト, 正常:""
+            SOrderNumber           string `json:"sOrderNumber"`           // 注文番号
+            SEigyouDay             string `json:"sEigyouDay"`             // 営業日, YYYYMMDD
+            SOrderUkewatasiKingaku string `json:"sOrderUkewatasiKingaku"` // 注文受渡金額
+            SOrderTesuryou         string `json:"sOrderTesuryou"`         // 注文手数料
+            SOrderSyouhizei        string `json:"sOrderSyouhizei"`        // 注文消費税
+            SKinri                 string `json:"sKinri"`                 // 金利, -：現物取引場合
+            SOrderDate             string `json:"sOrderDate"`             // 注文日時, YYYYMMDDHHMMSS
+            }
+            order_list.go
+            // response/order_list.go
+            package response
+            
+            // ResOrderList は注文一覧のレスポンスを表すDTO
+            type ResOrderList struct {
+            P_no                string     `json:"p_no"`                // p_no
+            SCLMID              string     `json:"sCLMID"`              // 機能ID, CLMOrderList
+            SResultCode         string     `json:"sResultCode"`         // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText         string     `json:"sResultText"`         // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode        string     `json:"sWarningCode"`        // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText        string     `json:"sWarningText"`        // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SIssueCode          string     `json:"sIssueCode"`          // 銘柄コード, 要求設定値
+            SOrderSyoukaiStatus string     `json:"sOrderSyoukaiStatus"` // 注文照会状態, 要求設定値
+            SSikkouDay          string     `json:"sSikkouDay"`          // 注文執行予定日, 要求設定値
+            AOrderList          []ResOrder `json:"aOrderList"`          // 注文リスト
+            }
+            
+            // ResOrder 注文リストの要素
+            type ResOrder struct {
+            SOrderWarningCode          string `json:"sOrderWarningCode"`          // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SOrderWarningText          string `json:"sOrderWarningText"`          // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SOrderOrderNumber          string `json:"sOrderOrderNumber"`          // 注文番号, CLMKabuNewOrder.sOrderNumber 参照
+            SOrderIssueCode            string `json:"sOrderIssueCode"`            // 銘柄コード, CLMKabuNewOrder.sIssueCode 参照
+            SOrderSizyouC              string `json:"sOrderSizyouC"`              // 市場, CLMKabuNewOrder.SizyouC 参照
+            SOrderZyoutoekiKazeiC      string `json:"sOrderZyoutoekiKazeiC"`      // 譲渡益課税区分, CLMKabuNewOrder.sZyoutoekiKazeiC 参照
+            SGenkinSinyouKubun         string `json:"sGenkinSinyouKubun"`         // 現金信用区分, CLMKabuNewOrder.sGenkinShinyouKubun 参照
+            SOrderBensaiKubun          string `json:"sOrderBensaiKubun"`          // 弁済区分, 00：なし, 26：制度信用6ヶ月, 29：制度信用無期限, 36：一般信用6ヶ月, 39：一般信用無期限
+            SOrderBaibaiKubun          string `json:"sOrderBaibaiKubun"`          // 売買区分, CLMKabuNewOrder.sBaibaiKubun 参照
+            SOrderOrderSuryou          string `json:"sOrderOrderSuryou"`          // 注文株数
+            SOrderCurrentSuryou        string `json:"sOrderCurrentSuryou"`        // 有効株数, Ｎ≦CLMKabuNewOrder.sOrderSuryou
+            SOrderOrderPrice           string `json:"sOrderOrderPrice"`           // 注文単価
+            SOrderCondition            string `json:"sOrderCondition"`            // 執行条件, CLMKabuNewOrder.sCondition 参照
+            SOrderOrderPriceKubun      string `json:"sOrderOrderPriceKubun"`      // 注文値段区分, " "：未使用, 1：成行, 2：指値, 3：親注文より高い, 4：親注文より低い
+            SOrderGyakusasiOrderType   string `json:"sOrderGyakusasiOrderType"`   // 逆指値注文種別, CLMKabuNewOrder.sGyakusasiOrderType 参照
+            SOrderGyakusasiZyouken     string `json:"sOrderGyakusasiZyouken"`     // 逆指値条件
+            SOrderGyakusasiKubun       string `json:"sOrderGyakusasiKubun"`       // 逆指値値段区分, " "：未使用, 0：成行, 1：指値
+            SOrderGyakusasiPrice       string `json:"sOrderGyakusasiPrice"`       // 逆指値値段
+            SOrderTriggerType          string `json:"sOrderTriggerType"`          // トリガータイプ, 0：未トリガー（初期値）
+            SOrderTatebiType           string `json:"sOrderTatebiType"`           // 建日種類, " "：指定なし, 1：個別指定, 2：建日順, 3：単価益順, 4：単価損順
+            SOrderZougen               string `json:"sOrderZougen"`               // リバース増減値, 未使用
+            SOrderYakuzyouSuryo        string `json:"sOrderYakuzyouSuryo"`        // 成立株数
+            SOrderYakuzyouPrice        string `json:"sOrderYakuzyouPrice"`        // 成立単価
+            SOrderUtidekiKbn           string `json:"sOrderUtidekiKbn"`           // 内出来区分, " "：約定分割以外, 2：約定分割
+            SOrderSikkouDay            string `json:"sOrderSikkouDay"`            // 執行日, YYYYMMDD
+            SOrderStatusCode           string `json:"sOrderStatusCode"`           // 状態コード
+            SOrderStatus               string `json:"sOrderStatus"`               // 状態名称, 状態コードの名称
+            SOrderYakuzyouStatus       string `json:"sOrderYakuzyouStatus"`       // 約定ステータス, 0：未約定, 1：一部約定, 2：全部約定, 3：約定中
+            SOrderOrderDateTime        string `json:"sOrderOrderDateTime"`        // 注文日付, YYYYMMDDHHMMSS, 00000000000000
+            SOrderOrderExpireDay       string `json:"sOrderOrderExpireDay"`       // 有効期限, YYYYMMDD, 00000000
+            SOrderKurikosiOrderFlg     string `json:"sOrderKurikosiOrderFlg"`     // 繰越注文フラグ, 0：当日注文, 1：繰越注文, 2：無効
+            SOrderCorrectCancelKahiFlg string `json:"sOrderCorrectCancelKahiFlg"` // 訂正取消可否フラグ, 0：可(取消、訂正), 1：否, 2：一部可(取消のみ)
+            SGaisanDaikin              string `json:"sGaisanDaikin"`              // 概算代金
+            }
+            order_list_detail.go
+            // response/order_list_detail.go
+            package response
+            
+            // ResOrderListDetail は注文約定一覧（詳細）のレスポンスを表すDTO
+            type ResOrderListDetail struct {
+            P_no                      string                    `json:"p_no"`                      // p_no
+            SCLMID                    string                    `json:"sCLMID"`                    // 機能ID, CLMOrderListDetail
+            SResultCode               string                    `json:"sResultCode"`               // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText               string                    `json:"sResultText"`               // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode              string                    `json:"sWarningCode"`              // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText              string                    `json:"sWarningText"`              // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SOrderNumber              string                    `json:"sOrderNumber"`              // 注文番号, CLMKabuNewOrder.sOrderNumber 参照
+            SEigyouDay                string                    `json:"sEigyouDay"`                // 営業日, CLMKabuNewOrder.sEigyouDay 参照
+            SIssueCode                string                    `json:"sIssueCode"`                // 銘柄コード, CLMKabuNewOrder.sIssueCode 参照
+            SOrderSizyouC             string                    `json:"sOrderSizyouC"`             // 市場, CLMKabuNewOrder.sSizyouC 参照
+            SOrderBaibaiKubun         string                    `json:"sOrderBaibaiKubun"`         // 売買区分, CLMKabuNewOrder.sBaibaiKubun 参照
+            SGenkinSinyouKubun        string                    `json:"sGenkinSinyouKubun"`        // 現金信用区分, CLMKabuNewOrder.sGenkinShinyouKubun 参照
+            SOrderBensaiKubun         string                    `json:"sOrderBensaiKubun"`         // 弁済区分, CLMOrderList.sOrderBensaiKubun 参照
+            SOrderCondition           string                    `json:"sOrderCondition"`           // 執行条件, CLMKabuNewOrder.sCondition 参照
+            SOrderOrderPriceKubun     string                    `json:"sOrderOrderPriceKubun"`     // 注文値段区分, CLMOrderList.sOrderOrderPriceKubun 参照
+            SOrderOrderPrice          string                    `json:"sOrderOrderPrice"`          // 注文単価, CLMOrderList.sOrderOrderPrice 参照
+            SOrderOrderSuryou         string                    `json:"sOrderOrderSuryou"`         // 注文株数, CLMOrderList.sOrderOrderSuryou 参照
+            SOrderCurrentSuryou       string                    `json:"sOrderCurrentSuryou"`       // 有効株数, CLMOrderList.sOrderCurrentSuryou 参照
+            SOrderStatusCode          string                    `json:"sOrderStatusCode"`          // 状態コード, CLMOrderList.sOrderStatusCode 参照
+            SOrderStatus              string                    `json:"sOrderStatus"`              // 状態名称, CLMOrderList.sOrderStatus 参照
+            SOrderOrderDateTime       string                    `json:"sOrderOrderDateTime"`       // 注文日付, CLMOrderList.sOrderOrderDateTime 参照
+            SOrderOrderExpireDay      string                    `json:"sOrderOrderExpireDay"`      // 有効期限, CLMOrderList.sOrderOrderExpireDay 参照
+            SChannel                  string                    `json:"sChannel"`                  // チャネル
+            SGenbutuZyoutoekiKazeiC   string                    `json:"sGenbutuZyoutoekiKazeiC"`   // 現物口座区分, CLMOrderList.sOrderZyoutoekiKazeiC 参照
+            SSinyouZyoutoekiKazeiC    string                    `json:"sSinyouZyoutoekiKazeiC"`    // 建玉口座区分, 1：特定, 3：一般
+            SGyakusasiOrderType       string                    `json:"sGyakusasiOrderType"`       // 逆指値注文種別, 0：通常, 1：逆指値, 2：通常＋逆指値
+            SGyakusasiZyouken         string                    `json:"sGyakusasiZyouken"`         // 逆指値条件
+            SGyakusasiKubun           string                    `json:"sGyakusasiKubun"`           // 逆指値値段区分, CLMOrderList.sOrderGyakusasiKubun 参照
+            SGyakusasiPrice           string                    `json:"sGyakusasiPrice"`           // 逆指値値段
+            STriggerType              string                    `json:"sTriggerType"`              // トリガータイプ, CLMOrderList.sOrderTriggerType 参照
+            STriggerTime              string                    `json:"sTriggerTime"`              // トリガー日時, YYYYMMDDHHMMSS, 00000000000000
+            SUkewatasiDay             string                    `json:"sUkewatasiDay"`             // 受渡日, YYYYMMDD, 00000000
+            SYakuzyouPrice            string                    `json:"sYakuzyouPrice"`            // 約定単価
+            SYakuzyouSuryou           string                    `json:"sYakuzyouSuryou"`           // 約定株数
+            SBaiBaiDaikin             string                    `json:"sBaiBaiDaikin"`             // 売買代金
+            SUtidekiKubun             string                    `json:"sUtidekiKubun"`             // 内出来区分, CLMOrderList.sOrderUtidekiKbn 参照
+            SGaisanDaikin             string                    `json:"sGaisanDaikin"`             // 概算代金
+            SBaiBaiTesuryo            string                    `json:"sBaiBaiTesuryo"`            // 手数料
+            SShouhizei                string                    `json:"sShouhizei"`                // 消費税
+            STatebiType               string                    `json:"sTatebiType"`               // 建日種類, CLMOrderList.sOrderTatebiType 参照
+            SSizyouErrorCode          string                    `json:"sSizyouErrorCode"`          // 取引所エラー等理由コード, ""：正常
+            SZougen                   string                    `json:"sZougen"`                   // リバース増減値, 未使用
+            SOrderAcceptTime          string                    `json:"sOrderAcceptTime"`          // 取引所受付／エラー時刻, YYYYMMDDHHMMSS, 00000000000000
+            SOrderExpireDayLimit      string                    `json:"sOrderExpireDayLimit"`      // 注文失効日付, YYYYMMDD
+            AYakuzyouSikkouList       []ResYakuzyouSikkou       `json:"aYakuzyouSikkouList"`       // 約定失効リスト
+            AKessaiOrderTategyokuList []ResKessaiOrderTategyoku `json:"aKessaiOrderTategyokuList"` // 決済注文建株指定リスト
+            }
+            
+            // ResYakuzyouSikkou 約定失効リストの要素
+            type ResYakuzyouSikkou struct {
+            SYakuzyouWarningCode string `json:"sYakuzyouWarningCode"` // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SYakuzyouWarningText string `json:"sYakuzyouWarningText"` // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SYakuzyouSuryou      string `json:"sYakuzyouSuryou"`      // 約定数量
+            SYakuzyouPrice       string `json:"sYakuzyouPrice"`       // 約定価格
+            SYakuzyouDate        string `json:"sYakuzyouDate"`        // 約定日時, YYYYMMDDHHMMSS, 00000000000000
+            }
+            
+            // ResKessaiOrderTategyoku 決済注文建株指定リストの要素
+            type ResKessaiOrderTategyoku struct {
+            SKessaiWarningCode    string `json:"sKessaiWarningCode"`    // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SKessaiWarningText    string `json:"sKessaiWarningText"`    // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SKessaiTatebiZyuni    string `json:"sKessaiTatebiZyuni"`    // 順位
+            SKessaiTategyokuDay   string `json:"sKessaiTategyokuDay"`   // 建日, YYYYMMDD, 00000000
+            SKessaiTategyokuPrice string `json:"sKessaiTategyokuPrice"` // 建単価
+            SKessaiOrderSuryo     string `json:"sKessaiOrderSuryo"`     // 返済注文株数
+            SKessaiYakuzyouSuryo  string `json:"sKessaiYakuzyouSuryo"`  // 約定株数
+            SKessaiYakuzyouPrice  string `json:"sKessaiYakuzyouPrice"`  // 約定単価
+            SKessaiTateTesuryou   string `json:"sKessaiTateTesuryou"`   // 建手数料
+            SKessaiZyunHibu       string `json:"sKessaiZyunHibu"`       // 順日歩
+            SKessaiGyakuhibu      string `json:"sKessaiGyakuhibu"`      // 逆日歩
+            SKessaiKakikaeryou    string `json:"sKessaiKakikaeryou"`    // 書換料
+            SKessaiKanrihi        string `json:"sKessaiKanrihi"`        // 管理費
+            SKessaiKasikaburyou   string `json:"sKessaiKasikaburyou"`   // 貸株料
+            SKessaiSonota         string `json:"sKessaiSonota"`         // その他
+            SKessaiSoneki         string `json:"sKessaiSoneki"`         // 決済損益/受渡代金
+            }
+            shinyou_tategyoku_list.go
+            // response/shinyou_tategyoku_list.go
+            package response
+            
+            // ResShinyouTategyokuList は信用建玉一覧のレスポンスを表すDTO
+            type ResShinyouTategyokuList struct {
+            P_no                       string                `json:"p_no"`                       // p_no
+            SCLMID                     string                `json:"sCLMID"`                     // 機能ID, CLMShinyouTategyokuList
+            SResultCode                string                `json:"sResultCode"`                // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText                string                `json:"sResultText"`                // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode               string                `json:"sWarningCode"`               // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText               string                `json:"sWarningText"`               // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SIssueCode                 string                `json:"sIssueCode"`                 // 銘柄コード, 要求設定値
+            SUritateDaikin             string                `json:"sUritateDaikin"`             // 売建代金合計
+            SKaitateDaikin             string                `json:"sKaitateDaikin"`             // 買建代金合計
+            STotalDaikin               string                `json:"sTotalDaikin"`               // 総代金合計
+            SHyoukaSonekiGoukeiUridate string                `json:"sHyoukaSonekiGoukeiUridate"` // 評価損益合計_売建
+            SHyoukaSonekiGoukeiKaidate string                `json:"sHyoukaSonekiGoukeiKaidate"` // 評価損益合計_買建
+            STotalHyoukaSonekiGoukei   string                `json:"sTotalHyoukaSonekiGoukei"`   // 総評価損益合計
+            STokuteiHyoukaSonekiGoukei string                `json:"sTokuteiHyoukaSonekiGoukei"` // 特定口座残高評価損益合計
+            SIppanHyoukaSonekiGoukei   string                `json:"sIppanHyoukaSonekiGoukei"`   // 一般口座残高評価損益合計
+            ASinyouTategyokuList       []ResShinyouTategyoku `json:"aShinyouTategyokuList"`      // 信用建玉リスト
+            }
+            
+            // ResShinyouTategyoku 信用建玉リストの要素
+            type ResShinyouTategyoku struct {
+            SOrderWarningCode            string `json:"sOrderWarningCode"`            // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SOrderWarningText            string `json:"sOrderWarningText"`            // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SOrderTategyokuNumber        string `json:"sOrderTategyokuNumber"`        // 建玉番号, 保有建玉番号
+            SOrderIssueCode              string `json:"sOrderIssueCode"`              // 銘柄コード, 保有銘柄コード
+            SOrderSizyouC                string `json:"sOrderSizyouC"`                // 市場, 00：東証
+            SOrderBaibaiKubun            string `json:"sOrderBaibaiKubun"`            // 売買区分, CLMKabuNewOrder.sBaibaiKubun 参照
+            SOrderBensaiKubun            string `json:"sOrderBensaiKubun"`            // 弁済区分, 00：なし, 26：制度信用6ヶ月, 29：制度信用無期限, 36：一般信用6ヶ月, 39：一般信用無期限
+            SOrderZyoutoekiKazeiC        string `json:"sOrderZyoutoekiKazeiC"`        // 譲渡益課税区分, 1：特定, 3：一般, 5：NISA, 9：法人
+            SOrderTategyokuSuryou        string `json:"sOrderTategyokuSuryou"`        // 建株数
+            SOrderTategyokuTanka         string `json:"sOrderTategyokuTanka"`         // 建単価
+            SOrderHyoukaTanka            string `json:"sOrderHyoukaTanka"`            // 評価単価
+            SOrderGaisanHyoukaSoneki     string `json:"sOrderGaisanHyoukaSoneki"`     // 評価損益
+            SOrderGaisanHyoukaSonekiRitu string `json:"sOrderGaisanHyoukaSonekiRitu"` // 評価損益率(%)
+            STategyokuDaikin             string `json:"sTategyokuDaikin"`             // 建玉代金
+            SOrderTateTesuryou           string `json:"sOrderTateTesuryou"`           // 建手数料
+            SOrderZyunHibu               string `json:"sOrderZyunHibu"`               // 順日歩
+            SOrderGyakuhibu              string `json:"sOrderGyakuhibu"`              // 逆日歩
+            SOrderKakikaeryou            string `json:"sOrderKakikaeryou"`            // 書換料
+            SOrderKanrihi                string `json:"sOrderKanrihi"`                // 管理費
+            SOrderKasikaburyou           string `json:"sOrderKasikaburyou"`           // 貸株料
+            SOrderSonota                 string `json:"sOrderSonota"`                 // その他
+            SOrderTategyokuDay           string `json:"sOrderTategyokuDay"`           // 建日, YYYYMMDD, 00000000
+            SOrderTategyokuKizituDay     string `json:"sOrderTategyokuKizituDay"`     // 建玉期日日, YYYYMMDD, 00000000：無期限
+            STategyokuSuryou             string `json:"sTategyokuSuryou"`             // 建玉数量
+            SOrderYakuzyouHensaiKabusu   string `json:"sOrderYakuzyouHensaiKabusu"`   // 約定返済株数
+            SOrderGenbikiGenwatasiKabusu string `json:"sOrderGenbikiGenwatasiKabusu"` // 現引現渡株数
+            SOrderOrderSuryou            string `json:"sOrderOrderSuryou"`            // 注文中数量
+            SOrderHensaiKanouSuryou      string `json:"sOrderHensaiKanouSuryou"`      // 返済可能数量
+            SSyuzituOwarine              string `json:"sSyuzituOwarine"`              // 前日終値, 該当値取得不可時:""
+            SZenzituHi                   string `json:"sZenzituHi"`                   // 前日比, 該当値取得不可時:""
+            SZenzituHiPer                string `json:"sZenzituHiPer"`                // 前日比(%), 該当値取得不可時:""
+            SUpDownFlag                  string `json:"sUpDownFlag"`                  // 騰落率Flag(%), 前日比(%)取得不可時:""
+            }
+            zan_kai_genbutu_kaituke_syousai.go
+            // response/zan_kai_genbutu_kaituke_syousai.go
+            package response
+            
+            // ResZanKaiGenbutuKaitukeSyousai は現物株式買付可能額詳細のレスポンスを表すDTO
+            type ResZanKaiGenbutuKaitukeSyousai struct {
+            P_no                            string `json:"p_no"`                            // p_no
+            SCLMID                          string `json:"sCLMID"`                          // 機能ID, CLMZanKaiGenbutuKaitukeSyousai
+            SResultCode                     string `json:"sResultCode"`                     // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText                     string `json:"sResultText"`                     // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode                    string `json:"sWarningCode"`                    // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText                    string `json:"sWarningText"`                    // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SHitukeIndex                    string `json:"sHitukeIndex"`                    // 日付インデックス, 要求設定値
+            SHituke                         string `json:"sHituke"`                         // 指定日（日付）, YYYYMMDD
+            SGenkinHosyoukin                string `json:"sGenkinHosyoukin"`                // 現金保証金
+            SHosyoukinGenbutuKaitukeKanouga string `json:"sHosyoukinGenbutuKaitukeKanouga"` // 保証金からの現物株式買付可能額
+            SGenbutuKaitukeKanougaku        string `json:"sGenbutuKaitukeKanougaku"`        // 現物株式買付可能額
+            SAzukariKin                     string `json:"sAzukariKin"`                     // 預り金
+            SHattyuZyutoukin                string `json:"sHattyuZyutoukin"`                // 発注済み注文充当金
+            SHibakariKousokukin             string `json:"sHibakariKousokukin"`             // 日計り拘束金
+            SSonotaKousokukin               string `json:"sSonotaKousokukin"`               // その他拘束金
+            SHituyouGenkinHosyoukin         string `json:"sHituyouGenkinHosyoukin"`         // 必要現金保証金
+            SDaiyouHyoukagaku               string `json:"sDaiyouHyoukagaku"`               // 代用証券評価額
+            STatekabuHyoukaSoneki           string `json:"sTatekabuHyoukaSoneki"`           // 建株評価損益
+            STatekabuSyoukeihi              string `json:"sTatekabuSyoukeihi"`              // 建株諸経費
+            SMiukewatasiKessaiSon           string `json:"sMiukewatasiKessaiSon"`           // 未受渡建株決済損
+            SMiukewatasiKessaiEki           string `json:"sMiukewatasiKessaiEki"`           // 未受渡建株決済益
+            SUkeireHosyoukin                string `json:"sUkeireHosyoukin"`                // 受入保証金
+            SHituyouHosyoukin               string `json:"sHituyouHosyoukin"`               // 必要保証金
+            SHosyoukinYoryoku               string `json:"sHosyoukinYoryoku"`               // 保証金余力
+            }
+            zan_kai_kanougaku.go
+            // response/zan_kai_kanougaku.go
+            package response
+            
+            // ResZanKaiKanougaku　は買余力のレスポンスを表すDTO
+            type ResZanKaiKanougaku struct {
+            P_no                           string `json:"p_no"`                           // p_no
+            SCLMID                         string `json:"sCLMID"`                         // 機能ID, CLMZanKaiKanougaku
+            SResultCode                    string `json:"sResultCode"`                    // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText                    string `json:"sResultText"`                    // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode                   string `json:"sWarningCode"`                   // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText                   string `json:"sWarningText"`                   // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SIssueCode                     string `json:"sIssueCode"`                     // 銘柄コード, 要求設定値
+            SSizyouC                       string `json:"sSizyouC"`                       // 市場, 要求設定値
+            SSummaryUpdate                 string `json:"sSummaryUpdate"`                 // 更新日時, YYYYMMDDHHMM
+            SSummaryGenkabuKaituke         string `json:"sSummaryGenkabuKaituke"`         // 株式現物買付可能額
+            SSummaryNseityouTousiKanougaku string `json:"sSummaryNseityouTousiKanougaku"` // NISA成長投資可能額
+            SHusokukinHasseiFlg            string `json:"sHusokukinHasseiFlg"`            // 不足金発生フラグ, 0：未発生, 1：発生
+            }
+            zan_kai_kanougaku_suii.go
+            // response/zan_kai_kanougaku_suii.go
+            package response
+            
+            // ResZanKaiKanougakuSuii は可能額推移のレスポンスを表すDTO
+            type ResZanKaiKanougakuSuii struct {
+            P_no               string             `json:"p_no"`               // p_no
+            SCLMID             string             `json:"sCLMID"`             // 機能ID, CLMZanKaiKanougakuSuii
+            SResultCode        string             `json:"sResultCode"`        // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText        string             `json:"sResultText"`        // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode       string             `json:"sWarningCode"`       // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText       string             `json:"sWarningText"`       // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SUpdateDate        string             `json:"sUpdateDate"`        // 更新日時, YYYYMMDDHHMM
+            SNearaiKubun       string             `json:"sNearaiKubun"`       // 値洗い区分, 0:値洗い停止, 1:値洗い中, 2:値洗い終了
+            AKanougakuSuiiList []ResKanougakuSuii `json:"aKanougakuSuiiList"` // 可能額推移リスト
+            }
+            
+            // ResKanougakuSuii 可能額推移リストの要素
+            type ResKanougakuSuii struct {
+            SHituke                      string `json:"sHituke"`                      // 日付, YYYYMMDD
+            SAzukariKin                  string `json:"sAzukariKin"`                  // 預り金
+            SHattyuZyutoukin             string `json:"sHattyuZyutoukin"`             // 発注済み注文充当金
+            SHibakariKousokukin          string `json:"sHibakariKousokukin"`          // 日計り拘束金
+            SSonotaKousokukin            string `json:"sSonotaKousokukin"`            // その他拘束金
+            SGenkinHosyoukin             string `json:"sGenkinHosyoukin"`             // 現金保証金
+            SDaiyouHyoukagaku            string `json:"sDaiyouHyoukagaku"`            // 代用証券評価額
+            SSasiireHosyoukin            string `json:"sSasiireHosyoukin"`            // 差入保証金
+            SSinyouTateHyoukaSon         string `json:"sSinyouTateHyoukaSon"`         // 信用建株 評価損
+            SSinyouTateHyoukaEki         string `json:"sSinyouTateHyoukaEki"`         // 信用建株 評価益
+            SSinyouTadeSyoukeihi         string `json:"sSinyouTadeSyoukeihi"`         // 信用建株 諸経費
+            SMiukewatasiKessaiSon        string `json:"sMiukewatasiKessaiSon"`        // 信用建株 未受渡決済損
+            SMiukewatasiKessaiEki        string `json:"sMiukewatasiKessaiEki"`        // 信用建株 未受渡決済益
+            SUkeireHosyoukin             string `json:"sUkeireHosyoukin"`             // 受入保証金
+            SMikessaiTateDaikin          string `json:"sMikessaiTateDaikin"`          // 未決済建株代金
+            SGenbikiWatasiTateDaikin     string `json:"sGenbikiWatasiTateDaikin"`     // 現引/現渡建株代金
+            SHituyouHosyoukin            string `json:"sHituyouHosyoukin"`            // 必要保証金
+            SHituyouGenkinHosyoukin      string `json:"sHituyouGenkinHosyoukin"`      // 必要現金保証金
+            SHosyoukinYoryoku            string `json:"sHosyoukinYoryoku"`            // 保証金余力
+            SGenkinHosyoukinYoryoku      string `json:"sGenkinHosyoukinYoryoku"`      // 現金保証金余力
+            SItakuHosyoukinRitu          string `json:"sItakuHosyoukinRitu"`          // 委託保証金率(%)
+            SHosyoukinHikidasiKousokukin string `json:"sHosyoukinHikidasiKousokukin"` // 保証金引出拘束金
+            SHosyoukinHikidasiYoryoku    string `json:"sHosyoukinHikidasiYoryoku"`    // 保証金引出余力
+            SOisyouHituyouHosyoukin      string `json:"sOisyouHituyouHosyoukin"`      // 追証必要保証金
+            SOisyouYoryoku               string `json:"sOisyouYoryoku"`               // 追証余力
+            SFusokugaku                  string `json:"sFusokugaku"`                  // 追証/立替金/保証金不足額
+            SGenbutuKaitukeKanougaku     string `json:"sGenbutuKaitukeKanougaku"`     // 現物株式買付可能額
+            SSinyouSinkidateKanougaku    string `json:"sSinyouSinkidateKanougaku"`    // 信用新規建可能額
+            SGenbikiKanougaku            string `json:"sGenbikiKanougaku"`            // 信用現引可能額
+            STousinKaitukeKanougaku      string `json:"sTousinKaitukeKanougaku"`      // 投信買付可能額
+            SSyukkinKanougaku            string `json:"sSyukkinKanougaku"`            // 出金可能額
+            }
+            zan_kai_sinyou_sinkidate_syousai.go
+            // response/zan_kai_sinyou_sinkidate_syousai.go
+            package response
+            
+            // ResZanKaiSinyouSinkidateSyousai は信用新規建て可能額詳細のレスポンスを表すDTO
+            type ResZanKaiSinyouSinkidateSyousai struct {
+            P_no                        string `json:"p_no"`                        // p_no
+            SCLMID                      string `json:"sCLMID"`                      // 機能ID, CLMZanKaiSinyouSinkidateSyousai
+            SResultCode                 string `json:"sResultCode"`                 // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText                 string `json:"sResultText"`                 // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode                string `json:"sWarningCode"`                // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText                string `json:"sWarningText"`                // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SHitukeIndex                string `json:"sHitukeIndex"`                // 日付インデックス, 要求設定値
+            SHituke                     string `json:"sHituke"`                     // 指定日（日付）, YYYYMMDD
+            SUkeireHosyoukin            string `json:"sUkeireHosyoukin"`            // 受入保証金
+            SHituyouHosyoukin           string `json:"sHituyouHosyoukin"`           // 必要保証金
+            SHosyoukinYoryoku           string `json:"sHosyoukinYoryoku"`           // 保証金余力
+            SHosyoukinTyousyuRitu       string `json:"sHosyoukinTyousyuRitu"`       // 保証金徴収率(%)
+            SSinyouSinkidateKanougaku   string `json:"sSinyouSinkidateKanougaku"`   // 信用新規建可能額
+            SAzukariKin                 string `json:"sAzukariKin"`                 // 預り金
+            SHattyuZyutoukin            string `json:"sHattyuZyutoukin"`            // 発注済み注文充当金
+            SSonotaKousokukin           string `json:"sSonotaKousokukin"`           // その他拘束金
+            SGenkinHosyoukin            string `json:"sGenkinHosyoukin"`            // 現金保証金
+            SDaiyouHyoukagaku           string `json:"sDaiyouHyoukagaku"`           // 代用証券評価額
+            SHattyuDaiyouHyoukagaku     string `json:"sHattyuDaiyouHyoukagaku"`     // 現物買発注分代用証券評価額
+            SSasiireHosyoukin           string `json:"sSasiireHosyoukin"`           // 差入保証金
+            SSinkiTesuryou              string `json:"sSinkiTesuryou"`              // 新規建手数料
+            SHibuGyakuhibuKousokukin    string `json:"sHibuGyakuhibuKousokukin"`    // 日歩・逆日歩・貸株料拘束金
+            SHibuGyakuhibuSyueki        string `json:"sHibuGyakuhibuSyueki"`        // 日歩・逆日歩収益
+            SSonotaTateSyokeihi         string `json:"sSonotaTateSyokeihi"`         // その他未収費用
+            SSinyouTadeSyoukeihi        string `json:"sSinyouTadeSyoukeihi"`        // 建株諸経費
+            SSinyouTateHyoukaSon        string `json:"sSinyouTateHyoukaSon"`        // 建株評価損
+            SSinyouTateHyoukaEki        string `json:"sSinyouTateHyoukaEki"`        // 建株評価益
+            STatekabuHyoukaSoneki       string `json:"sTatekabuHyoukaSoneki"`       // 建株評価損益
+            SMiukewatasiKessaiSon       string `json:"sMiukewatasiKessaiSon"`       // 未受渡建株決済損
+            SMiukewatasiKessaiEki       string `json:"sMiukewatasiKessaiEki"`       // 未受渡建株決済益
+            SSaiteiHituyouHosyoukin     string `json:"sSaiteiHituyouHosyoukin"`     // 最低必要保証金
+            SHosyoukin                  string `json:"sHosyoukin"`                  // 建株必要保証金
+            SHattyuHosyoukin            string `json:"sHattyuHosyoukin"`            // 発注分必要保証金
+            SGenbikiWatasiHosyoukin     string `json:"sGenbikiWatasiHosyoukin"`     // 現引/現渡必要保証金
+            SMikessaiGenkinHosyoukin    string `json:"sMikessaiGenkinHosyoukin"`    // 建株必要保証金（現金）
+            SHattyuGenkinHosyoukin      string `json:"sHattyuGenkinHosyoukin"`      // 発注分必要保証金（現金）
+            SGenbwGenkinHosyoukin       string `json:"sGenbwGenkinHosyoukin"`       // 現引/現渡必要保証金（現金）
+            SHituyouGenkinHosyoukin     string `json:"sHituyouGenkinHosyoukin"`     // 必要保証金（現金）
+            SHosyoukinRitu              string `json:"sHosyoukinRitu"`              // 保証金率(%)
+            SHosyoukinIziRitu           string `json:"sHosyoukinIziRitu"`           // 保証金維持率(%)
+            SHosyoukinRituIziYoryoku    string `json:"sHosyoukinRituIziYoryoku"`    // 保証金率・維持余力
+            SHosyoukinIzirituIziYoryoku string `json:"sHosyoukinIzirituIziYoryoku"` // 保証金維持率・維持余力
+            SMikessaiTateDaikin         string `json:"sMikessaiTateDaikin"`         // 建株代金
+            SHattyuTateDaikin           string `json:"sHattyuTateDaikin"`           // 発注分建株代金
+            SGenbikiWatasiTateDaikin    string `json:"sGenbikiWatasiTateDaikin"`    // 現引/現渡建株代金
+            SItakuHosyoukinRitu         string `json:"sItakuHosyoukinRitu"`         // 委託保証金率(%)
+            STouzituKessaiSon           string `json:"sTouzituKessaiSon"`           // 本日決済損
+            STouzituKessaiEki           string `json:"sTouzituKessaiEki"`           // 本日決済益
+            SKessaiTotalToday           string `json:"sKessaiTotalToday"`           // 本日決済損益合計
+            STouzituKessaiZenHyouka     string `json:"sTouzituKessaiZenHyouka"`     // 本日決済建株の前日価格評価
+            SUkewatasiTategyokuSon      string `json:"sUkewatasiTategyokuSon"`      // 指定日決済損
+            SUkewatasiTategyokuEki      string `json:"sUkewatasiTategyokuEki"`      // 指定日決済益
+            SKessaiTotalSiteibi         string `json:"sKessaiTotalSiteibi"`         // 指定日決済損益累計
+            }
+            zan_kai_summary.go
+            // response/zan_kai_summary.go
+            package response
+            
+            // ResZanKaiSummary は可能額サマリーのレスポンスを表すDTO
+            type ResZanKaiSummary struct {
+            P_no                         string                       `json:"p_no"`                         // p_no
+            SCLMID                       string                       `json:"sCLMID"`                       // 機能ID, CLMZanKaiSummary
+            SResultCode                  string                       `json:"sResultCode"`                  // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText                  string                       `json:"sResultText"`                  // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode                 string                       `json:"sWarningCode"`                 // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText                 string                       `json:"sWarningText"`                 // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SUpdateDate                  string                       `json:"sUpdateDate"`                  // 更新日時, YYYYMMDDHHMM
+            SOisyouHasseiFlg             string                       `json:"sOisyouHasseiFlg"`             // 追証発生フラグ, 1:追証発生, 0:追証未発生
+            SOhzsKeisanDay               string                       `json:"sOhzsKeisanDay"`               // 追証発生状況詳細.計算日, YYYYMMDD
+            SOhzsGenkinHosyoukin         string                       `json:"sOhzsGenkinHosyoukin"`         // 追証発生状況詳細.現金保証金
+            SOhzsDaiyouHyoukagaku        string                       `json:"sOhzsDaiyouHyoukagaku"`        // 追証発生状況詳細.代用証券評価額
+            SOhzsSasiireHosyoukin        string                       `json:"sOhzsSasiireHosyoukin"`        // 追証発生状況詳細.差入保証金
+            SOhzsHyoukaSoneki            string                       `json:"sOhzsHyoukaSoneki"`            // 追証発生状況詳細.評価損益
+            SOhzsSyokeihi                string                       `json:"sOhzsSyokeihi"`                // 追証発生状況詳細.諸経費
+            SOhzsMiukeKessaiSon          string                       `json:"sOhzsMiukeKessaiSon"`          // 追証発生状況詳細.未受渡決済損
+            SOhzsMiukeKessaiEki          string                       `json:"sOhzsMiukeKessaiEki"`          // 追証発生状況詳細.未受渡決済益
+            SOhzsUkeireHosyoukin         string                       `json:"sOhzsUkeireHosyoukin"`         // 追証発生状況詳細.受入保証金
+            SOhzsTatekabuDaikin          string                       `json:"sOhzsTatekabuDaikin"`          // 追証発生状況詳細.建株代金
+            SOhzsItakuHosyoukinRitu      string                       `json:"sOhzsItakuHosyoukinRitu"`      // 追証発生状況詳細.委託保証金率(%)
+            STatekaekinHasseiFlg         string                       `json:"sTatekaekinHasseiFlg"`         // 立替金発生フラグ, 1:立替金発生, 0:立替金未発生
+            SThzNyukinKigenDay           string                       `json:"sThzNyukinKigenDay"`           // 立替金発生状況.入金期限, YYYYMMDD
+            SThzSeisangaku               string                       `json:"sThzSeisangaku"`               // 立替金発生状況.精算額
+            SThzHibakariKousokukin       string                       `json:"sThzHibakariKousokukin"`       // 立替金発生状況.日計り拘束金
+            SThzHurikaegaku              string                       `json:"sThzHurikaegaku"`              // 立替金発生状況.振替額
+            SThzHituyouNyukingaku        string                       `json:"sThzHituyouNyukingaku"`        // 立替金発生状況.必要入金額
+            SThzKakuteiFlg               string                       `json:"sThzKakuteiFlg"`               // 立替金発生状況.確定フラグ, 1:入金請求管理.計算日＜営業日, 0:上記外
+            SGenbutuKabuKaituke          string                       `json:"sGenbutuKabuKaituke"`          // 株式現物買付可能額
+            SSinyouSinkidate             string                       `json:"sSinyouSinkidate"`             // 信用新規建可能額
+            SSinyouGenbiki               string                       `json:"sSinyouGenbiki"`               // 信用現引可能額
+            SHosyouKinritu               string                       `json:"sHosyouKinritu"`               // 委託保証金率(%)
+            SNseityouTousiKanougaku      string                       `json:"sNseityouTousiKanougaku"`      // NISA成長投資可能額
+            STousinKaituke               string                       `json:"sTousinKaituke"`               // 投信買付可能額
+            SRuitouKaituke               string                       `json:"sRuitouKaituke"`               // MMF・中国F買付
+            SIPOKounyu                   string                       `json:"sIPOKounyu"`                   // IPO購入可能額
+            SSyukkin                     string                       `json:"sSyukkin"`                     // 出金可能額
+            SFusokugaku                  string                       `json:"sFusokugaku"`                  // 不足額(入金請求額）
+            SLargeKaidateYoryoku         string                       `json:"sLargeKaidateYoryoku"`         // 先物買建
+            SMiniKaidateYoryoku          string                       `json:"sMiniKaidateYoryoku"`          // OPプット売建(ミニ)
+            SLargeUridateYoryoku         string                       `json:"sLargeUridateYoryoku"`         // 先物売建
+            SMiniUridateYoryoku          string                       `json:"sMiniUridateYoryoku"`          // OPコール売建(ミニ)
+            SOpKaidateYoryokyu           string                       `json:"sOpKaidateYoryokyu"`           // オプション新規買建
+            SSyoukokinFusokugaku         string                       `json:"sSyoukokinFusokugaku"`         // 証拠金不足額（本日請求額）
+            SGenbutuBaibaiDaikin         string                       `json:"sGenbutuBaibaiDaikin"`         // 現物売買代金
+            SGenbutuOrderCount           string                       `json:"sGenbutuOrderCount"`           // 現物注文件数
+            SGenbutuYakuzyouCount        string                       `json:"sGenbutuYakuzyouCount"`        // 現物約定件数
+            SSinyouBaibaiDaikin          string                       `json:"sSinyouBaibaiDaikin"`          // 信用売買代金
+            SSinyouOrderCount            string                       `json:"sSinyouOrderCount"`            // 信用注文件数
+            SSinyouYakuzyouCount         string                       `json:"sSinyouYakuzyouCount"`         // 信用約定件数
+            SSakiBaibaiDaikin            string                       `json:"sSakiBaibaiDaikin"`            // 先物売買代金
+            SSakiOrderCount              string                       `json:"sSakiOrderCount"`              // 先物注文件数
+            SSakiYakuzyouCount           string                       `json:"sSakiYakuzyouCount"`           // 先物約定件数
+            SOpBaibaiDaikin              string                       `json:"sOpBaibaiDaikin"`              // オプション売買代金
+            SOpOrderCount                string                       `json:"sOpOrderCount"`                // オプション注文件数
+            SOpYakuzyouCount             string                       `json:"sOpYakuzyouCount"`             // オプション約定件数
+            AHikazeiKouzaList            []ResHikazeiKouza            `json:"aHikazeiKouzaList"`            // 非課税口座リスト
+            AOisyouHasseiZyoukyouList    []ResOisyouHasseiZyoukyou    `json:"aOisyouHasseiZyoukyouList"`    // 追証発生状況リスト
+            AHosyoukinSeikyuZyoukyouList []ResHosyoukinSeikyuZyoukyou `json:"aHosyoukinSeikyuZyoukyouList"` // 保証金請求発生状況リスト
+            }
+            
+            // ResHikazeiKouza 非課税口座リストの要素
+            type ResHikazeiKouza struct {
+            SHikazeiTekiyouYear    string `json:"sHikazeiTekiyouYear"`    // 適用年（対象年）, YYYY
+            SSeityouTousiKanougaku string `json:"sSeityouTousiKanougaku"` // 成長投資可能額
+            }
+            
+            // ResOisyouHasseiZyoukyou 追証発生状況リストの要素
+            type ResOisyouHasseiZyoukyou struct {
+            SOhzHasseiDay           string `json:"sOhzHasseiDay"`           // 発生日 YYYYMMDD
+            SOhzHosyoukinRitu       string `json:"sOhzHosyoukinRitu"`       // 保証金率(%)
+            SOhzNyukinKigenDay      string `json:"sOhzNyukinKigenDay"`      // 入金期限 YYYYMMDDHHMM
+            SOhzOisyouKingaku       string `json:"sOhzOisyouKingaku"`       // 追証金額
+            SOhzKakuteiFlg          string `json:"sOhzKakuteiFlg"`          // 確定フラグ 1:入金請求管理.計算日＜営業日 0:上記外
+            SOhzHosyoukinZougen     string `json:"sOhzHosyoukinZougen"`     // 保証金増減
+            SOhzNyukin              string `json:"sOhzNyukin"`              // 入金
+            SOhzTategyokuKessai     string `json:"sOhzTategyokuKessai"`     // 建玉決済
+            SOhzKessaisonNyukin     string `json:"sOhzKessaisonNyukin"`     // 決済損入金
+            SOhzMikaisyouKingaku    string `json:"sOhzMikaisyouKingaku"`    // 未解消金額
+            SOhzMikaisyouKingakuFlg string `json:"sOhzMikaisyouKingakuFlg"` // 未解消金額フラグ 未使用
+            }
+            
+            // ResHosyoukinSeikyuZyoukyou 保証金請求発生状況リストの要素
+            type ResHosyoukinSeikyuZyoukyou struct {
+            SHshzNyukinKigenDay           string `json:"sHshzNyukinKigenDay"`           // 入金期限 YYYYMMDDHHMM
+            SHshzHosyoukinHasseiDay       string `json:"sHshzHosyoukinHasseiDay"`       // 保証金発生日 YYYYMMDDHHMM
+            SHshzHosyoukin                string `json:"sHshzHosyoukin"`                // 保証金
+            SHshzGenkinHosyoukinHasseiDay string `json:"sHshzGenkinHosyoukinHasseiDay"` // 現金保証金発生日 YYYYMMDDHHMM
+            SHshzGenkinHosyoukin          string `json:"sHshzGenkinHosyoukin"`          // 現金保証金
+            }
+            zan_real_hosyoukin_ritu.go
+            // response/zan_real_hosyoukin_ritu.go
+            package response
+            
+            // ResZanRealHosyoukinRitu はリアル保証金率のレスポンスを表すDTO
+            type ResZanRealHosyoukinRitu struct {
+            P_no                      string `json:"p_no"`                      // p_no
+            SCLMID                    string `json:"sCLMID"`                    // 機能ID, CLMZanRealHosyoukinRitu
+            SResultCode               string `json:"sResultCode"`               // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText               string `json:"sResultText"`               // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode              string `json:"sWarningCode"`              // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText              string `json:"sWarningText"`              // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SSasiireHosyoukin         string `json:"sSasiireHosyoukin"`         // 差入保証金
+            SHyoukaSonEki             string `json:"sHyoukaSonEki"`             // 評価損益
+            SUkeireHosyoukin          string `json:"sUkeireHosyoukin"`          // 受入保証金
+            STateKabuDaikin           string `json:"sTateKabuDaikin"`           // 建株代金
+            SItakuHosyoukinRitu       string `json:"sItakuHosyoukinRitu"`       // 委託保証金率(%)
+            SOisyouHituyouHosyoukin   string `json:"sOisyouHituyouHosyoukin"`   // 追証必要保証金
+            SOisyouYoryoku            string `json:"sOisyouYoryoku"`            // 追証余力
+            ST0SasiireHosyoukin       string `json:"sT0SasiireHosyoukin"`       // 差入保証金
+            ST0HyoukaSonEki           string `json:"sT0HyoukaSonEki"`           // 評価損益
+            ST0UkeireHosyoukin        string `json:"sT0UkeireHosyoukin"`        // 受入保証金
+            ST0TateKabuDaikin         string `json:"sT0TateKabuDaikin"`         // 建株代金
+            ST0ItakuHosyoukinRitu     string `json:"sT0ItakuHosyoukinRitu"`     // 委託保証金率(%)
+            ST0OisyouHituyouHosyoukin string `json:"sT0OisyouHituyouHosyoukin"` // 追証必要保証金
+            ST0OisyouYoryoku          string `json:"sT0OisyouYoryoku"`          // 追証余力
+            ST5SasiireHosyoukin       string `json:"sT5SasiireHosyoukin"`       // 差入保証金
+            ST5HyoukaSonEki           string `json:"sT5HyoukaSonEki"`           // 評価損益
+            ST5UkeireHosyoukin        string `json:"sT5UkeireHosyoukin"`        // 受入保証金
+            ST5TateKabuDaikin         string `json:"sT5TateKabuDaikin"`         // 建株代金
+            ST5ItakuHosyoukinRitu     string `json:"sT5ItakuHosyoukinRitu"`     // 委託保証金率(%)
+            ST5OisyouHituyouHosyoukin string `json:"sT5OisyouHituyouHosyoukin"` // 追証必要保証金
+            ST5OisyouYoryoku          string `json:"sT5OisyouYoryoku"`          // 追証余力
+            }
+            zan_shinki_kano_ijiritu.go
+            // response/zan_shinki_kano_ijiritu.go
+            package response
+            
+            // ResZanShinkiKanoIjiritu は建余力＆本日維持率のレスポンスを表すDTO
+            type ResZanShinkiKanoIjiritu struct {
+            P_no                    string  `json:"p_no"`                    // p_no
+            SCLMID                  string  `json:"sCLMID"`                  // 機能ID, CLMZanShinkiKanoIjiritu
+            SResultCode             string  `json:"sResultCode"`             // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText             string  `json:"sResultText"`             // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode            string  `json:"sWarningCode"`            // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText            string  `json:"sWarningText"`            // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SIssueCode              string  `json:"sIssueCode"`              // 銘柄コード, 要求設定値
+            SSizyouC                string  `json:"sSizyouC"`                // 市場, 要求設定値
+            SSummaryUpdate          string  `json:"sSummaryUpdate"`          // 更新日時, YYYYMMDDHHMM
+            SSummarySinyouSinkidate string  `json:"sSummarySinyouSinkidate"` // 信用新規建可能額
+            SItakuhosyoukin         float64 `json:"sItakuhosyoukin,string"`  // 委託保証金率(%), 0.00～9999999999.99
+            SOisyouKakuteiFlg       string  `json:"sOisyouKakuteiFlg"`       // 追証フラグ, 0：未確定, 1：確定
+            }
+            zan_uri_kanousuu.go
+            // response/zan_uri_kanousuu.go
+            package response
+            
+            // ResZanUriKanousuu は売却可能数量のレスポンスを表すDTO
+            type ResZanUriKanousuu struct {
+            P_no                           string `json:"p_no"`                           // p_no
+            SCLMID                         string `json:"sCLMID"`                         // 機能ID, CLMZanUriKanousuu
+            SResultCode                    string `json:"sResultCode"`                    // 結果コード, CLMKabuNewOrder.sResultCode 参照
+            SResultText                    string `json:"sResultText"`                    // 結果テキスト, CLMKabuNewOrder.sResultText 参照
+            SWarningCode                   string `json:"sWarningCode"`                   // 警告コード, CLMKabuNewOrder.sWarningCode 参照
+            SWarningText                   string `json:"sWarningText"`                   // 警告テキスト, CLMKabuNewOrder.sWarningTexts 参照
+            SIssueCode                     string `json:"sIssueCode"`                     // 銘柄コード, 要求設定値
+            SSummaryUpdate                 string `json:"sSummaryUpdate"`                 // 更新日時, YYYYMMDDHHMM
+            SZanKabuSuryouUriKanouIppan    string `json:"sZanKabuSuryouUriKanouIppan"`    // 売付可能株数(一般)
+            SZanKabuSuryouUriKanouTokutei  string `json:"sZanKabuSuryouUriKanouTokutei"`  // 売付可能株数(特定)
+            SZanKabuSuryouUriKanouNisa     string `json:"sZanKabuSuryouUriKanouNisa"`     // 売付可能株数(NISA)
+            SZanKabuSuryouUriKanouNseityou string `json:"sZanKabuSuryouUriKanouNseityou"` // 売付可能株数(N成長)
+            }
+    file_concat/
