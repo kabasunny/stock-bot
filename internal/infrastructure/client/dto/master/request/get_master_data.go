@@ -6,7 +6,7 @@ import (
 )
 
 // GetMasterDataRequest は、マスタ情報問合取得のリクエストを表すDTO
-type GetMasterDataRequest struct {
+type ReqGetMasterData struct {
 	dto.RequestBase        // 共通フィールド
 	CLMID           string `json:"sCLMID"`        // 機能ID (固定値: "CLMMfdsGetMasterData")
 	TargetCLMID     string `json:"sTargetCLMID"`  // 対象機能ID (カンマ区切りで複数指定可能)

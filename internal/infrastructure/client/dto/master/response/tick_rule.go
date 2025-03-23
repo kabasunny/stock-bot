@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/tick_rule.go
 package response
 
-// TickRule は、呼値の情報を表すDTOです。
-type TickRule struct {
+// ResTickRule は、呼値の情報を表すDTOです。
+type ResTickRule struct {
 	CLMID           string `json:"sCLMID"`            // 機能ID (CLMYobine)
 	TickUnitNumber  string `json:"sYobineTaniNumber"` // 呼値の単位番号
 	ApplicableDate  string `json:"sTekiyouDay"`       // 適用日 (YYYYMMDD)

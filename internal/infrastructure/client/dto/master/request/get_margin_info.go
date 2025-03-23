@@ -7,7 +7,7 @@ import (
 )
 
 // GetMarginInfoRequest は、証金残情報問合取得のリクエストを表すDTO
-type GetMarginInfoRequest struct {
+type ReqGetMarginInfo struct {
 	dto.RequestBase         // 共通フィールド
 	CLMID            string `json:"sCLMID"`           // 機能ID (固定値: "CLMMfdsGetSyoukinZan")
 	TargetIssueCodes string `json:"sTargetIssueCode"` // 対象銘柄コード (カンマ区切りで複数指定可能)

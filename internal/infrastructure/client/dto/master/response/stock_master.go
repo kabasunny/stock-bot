@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/stock_master.go
 package response
 
-// StockMaster は、株式銘柄マスタの情報を表すDTOです。
-type StockMaster struct {
+// ResStockMaster は、株式銘柄マスタの情報を表すDTO
+type ResStockMaster struct {
 	CLMID                     string `json:"sCLMID"`                 // 機能ID (CLMIssueMstKabu)
 	IssueCode                 string `json:"sIssueCode"`             // 銘柄コード
 	IssueName                 string `json:"sIssueName"`             // 銘柄名称

@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/future_option_regulation.go
 package response
 
-// FutureOptionRegulation は、派生銘柄別・市場別規制の情報を表すDTOです。
-type FutureOptionRegulation struct {
+// ResFutureOptionRegulation は、派生銘柄別・市場別規制の情報を表すDTO
+type ResFutureOptionRegulation struct {
 	CLMID                 string `json:"sCLMID"`            // 機能ID (CLMIssueSizyouKiseiHasei)
 	SystemAccountType     string `json:"sSystemKouzaKubun"` // システム口座区分
 	IssueCode             string `json:"sIssueCode"`        // 銘柄コード

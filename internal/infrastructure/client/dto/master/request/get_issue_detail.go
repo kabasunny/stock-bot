@@ -7,7 +7,7 @@ import (
 )
 
 // GetIssueDetailRequest は、銘柄詳細情報問合取得のリクエストを表すDTO
-type GetIssueDetailRequest struct {
+type ReqGetIssueDetail struct {
 	dto.RequestBase         // 共通フィールド
 	CLMID            string `json:"sCLMID"`           // 機能ID (固定値: "CLMMfdsGetIssueDetail")
 	TargetIssueCodes string `json:"sTargetIssueCode"` // 対象銘柄コード (カンマ区切りで複数指定可能)

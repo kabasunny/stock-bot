@@ -1,0 +1,56 @@
+# Compiled Object files
+*.o
+*.a
+*.so
+
+# Go build artifacts
+/[Bb]in
+/[Dd]ist
+
+# Dependency directories (remove if not needed or adjust to your dependency management)
+/vendor/
+
+# Test files
+*_test.go
+/testdata/
+
+# IDE/Editor specific files
+.idea/
+.vscode/
+*.swp
+*~
+*.bak
+
+# OS generated files
+.DS_Store
+Thumbs.db
+
+# dotenv
+.env
+
+# executable
+stock-bot
+
+# Coverage reports
+coverage.out
+coverage.html
+
+# Crash reports
+panic.dump
+
+# Log files (adjust if you have specific log file names)
+*.log
+
+# Configuration files that might contain sensitive data (add specific files if needed)
+config.yaml
+secrets.yaml
+
+# Other
+notes
+scratch.go
+
+# Ignore everything in the following directories
+/tmp/
+/out/
+
+*.py

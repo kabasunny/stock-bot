@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/margin_master.go
 package response
 
-// MarginMaster は、保証金マスタの情報を表すDTOです。
-type MarginMaster struct {
+// ResMarginMaster は、保証金マスタの情報を表すDTOです。
+type ResMarginMaster struct {
 	CLMID             string `json:"sCLMID"`              // 機能ID (CLMHosyoukinMst)
 	SystemAccountType string `json:"sSystemKouzaKubun"`   // システム口座区分
 	IssueCode         string `json:"sIssueCode"`          // 銘柄コード

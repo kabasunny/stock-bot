@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/stock_issue_regulation.go
 package response
 
-// StockIssueRegulation は、株式銘柄別・市場別規制の情報を表すDTOです。
-type StockIssueRegulation struct {
+// ResStockIssueRegulation は、株式銘柄別・市場別規制の情報を表すDTOです。
+type ResStockIssueRegulation struct {
 	CLMID                                      string `json:"sCLMID"`                       // 機能ID (CLMIssueSizyouKiseiKabu)
 	SystemAccountType                          string `json:"sSystemKouzaKubun"`            // システム口座区分 (102：ｅ支店)
 	IssueCode                                  string `json:"sIssueCode"`                   // 銘柄コード

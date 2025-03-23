@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/option_master.go
 package response
 
-// OptionMaster は、オプション銘柄マスタの情報を表すDTOです。
-type OptionMaster struct {
+// ResOptionMaster は、オプション銘柄マスタの情報を表すDTO
+type ResOptionMaster struct {
 	CLMID                    string `json:"sCLMID"`               // 機能ID (CLMIssueMstOp)
 	IssueCode                string `json:"sIssueCode"`           // 銘柄コード
 	IssueName                string `json:"sIssueName"`           // 銘柄名

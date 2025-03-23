@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/stock_market_master.go
 package response
 
-// StockMarketMaster は、株式銘柄市場マスタの情報を表すDTOです。
-type StockMarketMaster struct {
+// ResStockMarketMaster は、株式銘柄市場マスタの情報を表すDTO
+type ResStockMarketMaster struct {
 	CLMID                 string `json:"sCLMID"`                    // 機能ID (CLMIssueSizyouMstKabu)
 	IssueCode             string `json:"sIssueCode"`                // 銘柄コード
 	ListingMarket         string `json:"sZyouzyouSizyou"`           // 上場市場

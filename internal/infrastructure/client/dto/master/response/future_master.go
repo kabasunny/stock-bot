@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/future_master.go
 package response
 
-// FutureMaster は、先物銘柄マスタの情報を表すDTOです。
-type FutureMaster struct {
+// ResFutureMaster は、先物銘柄マスタの情報を表すDTO
+type ResFutureMaster struct {
 	CLMID               string `json:"sCLMID"`               // 機能ID (CLMIssueMstSak)
 	IssueCode           string `json:"sIssueCode"`           // 銘柄コード
 	IssueName           string `json:"sIssueName"`           // 銘柄名

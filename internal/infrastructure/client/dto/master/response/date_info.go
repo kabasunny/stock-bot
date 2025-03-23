@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/date_info.go
 package response
 
-// DateInfo は、日付情報を表すDTO
-type DateInfo struct {
+// ResDateInfo は、日付情報を表すDTO
+type ResDateInfo struct {
 	CLMID                   string `json:"sCLMID"`                // 機能ID (CLMDateZyouhou)
 	DayKey                  string `json:"sDayKey"`               // 日付KEY (001：当日基準, 002：翌日基準（夕場）)
 	PreviousBusinessDay1    string `json:"sMaeEigyouDay_1"`       // 1営業日前 (YYYYMMDD)

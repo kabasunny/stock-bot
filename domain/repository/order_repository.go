@@ -2,7 +2,7 @@ package repository
 
 import (
 	"context"
-	"myapp/domain/model"
+	"stock-bot/domain/model"
 )
 
 type OrderRepository interface {

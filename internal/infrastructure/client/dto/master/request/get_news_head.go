@@ -7,7 +7,7 @@ import (
 )
 
 // GetNewsHeadRequest は、ニュースヘッダー問合取得のリクエストを表すDTO
-type GetNewsHeadRequest struct {
+type ReqGetNewsHead struct {
 	dto.RequestBase        // 共通フィールド
 	CLMID           string `json:"sCLMID"`               // 機能ID (固定値: "CLMMfdsGetNewsHead")
 	Category        string `json:"p_CG,omitempty"`       // カテゴリコード (任意)

@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/system_status.go
 package response
 
-// SystemStatus は、システムステータスの情報を表すDTO
-type SystemStatus struct {
+// ResSystemStatus は、システムステータスの情報を表すDTO
+type ResSystemStatus struct {
 	CLMID           string `json:"sCLMID"`           // 機能ID (CLMSystemStatus)
 	SystemStatusKey string `json:"sSystemStatusKey"` // システム状態KEY (固定値: "001")
 	LoginAllowed    string `json:"sLoginKyokaKubun"` // ログイン許可区分 (0：不許可, 1：許可, 2：不許可(サービス時間外), 9：管理者のみ可(テスト中))

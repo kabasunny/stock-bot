@@ -7,7 +7,7 @@ import (
 )
 
 // GetNewsBodyRequest は、ニュースボディー問合取得のリクエストを表すDTO
-type GetNewsBodyRequest struct {
+type ReqGetNewsBody struct {
 	dto.RequestBase        // 共通フィールド
 	CLMID           string `json:"sCLMID"` // 機能ID (固定値: "CLMMfdsGetNewsBody")
 	NewsID          string `json:"p_ID"`   // ニュースID

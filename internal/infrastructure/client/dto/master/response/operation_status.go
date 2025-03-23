@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/operation_status.go
 package response
 
-// OperationStatus は、運用ステータス別状態の情報を表すDTOです。
-type OperationStatus struct {
+// ResOperationStatus は、運用ステータス別状態の情報を表すDTO
+type ResOperationStatus struct {
 	CLMID             string `json:"sCLMID"`            // 機能ID (CLMUnyouStatus)
 	SystemAccountType string `json:"sSystemKouzaKubun"` // システム口座区分
 	OperationCategory string `json:"sUnyouCategory"`    // 運用カテゴリ

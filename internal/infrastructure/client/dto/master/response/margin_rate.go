@@ -1,8 +1,8 @@
 // internal/infrastructure/client/dto/master/response/margin_rate.go
 package response
 
-// MarginRate は、代用掛目の情報を表すDTO
-type MarginRate struct {
+// ResMarginRate は、代用掛目の情報を表すDTO
+type ResMarginRate struct {
 	CLMID                string `json:"sCLMID"`               // 機能ID (CLMDaiyouKakeme)
 	SystemAccountType    string `json:"sSystemKouzaKubun"`    // システム口座区分
 	IssueCode            string `json:"sIssueCode"`           // 銘柄コード
