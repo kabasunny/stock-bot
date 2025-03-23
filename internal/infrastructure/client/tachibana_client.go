@@ -3,10 +3,15 @@ package client
 
 import (
 	"net/url"
+	"stock-bot/internal/config"
+	"strconv"
 	"sync"
 	"time"
+
+	"go.uber.org/zap"
 )
 
+// 省略 (TachibanaClient, NewTachibanaClient, LoginInfo は変更なし) ...
 // TachibanaClient は、橘証券 e支店 API クライアントの構造体です。
 type TachibanaClient struct {
 	baseURL          *url.URL     // APIのベースURL (本番/デモ環境)
@@ -19,8 +24,9 @@ type TachibanaClient struct {
 	p_no             int64        // リクエストに付与する一意な番号 (連番)
 	p_NoMu           sync.Mutex   // p_no の排他制御用ミューテックス
 	targetIssueCodes []string     // 利用する銘柄コード
+	logger           *zap.Logger  // ロガー
 
-	// 埋め込む構造体 (各機能別のクライアント実装)
+	// 埋め込みフィールド
 	*authClientImpl
 	*orderClientImpl
 	*balanceClientImpl
@@ -30,16 +36,23 @@ type TachibanaClient struct {
 
 // NewTachibanaClient は TachibanaClient のコンストラクタです。
 // 必要な情報を引数で受け取り、TachibanaClient インスタンスを生成して返します。
-func NewTachibanaClient(baseURL *url.URL, sUserId, sPassword, sSecondPassword string, targetIssueCodes []string) *TachibanaClient {
+func NewTachibanaClient(cfg *config.Config, logger *zap.Logger) *TachibanaClient {
+	baseURL, _ := url.Parse(cfg.TachibanaBaseURL) // 文字列から *url.URL に変換
 	client := &TachibanaClient{
-		baseURL:          baseURL,
-		sUserId:          sUserId,
-		sPassword:        sPassword,
-		sSecondPassword:  sSecondPassword,
-		targetIssueCodes: targetIssueCodes,
+		baseURL:          baseURL, // *url.URL型
+		sUserId:          cfg.TachibanaUserID,
+		sPassword:        cfg.TachibanaPassword,
+		sSecondPassword:  cfg.TachibanaPassword, // ★★★ ここを修正 ★★★
+		targetIssueCodes: []string{},            // 必要に応じて設定
+		loginInfo:        nil,                   // 初期値はnil
+		loggined:         false,                 // 初期値はfalse
+		mu:               sync.RWMutex{},        // 初期化
+		p_no:             0,                     // 初期値は0
+		p_NoMu:           sync.Mutex{},          // 初期化
+		logger:           logger,                // ロガー
 	}
 	// 埋め込む構造体の初期化 (各機能別のクライアント実装を関連付け)
-	client.authClientImpl = &authClientImpl{client: client}
+	client.authClientImpl = &authClientImpl{client: client, logger: logger}
 	client.orderClientImpl = &orderClientImpl{client: client}
 	client.balanceClientImpl = &balanceClientImpl{client: client}
 	client.masterDataClientImpl = &masterDataClientImpl{client: client}
@@ -55,4 +68,12 @@ type LoginInfo struct {
 	PriceURL   string    // 時価情報用URL (時価情報にアクセスするためのURL)
 	EventURL   string    // イベント用URL (注文約定通知などを受信するためのURL)
 	Expiry     time.Time // 各URLの有効期限
+}
+
+// getPNo は p_no を取得し、インクリメントする (スレッドセーフ)
+func (tc *TachibanaClient) getPNo() string {
+	tc.p_NoMu.Lock()
+	defer tc.p_NoMu.Unlock()
+	tc.p_no++
+	return strconv.FormatInt(tc.p_no, 10)
 }

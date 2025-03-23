@@ -54,3 +54,5 @@ scratch.go
 /out/
 
 *.py
+
+*.txt
