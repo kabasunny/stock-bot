@@ -27,39 +27,41 @@ func (a *authClientImpl) Login(ctx context.Context, req request.ReqLogin) (*resp
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse base URL")
 	}
-	u.Path += "auth/" // ★★★ auth/ を追加 (末尾のスラッシュは不要) ★★★
+	u.Path += "auth/"
 
-	// 2. リクエストパラメータの作成 (JSON + URLエンコード)
-	payload := map[string]string{ // ★★★ map[string]string を使用 ★★★
-		"sCLMID":    "CLMAuthLoginRequest",
-		"sUserId":   req.UserId,
-		"sPassword": req.Password,
-		"sJsonOfmt": "4",
-		"p_no":      "1", // Login時は初期値"1"
-		"p_sd_date": formatSDDate(time.Now()),
+	// 2. リクエストパラメータの作成
+	req.CLMID = "CLMAuthLoginRequest"
+	req.P_no = "1" // Login時は初期値"1"
+	req.P_sd_date = formatSDDate(time.Now())
+	req.SJsonOfmt = "4"
+
+	params, err := structToMapString(req) //utilの関数
+	if err != nil {
+		return nil, err
 	}
-	payloadJSON, err := json.Marshal(payload) // ★★★ JSON文字列に変換 ★★★
+
+	// URLクエリパラメータに設定
+	payloadJSON, err := json.Marshal(params)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal request payload")
 	}
-	encodedPayload := url.QueryEscape(string(payloadJSON)) // ★★★ URLエンコード ★★★
-	u.RawQuery = encodedPayload                            // クエリパラメータとして設定
+	encodedPayload := url.QueryEscape(string(payloadJSON))
+	u.RawQuery = encodedPayload
 
 	// 3. HTTPリクエストの作成 (GET)
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create http request")
 	}
-	httpReq.Header.Set("Content-Type", "application/json") // Content-Type は GET では不要
 
-	// 4. リクエストの送信 (sendRequest を使用)
-	respMap, err := SendRequest(httpReq, 3, a.client, a.logger)
+	// 4. リクエストの送信
+	respMap, err := SendRequest(httpReq, 3, a.logger)
 	if err != nil {
 		return nil, errors.Wrap(err, "login failed")
 	}
 
 	// 5. レスポンスの処理
-	res, err := a.convertToResLogin(respMap)
+	res, err := ConvertResponse[response.ResLogin](respMap) //utliの関数
 	if err != nil {
 		return nil, err
 	}
@@ -95,25 +97,29 @@ func (a *authClientImpl) Logout(ctx context.Context, req request.ReqLogout) (*re
 	if a.client.loginInfo == nil {
 		return nil, errors.New("not logged in")
 	}
-	u, err := url.Parse(a.client.loginInfo.RequestURL) // RequestURLをそのまま使う
+	u, err := url.Parse(a.client.loginInfo.RequestURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse request URL")
 	}
-	// u.Path = "/request"  ★★★ この行は不要 ★★★
 
 	// 2. リクエストパラメータの作成
-	payload := map[string]string{ // ★★★ map[string]string を使用 ★★★
-		"sCLMID":    "CLMAuthLogoutRequest",
-		"sJsonOfmt": "4",
-		"p_no":      a.client.getPNo(), // getPNo() でインクリメント & 値取得
-		"p_sd_date": formatSDDate(time.Now()),
+	req.CLMID = "CLMAuthLogoutRequest"
+	req.P_no = a.client.getPNo()
+	req.P_sd_date = formatSDDate(time.Now())
+	req.SJsonOfmt = "4"
+
+	params, err := structToMapString(req) //utilの関数
+	if err != nil {
+		return nil, err
 	}
-	payloadJSON, err := json.Marshal(payload) // ★★★ JSON文字列に変換 ★★★
+
+	// URLクエリパラメータに設定
+	payloadJSON, err := json.Marshal(params)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to marshal request payload")
 	}
-	encodedPayload := url.QueryEscape(string(payloadJSON)) // ★★★ URLエンコード ★★★
-	u.RawQuery = encodedPayload                            // クエリパラメータとして設定
+	encodedPayload := url.QueryEscape(string(payloadJSON))
+	u.RawQuery = encodedPayload
 
 	// 3. HTTPリクエストの作成
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
@@ -121,10 +127,8 @@ func (a *authClientImpl) Logout(ctx context.Context, req request.ReqLogout) (*re
 		return nil, errors.Wrap(err, "failed to create http request")
 	}
 
-	httpReq.Header.Set("Content-Type", "application/json") //念のため
-
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, a.client, a.logger) // リトライ回数3
+	respMap, err := SendRequest(httpReq, 3, a.logger)
 	if err != nil {
 		//ログアウト失敗時も、ログイン状態はfalseにする
 		a.client.loggined = false
@@ -133,7 +137,7 @@ func (a *authClientImpl) Logout(ctx context.Context, req request.ReqLogout) (*re
 	}
 
 	// 5. レスポンスの処理
-	res, err := a.convertToResLogout(respMap)
+	res, err := ConvertResponse[response.ResLogout](respMap) //utliの関数
 	if err != nil {
 		//ログアウト失敗時も、ログイン状態はfalseにする
 		a.client.loggined = false
@@ -146,50 +150,4 @@ func (a *authClientImpl) Logout(ctx context.Context, req request.ReqLogout) (*re
 	a.client.loginInfo = nil
 
 	return res, nil
-}
-
-// convertToResLogin は、map[string]interface{} を response.ResLogin に変換する
-func (a *authClientImpl) convertToResLogin(respMap map[string]interface{}) (*response.ResLogin, error) {
-	// レスポンスがエラーの場合
-	if resultCode, ok := respMap["sResultCode"].(string); ok && resultCode != "0" {
-		resultText := ""
-		if rt, ok := respMap["sResultText"].(string); ok {
-			resultText = rt
-		}
-		return nil, errors.Errorf("API error: ResultCode=%s, ResultText=%s", resultCode, resultText)
-	}
-
-	// レスポンスが正常な場合
-	resBytes, err := json.Marshal(respMap)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal response map to json")
-	}
-	var res response.ResLogin
-	if err := json.Unmarshal(resBytes, &res); err != nil {
-		return nil, errors.Wrap(err, "failed to unmarshal response json")
-	}
-	return &res, nil
-}
-
-// convertToResLogout は、map[string]interface{} を response.ResLogout に変換する
-func (a *authClientImpl) convertToResLogout(respMap map[string]interface{}) (*response.ResLogout, error) {
-	// レスポンスがエラーの場合の処理
-	if resultCode, ok := respMap["sResultCode"].(string); ok && resultCode != "0" {
-		resultText := ""
-		if rt, ok := respMap["sResultText"].(string); ok {
-			resultText = rt
-		}
-		return nil, errors.Errorf("API error: ResultCode=%s, ResultText=%s", resultCode, resultText)
-	}
-
-	// レスポンスが正常な場合
-	resBytes, err := json.Marshal(respMap) //mapをjsonに変換
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal response map to json")
-	}
-	var res response.ResLogout
-	if err := json.Unmarshal(resBytes, &res); err != nil { //jsonを構造体に変換
-		return nil, errors.Wrap(err, "failed to unmarshal response json")
-	}
-	return &res, nil
 }

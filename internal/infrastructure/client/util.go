@@ -13,23 +13,25 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cockroachdb/errors"
 	"go.uber.org/zap"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 )
 
-// formatSDDate は、time.Time を "YYYY.MM.DD-HH:MM:SS.TTT" 形式の文字列に変換します。
-func formatSDDate(t time.Time) string {
-	return t.Format("2006.01.02-15:04:05.000")
-}
+// SendRequest は、HTTPリクエストを送信し、レスポンスをデコードする (リトライ処理付き)
+// internal/infrastructure/client/util.go
 
 // SendRequest は、HTTPリクエストを送信し、レスポンスをデコードする (リトライ処理付き)
-func SendRequest(req *http.Request, maxRetries int, tc *TachibanaClient, logger *zap.Logger) (map[string]interface{}, error) {
+func SendRequest(
+	req *http.Request,
+	maxRetries int,
+	logger *zap.Logger,
+) (map[string]interface{}, error) { // 引数をシンプルに
 	var response map[string]interface{}
 
 	// retryDoに渡す関数
 	retryFunc := func(client *http.Client, decodeFunc func([]byte, interface{}) error) (*http.Response, error) {
-
 		//timeoutコンテキストを作成
 		req, cancel := withContextAndTimeout(req, 60*time.Second)
 		defer cancel()
@@ -44,13 +46,11 @@ func SendRequest(req *http.Request, maxRetries int, tc *TachibanaClient, logger 
 		}
 
 		body, err := io.ReadAll(resp.Body)
-		// fmt.Print(body)
 		resp.Body.Close() // 読み込み終わったらすぐにクローズ
 		if err != nil {
 			return resp, fmt.Errorf("response body read error: %w", err)
 		}
 
-		//loggerを使って、リクエストとレスポンスをログに出力
 		logRequestAndResponse(req, body, logger)
 
 		if err := decodeFunc(body, &response); err != nil {
@@ -59,9 +59,7 @@ func SendRequest(req *http.Request, maxRetries int, tc *TachibanaClient, logger 
 		return resp, nil
 	}
 
-	// デコード関数を定義 (Shift-JIS から UTF-8 への変換)
-	decodeFunc := func(body []byte, v interface{}) error { // 引数を io.Reader から []byte に変更
-		// Shift-JISからUTF-8への変換
+	decodeFunc := func(body []byte, v interface{}) error {
 		bodyUTF8, _, err := transform.Bytes(japanese.ShiftJIS.NewDecoder(), body)
 		if err != nil {
 			return fmt.Errorf("shift-jis decode error: %w", err)
@@ -69,8 +67,7 @@ func SendRequest(req *http.Request, maxRetries int, tc *TachibanaClient, logger 
 		return json.Unmarshal(bodyUTF8, v) // UTF-8 でデコード
 	}
 
-	// reqのTimeoutを使うので、ここではClientを生成しない
-	resp, err := retryDo(retryFunc, maxRetries, 2*time.Second, &http.Client{}, decodeFunc) //空のClientを渡す
+	resp, err := retryDo(retryFunc, maxRetries, 2*time.Second, &http.Client{}, decodeFunc)
 	if err != nil {
 		return nil, err
 	}
@@ -79,7 +76,56 @@ func SendRequest(req *http.Request, maxRetries int, tc *TachibanaClient, logger 
 	return response, nil
 }
 
-// retryDo は、指定された関数をリトライする
+// ConvertResponse は、map[string]interface{} をレスポンスDTOに変換する
+func ConvertResponse[T any](respMap map[string]interface{}) (*T, error) {
+	if resultCode, ok := respMap["sResultCode"].(string); ok && resultCode != "0" {
+		resultText := ""
+		if rt, ok := respMap["sResultText"].(string); ok {
+			resultText = rt
+		}
+		return nil, errors.Errorf("API error: ResultCode=%s, ResultText=%s", resultCode, resultText)
+	}
+
+	resBytes, err := json.Marshal(respMap)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal response map to json")
+	}
+	var res T
+	if err := json.Unmarshal(resBytes, &res); err != nil {
+		return nil, errors.Wrap(err, "failed to unmarshal response json")
+	}
+	return &res, nil
+}
+
+// structToMapString は、構造体を map[string]string に変換する
+func structToMapString(data interface{}) (map[string]string, error) {
+	params := make(map[string]string)
+	reqBytes, err := json.Marshal(data) // 一度JSONに変換
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal request to json")
+	}
+	var reqMap map[string]interface{}                         // interface{} のmap
+	if err := json.Unmarshal(reqBytes, &reqMap); err != nil { // JSONからmapに変換
+		return nil, errors.Wrap(err, "failed to unmarshal request json to map")
+	}
+	for k, v := range reqMap {
+		if s, ok := v.(string); ok { // string の場合のみ
+			params[k] = s
+		}
+		// string 以外は無視 (float64 などが入ってくる可能性がある)
+	}
+	return params, nil
+}
+
+// formatSDDate は、time.Time を "YYYY.MM.DD-HH:MM:SS.TTT" 形式の文字列に変換します。
+func formatSDDate(t time.Time) string {
+	return t.Format("2006.01.02-15:04:05.000")
+}
+
+// retryDo, withContextAndTimeout, logRequestAndResponse は変更なし (省略)
+// 省略したretryDo, withContextAndTimeout, logRequestAndResponse は、前に提示したコードと同じです。
+
+// retryDo は、指定された関数をリトライする(変更なし)
 func retryDo(fn func(*http.Client, func([]byte, interface{}) error) (*http.Response, error), maxRetries int, interval time.Duration, client *http.Client, decodeFunc func([]byte, interface{}) error) (*http.Response, error) {
 	var lastErr error
 	for i := 0; i < maxRetries; i++ {
@@ -149,7 +195,7 @@ func logRequestAndResponse(req *http.Request, respBody []byte, logger *zap.Logge
 	}
 }
 
-// retryDo は、HTTP リクエストをリトライ付きで実行する
+// RetryDo は、HTTP リクエストをリトライ付きで実行する(変更なし)
 func RetryDo(
 	retryFunc func(*http.Client, func([]byte, interface{}) error) (*http.Response, error), // decodeFuncの型修正
 	maxRetries int,

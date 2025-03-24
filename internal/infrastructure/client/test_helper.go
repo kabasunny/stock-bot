@@ -2,10 +2,13 @@
 package client
 
 import (
+	"fmt"
 	"net/url"
 	"path/filepath"
 	"runtime"
+	"strings"
 	"testing"
+	"time"
 
 	"stock-bot/internal/config"
 
@@ -28,6 +31,13 @@ func CreateTestClient(t *testing.T) *TachibanaClient {
 	cfg, err := config.LoadConfig(envPath) // 絶対パスまたは相対パスを指定
 	if err != nil {
 		t.Fatalf("Error loading config: %v", err)
+	}
+
+	// デモ環境かどうかのチェックと表示
+	if strings.Contains(cfg.TachibanaBaseURL, "demo") {
+		fmt.Println("APIの　デモ　環境に接続")
+	} else {
+		fmt.Println("APIの　本番　環境に接続")
 	}
 
 	// ロガーの作成 (テスト用)
@@ -94,4 +104,19 @@ func (tc *TachibanaClient) SetPasswordForTest(password string) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 	tc.sPassword = password
+}
+
+// GetBaseURLForTest はテスト用に baseURL を取得します。
+func (tc *TachibanaClient) GetLastRequestURLForTest() string {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+	return tc.loginInfo.RequestURL // 文字列で返す
+}
+
+// GetBaseURLForTest はテスト用に baseURL を取得します。
+func (tc *TachibanaClient) FormatSDDateForTest() string {
+	tc.mu.RLock()
+	defer tc.mu.RUnlock()
+	return formatSDDate(time.Now())
+
 }

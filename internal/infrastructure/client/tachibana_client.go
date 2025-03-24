@@ -11,7 +11,7 @@ import (
 	"go.uber.org/zap"
 )
 
-// 省略 (TachibanaClient, NewTachibanaClient, LoginInfo は変更なし) ...
+// TachibanaClient, NewTachibanaClient, LoginInfo, getPNo は変更なし (省略)
 // TachibanaClient は、橘証券 e支店 API クライアントの構造体です。
 type TachibanaClient struct {
 	baseURL          *url.URL     // APIのベースURL (本番/デモ環境)
@@ -25,6 +25,7 @@ type TachibanaClient struct {
 	p_NoMu           sync.Mutex   // p_no の排他制御用ミューテックス
 	targetIssueCodes []string     // 利用する銘柄コード
 	logger           *zap.Logger  // ロガー
+	lastRequestURL   string       // 最後のリクエストURLを保持するフィールドを追加
 
 	// 埋め込みフィールド
 	*authClientImpl
@@ -42,18 +43,18 @@ func NewTachibanaClient(cfg *config.Config, logger *zap.Logger) *TachibanaClient
 		baseURL:          baseURL, // *url.URL型
 		sUserId:          cfg.TachibanaUserID,
 		sPassword:        cfg.TachibanaPassword,
-		sSecondPassword:  cfg.TachibanaPassword, // ★★★ ここを修正 ★★★
-		targetIssueCodes: []string{},            // 必要に応じて設定
-		loginInfo:        nil,                   // 初期値はnil
-		loggined:         false,                 // 初期値はfalse
-		mu:               sync.RWMutex{},        // 初期化
-		p_no:             0,                     // 初期値は0
-		p_NoMu:           sync.Mutex{},          // 初期化
-		logger:           logger,                // ロガー
+		sSecondPassword:  cfg.TachibanaPassword,
+		targetIssueCodes: []string{},     // 必要に応じて設定
+		loginInfo:        nil,            // 初期値はnil
+		loggined:         false,          // 初期値はfalse
+		mu:               sync.RWMutex{}, // 初期化
+		p_no:             0,              // 初期値は0
+		p_NoMu:           sync.Mutex{},   // 初期化
+		logger:           logger,         // ロガー
 	}
 	// 埋め込む構造体の初期化 (各機能別のクライアント実装を関連付け)
 	client.authClientImpl = &authClientImpl{client: client, logger: logger}
-	client.orderClientImpl = &orderClientImpl{client: client}
+	client.orderClientImpl = &orderClientImpl{client: client, logger: logger}
 	client.balanceClientImpl = &balanceClientImpl{client: client}
 	client.masterDataClientImpl = &masterDataClientImpl{client: client}
 	client.priceInfoClientImpl = &priceInfoClientImpl{client: client}
