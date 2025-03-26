@@ -7,10 +7,13 @@ import (
 	"fmt"
 	"stock-bot/internal/infrastructure/client/dto/price/request"
 	"stock-bot/internal/infrastructure/client/dto/price/response"
+
+	"go.uber.org/zap"
 )
 
 type priceInfoClientImpl struct {
 	client *TachibanaClient
+	logger *zap.Logger // 追加
 }
 
 func (p *priceInfoClientImpl) GetPriceInfo(ctx context.Context, req request.ReqGetPriceInfo) (*response.ResGetPriceInfo, error) {

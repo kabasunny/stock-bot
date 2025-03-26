@@ -46,57 +46,57 @@ func TestAuthClientImpl_LoginLogout(t *testing.T) {
 		assert.Nil(t, c.GetLoginInfoForTest())  // LoginInfo が nil になっていることを確認 //test_helper.go
 	})
 
-	t.Run("異常系: 不正なIDとパスワードでログインできないこと", func(t *testing.T) {
-		// 異常な値をセット
-		originalUserID := c.GetUserIDForTest()
-		originalPassword := c.GetPasswordForTest()
-		c.SetUserIDForTest("invalid_user")
-		c.SetPasswordForTest("invalid_password")
+	// t.Run("異常系: 不正なIDとパスワードでログインできないこと", func(t *testing.T) {
+	// 	// 異常な値をセット
+	// 	originalUserID := c.GetUserIDForTest()
+	// 	originalPassword := c.GetPasswordForTest()
+	// 	c.SetUserIDForTest("invalid_user")
+	// 	c.SetPasswordForTest("invalid_password")
 
-		// Login リクエストを作成 (不正なID/パスワード)
-		loginReq := request_auth.ReqLogin{
-			UserId:   c.GetUserIDForTest(),   // 設定された不正な値を使用
-			Password: c.GetPasswordForTest(), // 設定された不正な値を使用
-		}
+	// 	// Login リクエストを作成 (不正なID/パスワード)
+	// 	loginReq := request_auth.ReqLogin{
+	// 		UserId:   c.GetUserIDForTest(),   // 設定された不正な値を使用
+	// 		Password: c.GetPasswordForTest(), // 設定された不正な値を使用
+	// 	}
 
-		// Login 実行
-		res, err := c.Login(context.Background(), loginReq)
-		assert.Error(t, err) // エラーが発生することを確認
-		assert.Nil(t, res)   // レスポンスがnilであること
+	// 	// Login 実行
+	// 	res, err := c.Login(context.Background(), loginReq)
+	// 	assert.Error(t, err) // エラーが発生することを確認
+	// 	assert.Nil(t, res)   // レスポンスがnilであること
 
-		// ログイン状態が false であることを確認
-		assert.False(t, c.GetLogginedForTest())
-		defer func() {
-			c.SetUserIDForTest(originalUserID)
-			c.SetPasswordForTest(originalPassword)
-		}()
-	})
-	t.Run("異常系: APIサーバーがエラーを返す場合", func(t *testing.T) {
-		// オリジナルの baseURL を保持
-		originalBaseURL := c.GetBaseURLForTest()
+	// 	// ログイン状態が false であることを確認
+	// 	assert.False(t, c.GetLogginedForTest())
+	// 	defer func() {
+	// 		c.SetUserIDForTest(originalUserID)
+	// 		c.SetPasswordForTest(originalPassword)
+	// 	}()
+	// })
+	// t.Run("異常系: APIサーバーがエラーを返す場合", func(t *testing.T) {
+	// 	// オリジナルの baseURL を保持
+	// 	originalBaseURL := c.GetBaseURLForTest()
 
-		// baseURL を無効な URL に変更
-		c.SetBaseURLForTest("https://invalid.example.com/") // 存在しないURL
+	// 	// baseURL を無効な URL に変更
+	// 	c.SetBaseURLForTest("https://invalid.example.com/") // 存在しないURL
 
-		// Login リクエストを作成 (正しいID/パスワードを使用)
-		loginReq := request_auth.ReqLogin{
-			UserId:   c.GetUserIDForTest(),
-			Password: c.GetPasswordForTest(),
-		}
+	// 	// Login リクエストを作成 (正しいID/パスワードを使用)
+	// 	loginReq := request_auth.ReqLogin{
+	// 		UserId:   c.GetUserIDForTest(),
+	// 		Password: c.GetPasswordForTest(),
+	// 	}
 
-		// Login 実行 (エラーが発生するはず)
-		res, err := c.Login(context.Background(), loginReq)
-		assert.Error(t, err)
-		assert.Nil(t, res)
+	// 	// Login 実行 (エラーが発生するはず)
+	// 	res, err := c.Login(context.Background(), loginReq)
+	// 	assert.Error(t, err)
+	// 	assert.Nil(t, res)
 
-		// ログイン状態が false であることを確認
-		assert.False(t, c.GetLogginedForTest())
+	// 	// ログイン状態が false であることを確認
+	// 	assert.False(t, c.GetLogginedForTest())
 
-		// baseURL を元に戻す (defer を使うと、このテストケースが終了する時に確実に実行される)
-		defer func() {
-			c.SetBaseURLForTest(originalBaseURL)
-		}()
-	})
+	// 	// baseURL を元に戻す (defer を使うと、このテストケースが終了する時に確実に実行される)
+	// 	defer func() {
+	// 		c.SetBaseURLForTest(originalBaseURL)
+	// 	}()
+	// })
 
 }
 

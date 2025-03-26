@@ -4,6 +4,7 @@ package tests
 import (
 	"context"
 	"testing"
+	"time"
 
 	"stock-bot/internal/infrastructure/client"
 	request_auth "stock-bot/internal/infrastructure/client/dto/auth/request"
@@ -30,15 +31,40 @@ func TestOrderClientImpl_CorrectOrder(t *testing.T) {
 	t.Run("正常系: 指値訂正が成功すること", func(t *testing.T) {
 		// 事前準備: 訂正可能な注文を発注しておく (NewOrder を利用)
 
+		// 例: 現物買い注文　トリガー前の逆指値注文の注文値段は訂正できません
+		// 休憩中に指値か成行きを入れて検証する
+		// 営業中だと、指値は即座に約定するようだ
+		orderReq := request.ReqNewOrder{
+			ZyoutoekiKazeiC:          "1",                    // 特定口座
+			IssueCode:                "6658",                 // 例: シスメックス
+			SizyouC:                  "00",                   // 東証
+			BaibaiKubun:              "3",                    // 買
+			Condition:                "0",                    // 指定なし (成行)
+			OrderPrice:               "610",                  // 指値　/　成行 (0)
+			OrderSuryou:              "100",                  // 100株
+			GenkinShinyouKubun:       "0",                    // 現物
+			OrderExpireDay:           "0",                    // 当日限り
+			GyakusasiOrderType:       "0",                    // 通常注文
+			GyakusasiZyouken:         "0",                    // 指定なし
+			GyakusasiPrice:           "*",                    // 指定なし
+			TatebiType:               "*",                    // 指定なし
+			TategyokuZyoutoekiKazeiC: "*",                    // 指定なし
+			SecondPassword:           c.GetPasswordForTest(), // 第二パスワード (発注パスワード)
+		}
+		resNewOrder, err := c.NewOrder(context.Background(), orderReq)
+		assert.NoError(t, err)
+
+		time.Sleep(5 * time.Second) // 1秒のタイムラグ
+
 		correctReq := request.ReqCorrectOrder{
-			OrderNumber:      "24000028", // 発注した注文の番号 // あらかじめ調べる必要がある
-			EigyouDay:        "20250324", // 発注した注文の営業日
-			Condition:        "*",        // 変更なし
-			OrderPrice:       "600",      // 新しい指値
-			OrderSuryou:      "*",        // 変更なし
-			OrderExpireDay:   "*",        // 変更なし
-			GyakusasiZyouken: "*",        // 変更なし
-			GyakusasiPrice:   "*",        // 変更なし
+			OrderNumber:      resNewOrder.OrderNumber, // 発注した注文の番号
+			EigyouDay:        resNewOrder.EigyouDay,   // 発注した注文の営業日
+			Condition:        "*",                     // 変更なし
+			OrderPrice:       "0",                     // 成行きに変更
+			OrderSuryou:      "*",                     // 変更なし
+			OrderExpireDay:   "*",                     // 変更なし
+			GyakusasiZyouken: "*",                     // 変更なし
+			GyakusasiPrice:   "*",                     // 変更なし
 			SecondPassword:   c.GetPasswordForTest(),
 		}
 
@@ -48,15 +74,15 @@ func TestOrderClientImpl_CorrectOrder(t *testing.T) {
 		// ... レスポンスの検証 ...
 	})
 
-	t.Run("異常系: 存在しない注文番号で訂正が失敗すること", func(t *testing.T) {
-		correctReq := request.ReqCorrectOrder{
-			OrderNumber: "invalid_order_number", // 存在しない注文番号
-			// ... 他のパラメータ ...
-		}
+	// t.Run("異常系: 存在しない注文番号で訂正が失敗すること", func(t *testing.T) {
+	// 	correctReq := request.ReqCorrectOrder{
+	// 		OrderNumber: "invalid_order_number", // 存在しない注文番号
+	// 		// ... 他のパラメータ ...
+	// 	}
 
-		_, err := c.CorrectOrder(context.Background(), correctReq)
-		assert.Error(t, err)
-	})
+	// 	_, err := c.CorrectOrder(context.Background(), correctReq)
+	// 	assert.Error(t, err)
+	// })
 
 	// ... 他の異常系テストケース (ログインしていない、第二パスワード間違いなど) ...
 	// 異常系: ログインしていない

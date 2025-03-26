@@ -6,6 +6,6 @@ import "stock-bot/internal/infrastructure/client/dto"
 // ReqZanUriKanousuu は売却可能数量のリクエストを表すDTO
 type ReqZanUriKanousuu struct {
 	dto.RequestBase        // 共通フィールドを埋め込む
-	SCLMID          string `json:"sCLMID"`     // 機能ID, CLMZanUriKanousuu
-	SIssueCode      string `json:"sIssueCode"` // 銘柄コード
+	CLMID           string `json:"sCLMID"`     // 機能ID, CLMZanUriKanousuu
+	IssueCode       string `json:"sIssueCode"` // 銘柄コード
 }

@@ -57,7 +57,7 @@ def save_to_file(output_path, tree_data, content_data):
 
 
 if __name__ == "__main__":
-    project_dir = "."  # プロジェクトディレクトリからの相対パスを指定
+    project_dir = "./internal/infrastructure/client"  # プロジェクトディレクトリからの相対パスを指定
     output_file = os.path.join(
         project_dir, "file_concat/full_code.txt"
     )  # 出力ファイルのパスを修正

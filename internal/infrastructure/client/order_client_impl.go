@@ -2,6 +2,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -25,30 +26,63 @@ func (o *orderClientImpl) NewOrder(ctx context.Context, req request.ReqNewOrder)
 		return nil, errors.New("not logged in")
 	}
 
-	// 1. リクエストURLの作成
 	u, err := url.Parse(o.client.loginInfo.RequestURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse request URL")
 	}
 
-	// 2. リクエストパラメータの作成
 	req.CLMID = "CLMKabuNewOrder"
-	req.P_no = o.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.SJsonOfmt = "4"
+	req.RequestBase.P_no = o.client.getPNo()
+	req.RequestBase.P_sd_date = formatSDDate(time.Now())
+	req.RequestBase.JsonOfmt = "4"
 
-	// 構造体を map[string]string に変換
-	params, err := structToMapString(req) //utilの関数
+	// --- CLMKabuHensaiData スライスを JSON 配列形式の文字列に変換 ---
+	var hensaiDataJSON string
+	if len(req.CLMKabuHensaiData) > 0 {
+		hensaiBytes, err := json.Marshal(req.CLMKabuHensaiData)
+		if err != nil {
+			return nil, errors.Wrap(err, "failed to marshal CLMKabuHensaiData to JSON")
+		}
+		hensaiDataJSON = string(hensaiBytes)
+	}
+
+	// --- スライスを除いたリクエスト構造体を作成 ---
+	tempReq := req
+	tempReq.CLMKabuHensaiData = nil // スライスを一旦除外
+
+	// --- スライスを除いた部分を map[string]string に変換 ---
+	params, err := structToMapString(tempReq)
 	if err != nil {
 		return nil, err
 	}
 
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
+	// --- CLMKabuHensaiData が空でない場合は、キーと値を追加 ---
+	if hensaiDataJSON != "" {
+		params["aCLMKabuHensaiData"] = hensaiDataJSON
 	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
+
+	// ★★★ 変更: map[string]string から JSON 文字列を組み立てる ★★★
+	var buf bytes.Buffer
+	buf.WriteString("{")
+	first := true
+	for k, v := range params {
+		if !first {
+			buf.WriteString(",")
+		}
+		first = false
+		// 文字列の場合は、"key":"value" の形式にする
+		// 文字列でない場合は、"key":value の形式にする (aCLMKabuHensaiData は文字列ではない)
+		if k == "aCLMKabuHensaiData" {
+			buf.WriteString(fmt.Sprintf(`"%s":%s`, k, v)) // aCLMKabuHensaiDataは文字列ではないので、そのまま
+		} else {
+			buf.WriteString(fmt.Sprintf(`"%s":"%s"`, k, v)) // キーと値をダブルクォートで囲む
+		}
+
+	}
+	buf.WriteString("}")
+	payloadJSON := buf.Bytes()
+
+	encodedPayload := url.QueryEscape(string(payloadJSON)) // エンコードするのはここ
 	u.RawQuery = encodedPayload
 
 	// 3. HTTPリクエストの作成 (GET)
@@ -87,7 +121,7 @@ func (o *orderClientImpl) CorrectOrder(ctx context.Context, req request.ReqCorre
 	req.CLMID = "CLMKabuCorrectOrder"        // CLMID を設定
 	req.P_no = o.client.getPNo()             // クライアントから p_no を取得
 	req.P_sd_date = formatSDDate(time.Now()) // システム日付を設定
-	req.SJsonOfmt = "4"                      // JSON出力フォーマット
+	req.JsonOfmt = "4"                       // JSON出力フォーマット
 
 	// 構造体を map[string]string に変換
 	params, err := structToMapString(req)
@@ -136,7 +170,7 @@ func (o *orderClientImpl) CancelOrder(ctx context.Context, req request.ReqCancel
 	req.CLMID = "CLMKabuCancelOrder"
 	req.P_no = o.client.getPNo()
 	req.P_sd_date = formatSDDate(time.Now())
-	req.SJsonOfmt = "4"
+	req.JsonOfmt = "4"
 
 	params, err := structToMapString(req)
 	if err != nil {
@@ -179,7 +213,7 @@ func (o *orderClientImpl) CancelOrderAll(ctx context.Context, req request.ReqCan
 	req.CLMID = "CLMKabuCancelOrderAll"
 	req.P_no = o.client.getPNo()
 	req.P_sd_date = formatSDDate(time.Now())
-	req.SJsonOfmt = "4"
+	req.JsonOfmt = "4"
 
 	params, err := structToMapString(req)
 	if err != nil {
@@ -222,7 +256,7 @@ func (o *orderClientImpl) GetOrderList(ctx context.Context, req request.ReqOrder
 	req.CLMID = "CLMOrderList"
 	req.P_no = o.client.getPNo()
 	req.P_sd_date = formatSDDate(time.Now())
-	req.SJsonOfmt = "4"
+	req.JsonOfmt = "4"
 
 	params, err := structToMapString(req)
 	if err != nil {
@@ -267,7 +301,7 @@ func (o *orderClientImpl) GetOrderListDetail(ctx context.Context, req request.Re
 	req.CLMID = "CLMOrderListDetail"
 	req.P_no = o.client.getPNo()
 	req.P_sd_date = formatSDDate(time.Now())
-	req.SJsonOfmt = "4"
+	req.JsonOfmt = "4"
 
 	params, err := structToMapString(req)
 	if err != nil {
@@ -293,29 +327,6 @@ func (o *orderClientImpl) GetOrderListDetail(ctx context.Context, req request.Re
 	res, err := ConvertResponse[response.ResOrderListDetail](respMap)
 	if err != nil {
 		return nil, err
-	}
-
-	// ★★★ ここで型アサーションを使って aKessaiOrderTategyokuList にアクセス ★★★
-	if kessaiList, ok := res.KessaiOrderTategyokuList.([]interface{}); ok {
-		// kessaiList は []interface{} 型 (要素の型は不明)
-		for _, kessai := range kessaiList {
-			if _, ok := kessai.(map[string]interface{}); ok {
-				// kessaiMap は map[string]interface{} 型
-				// (例) kessaiMap["sKessaiTategyokuDay"] などで値にアクセスできる
-				//      (ただし、値の型は interface{} なので、型アサーションが必要)
-
-				//fmt.Printf("建日: %v\n", kessaiMap["sKessaiTategyokuDay"]) // 例 (型アサーションが必要)
-			}
-		}
-	} else if kessaiList, ok := res.KessaiOrderTategyokuList.([]response.ResKessaiOrderTategyoku); ok {
-		for _, kessai := range kessaiList {
-			// kessai は response.ResKessaiOrderTategyoku 型
-			fmt.Printf("建日: %s, 建単価: %s\n", kessai.KessaiTategyokuDay, kessai.KessaiTategyokuPrice)
-		}
-
-	} else {
-		//  []interface{}でも、[]response.ResKessaiOrderTategyokuでもない場合
-		fmt.Println("res.KessaiOrderTategyokuList is nil")
 	}
 
 	return res, nil

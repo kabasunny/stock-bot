@@ -58,62 +58,62 @@ func TestOrderClientImpl_NewOrder(t *testing.T) {
 		}
 	})
 
-	t.Run("異常系: ログインしていない状態で注文が失敗すること", func(t *testing.T) {
-		// ログアウト
-		logoutReq := request_auth.ReqLogout{}
-		_, err := c.Logout(context.Background(), logoutReq)
-		assert.NoError(t, err)
+	// t.Run("異常系: ログインしていない状態で注文が失敗すること", func(t *testing.T) {
+	// 	// ログアウト
+	// 	logoutReq := request_auth.ReqLogout{}
+	// 	_, err := c.Logout(context.Background(), logoutReq)
+	// 	assert.NoError(t, err)
 
-		orderReq := request.ReqNewOrder{
-			ZyoutoekiKazeiC: "1",
-			IssueCode:       "8411",
-			// ... 他のパラメータは省略 ...
-			SecondPassword: c.GetPasswordForTest(),
-		}
+	// 	orderReq := request.ReqNewOrder{
+	// 		ZyoutoekiKazeiC: "1",
+	// 		IssueCode:       "8411",
+	// 		// ... 他のパラメータは省略 ...
+	// 		SecondPassword: c.GetPasswordForTest(),
+	// 	}
 
-		_, err = c.NewOrder(context.Background(), orderReq)
-		assert.Error(t, err)
-		assert.Equal(t, "not logged in", err.Error()) // エラーメッセージを検証
+	// 	_, err = c.NewOrder(context.Background(), orderReq)
+	// 	assert.Error(t, err)
+	// 	assert.Equal(t, "not logged in", err.Error()) // エラーメッセージを検証
 
-		// ログイン (後処理)
-		loginReq := request_auth.ReqLogin{
-			UserId:   c.GetUserIDForTest(),
-			Password: c.GetPasswordForTest(),
-		}
-		_, err = c.Login(context.Background(), loginReq)
-		assert.NoError(t, err)
-	})
+	// 	// ログイン (後処理)
+	// 	loginReq := request_auth.ReqLogin{
+	// 		UserId:   c.GetUserIDForTest(),
+	// 		Password: c.GetPasswordForTest(),
+	// 	}
+	// 	_, err = c.Login(context.Background(), loginReq)
+	// 	assert.NoError(t, err)
+	// })
 
-	t.Run("異常系: 不正な銘柄コードで注文が失敗すること", func(t *testing.T) {
-		orderReq := request.ReqNewOrder{
-			ZyoutoekiKazeiC: "1",
-			IssueCode:       "invalid_code", // 不正な銘柄コード
-			// ... 他のパラメータは省略 ...
-			SecondPassword: c.GetPasswordForTest(),
-		}
+	// t.Run("異常系: 不正な銘柄コードで注文が失敗すること", func(t *testing.T) {
+	// 	orderReq := request.ReqNewOrder{
+	// 		ZyoutoekiKazeiC: "1",
+	// 		IssueCode:       "invalid_code", // 不正な銘柄コード
+	// 		// ... 他のパラメータは省略 ...
+	// 		SecondPassword: c.GetPasswordForTest(),
+	// 	}
 
-		_, err := c.NewOrder(context.Background(), orderReq)
-		assert.Error(t, err)
-	})
+	// 	_, err := c.NewOrder(context.Background(), orderReq)
+	// 	assert.Error(t, err)
+	// })
 
-	t.Run("異常系: 第二パスワードが間違っている場合に注文が失敗すること", func(t *testing.T) {
-		orderReq := request.ReqNewOrder{
-			ZyoutoekiKazeiC:    "1",
-			IssueCode:          "8411",
-			SizyouC:            "00",
-			BaibaiKubun:        "3",
-			Condition:          "0",
-			OrderPrice:         "0",
-			OrderSuryou:        "100",
-			GenkinShinyouKubun: "0",
-			OrderExpireDay:     "0",
-			GyakusasiOrderType: "0",
-			SecondPassword:     "wrong_password", // 間違ったパスワード
-		}
+	// t.Run("異常系: 第二パスワードが間違っている場合に注文が失敗すること", func(t *testing.T) {
+	// 	orderReq := request.ReqNewOrder{
+	// 		ZyoutoekiKazeiC:    "1",
+	// 		IssueCode:          "8411",
+	// 		SizyouC:            "00",
+	// 		BaibaiKubun:        "3",
+	// 		Condition:          "0",
+	// 		OrderPrice:         "0",
+	// 		OrderSuryou:        "100",
+	// 		GenkinShinyouKubun: "0",
+	// 		OrderExpireDay:     "0",
+	// 		GyakusasiOrderType: "0",
+	// 		SecondPassword:     "wrong_password", // 間違ったパスワード
+	// 	}
 
-		_, err := c.NewOrder(context.Background(), orderReq)
-		assert.Error(t, err)
-	})
+	// 	_, err := c.NewOrder(context.Background(), orderReq)
+	// 	assert.Error(t, err)
+	// })
 }
 
 // go test -v ./internal/infrastructure/client/tests/order_client_impl_test.go

@@ -6,5 +6,5 @@ import "stock-bot/internal/infrastructure/client/dto"
 // ReqZanKaiKanougakuSuii は可能額推移のリクエストを表すDTO
 type ReqZanKaiKanougakuSuii struct {
 	dto.RequestBase        // 共通フィールドを埋め込む
-	SCLMID          string `json:"sCLMID"` // 機能ID, CLMZanKaiKanougakuSuii
+	CLMID           string `json:"sCLMID"` // 機能ID, CLMZanKaiKanougakuSuii
 }

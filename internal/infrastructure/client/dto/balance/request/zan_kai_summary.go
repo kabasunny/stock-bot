@@ -6,5 +6,5 @@ import "stock-bot/internal/infrastructure/client/dto"
 // ReqZanKaiSummary は可能額サマリーのリクエストを表すDTO
 type ReqZanKaiSummary struct {
 	dto.RequestBase        // 共通フィールドを埋め込む
-	SCLMID          string `json:"sCLMID"` // 機能ID, CLMZanKaiSummary
+	CLMID           string `json:"sCLMID"` // 機能ID, CLMZanKaiSummary
 }

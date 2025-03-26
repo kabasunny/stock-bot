@@ -25,7 +25,6 @@ type TachibanaClient struct {
 	p_NoMu           sync.Mutex   // p_no の排他制御用ミューテックス
 	targetIssueCodes []string     // 利用する銘柄コード
 	logger           *zap.Logger  // ロガー
-	lastRequestURL   string       // 最後のリクエストURLを保持するフィールドを追加
 
 	// 埋め込みフィールド
 	*authClientImpl
@@ -55,9 +54,9 @@ func NewTachibanaClient(cfg *config.Config, logger *zap.Logger) *TachibanaClient
 	// 埋め込む構造体の初期化 (各機能別のクライアント実装を関連付け)
 	client.authClientImpl = &authClientImpl{client: client, logger: logger}
 	client.orderClientImpl = &orderClientImpl{client: client, logger: logger}
-	client.balanceClientImpl = &balanceClientImpl{client: client}
-	client.masterDataClientImpl = &masterDataClientImpl{client: client}
-	client.priceInfoClientImpl = &priceInfoClientImpl{client: client}
+	client.balanceClientImpl = &balanceClientImpl{client: client, logger: logger}
+	client.masterDataClientImpl = &masterDataClientImpl{client: client, logger: logger}
+	client.priceInfoClientImpl = &priceInfoClientImpl{client: client, logger: logger}
 
 	return client
 }

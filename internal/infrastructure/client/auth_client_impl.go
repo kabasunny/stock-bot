@@ -33,7 +33,7 @@ func (a *authClientImpl) Login(ctx context.Context, req request.ReqLogin) (*resp
 	req.CLMID = "CLMAuthLoginRequest"
 	req.P_no = "1" // Login時は初期値"1"
 	req.P_sd_date = formatSDDate(time.Now())
-	req.SJsonOfmt = "4"
+	req.JsonOfmt = "4"
 
 	params, err := structToMapString(req) //utilの関数
 	if err != nil {
@@ -106,7 +106,7 @@ func (a *authClientImpl) Logout(ctx context.Context, req request.ReqLogout) (*re
 	req.CLMID = "CLMAuthLogoutRequest"
 	req.P_no = a.client.getPNo()
 	req.P_sd_date = formatSDDate(time.Now())
-	req.SJsonOfmt = "4"
+	req.JsonOfmt = "4"
 
 	params, err := structToMapString(req) //utilの関数
 	if err != nil {
