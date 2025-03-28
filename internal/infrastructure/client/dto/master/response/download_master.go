@@ -6,11 +6,11 @@ package response
 type ResDownloadMaster struct {
 	CLMID                     string                      `json:"sCLMID"`
 	SystemStatus              ResSystemStatus             `json:"CLMSystemStatus,omitempty"`
-	DateInfo                  ResDateInfo                 `json:"CLMDateZyouhou,omitempty"`
-	TickRule                  ResTickRule                 `json:"CLMYobine,omitempty"`
-	OperationStatus           ResOperationStatus          `json:"CLMUnyouStatus,omitempty"`
-	OperationStatusStock      ResOperationStatus          `json:"CLMUnyouStatusKabu,omitempty"`  // 運用ステータス（株）
-	OperationStatusDerivative ResOperationStatus          `json:"CLMUnyouStatusHasei,omitempty"` // 運用ステータス（派生）
+	DateInfo                  []ResDateInfo               `json:"CLMDateZyouhou,omitempty"`
+	TickRule                  []ResTickRule               `json:"CLMYobine,omitempty"`
+	OperationStatus           []ResOperationStatus        `json:"CLMUnyouStatus,omitempty"`      // 配列に変更
+	OperationStatusStock      []ResOperationStatus        `json:"CLMUnyouStatusKabu,omitempty"`  // 配列に変更
+	OperationStatusDerivative []ResOperationStatus        `json:"CLMUnyouStatusHasei,omitempty"` // 配列に変更
 	StockMaster               []ResStockMaster            `json:"CLMIssueMstKabu,omitempty"`
 	StockMarketMaster         []ResStockMarketMaster      `json:"CLMIssueSizyouMstKabu,omitempty"`
 	StockIssueRegulation      []ResStockIssueRegulation   `json:"CLMIssueSizyouKiseiKabu,omitempty"`

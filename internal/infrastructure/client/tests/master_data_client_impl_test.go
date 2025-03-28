@@ -1,30 +1,17 @@
-// internal/infrastructure/client/tests/master_data_client_impl_test.go
+// client/tests/master_data_client_impl_test.go
 package tests
 
 import (
 	"context"
-	"encoding/json"
-	"fmt"
-	"os"
-	"testing"
-
 	"stock-bot/internal/infrastructure/client"
 	request_auth "stock-bot/internal/infrastructure/client/dto/auth/request"
 	"stock-bot/internal/infrastructure/client/dto/master/request"
+	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"github.com/stretchr/testify/require"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
-func TestMasterDataClientImpl_DownloadMasterData(t *testing.T) {
-	// テストロガーの設定
-	cfg := zap.NewDevelopmentConfig()
-	cfg.EncoderConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	logger, _ := cfg.Build()
-	defer logger.Sync()
-
+func TestGetMasterDataQuery(t *testing.T) {
 	// テスト用の TachibanaClient を作成
 	c := client.CreateTestClient(t)
 
@@ -34,51 +21,268 @@ func TestMasterDataClientImpl_DownloadMasterData(t *testing.T) {
 		Password: c.GetPasswordForTest(),
 	}
 	_, err := c.Login(context.Background(), loginReq)
-	require.NoError(t, err, "login failed")
-	assert.True(t, c.GetLogginedForTest(), "client should be logged in")
+	assert.NoError(t, err)
 
-	// リクエストを作成
-	req := request.ReqDownloadMaster{
-		TargetCLMID: "CLMSystemStatus,CLMEventDownloadComplete",
+	// リクエストパラメータの設定
+	req := request.ReqGetMasterData{
+		TargetCLMID:  "CLMIssueMstKabu,CLMOrderErrReason",
+		TargetColumn: "sIssueCode,sIssueName,sErrReasonCode,sErrReasonText",
 	}
 
-	// API を実行
-	resp, err := c.DownloadMasterData(context.Background(), req) // c は Client インターフェースを満たしているので、そのまま使用できる
-
-	//testで落ちないようにする
+	// API呼び出し
+	res, err := c.GetMasterDataQuery(context.Background(), req)
 	if err != nil {
-		fmt.Printf("DownloadMasterData failed: %v", err)
+		t.Fatalf("API呼び出しエラー: %v", err)
 	}
 
-	// Create the file
-	file, err := os.Create("raw_response.txt")
+	// レスポンスの検証
+	assert.NotNil(t, res)
+	assert.Equal(t, "CLMMfdsGetMasterData", res.CLMID)
+
+	// StockMasterの検証
+	if len(res.StockMaster) > 0 {
+		assert.NotEmpty(t, res.StockMaster[0].IssueCode)
+		assert.NotEmpty(t, res.StockMaster[0].IssueName)
+	}
+
+	// ErrorReasonの検証
+	if len(res.ErrorReason) > 0 {
+		assert.NotEmpty(t, res.ErrorReason[0].ErrorCode)
+		assert.NotEmpty(t, res.ErrorReason[0].ErrorText)
+	}
+}
+
+func TestGetNewsHeader(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// ログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.Login(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	// リクエストパラメータの設定 (必須パラメータのみ)
+	req := request.ReqGetNewsHead{
+		Offset: "0",  // レコード取得位置
+		Limit:  "10", // レコード取得件数最大
+	}
+
+	// API呼び出し
+	res, err := c.GetNewsHeader(context.Background(), req)
 	if err != nil {
-		t.Fatalf("Failed to create file: %v", err)
+		t.Fatalf("API呼び出しエラー: %v", err)
 	}
-	defer file.Close()
 
-	// Dump response body to file
-	if resp != nil {
-		// JSONに変換してから文字列化
-		jsonBytes, err := json.Marshal(resp)
-		if err != nil {
-			t.Fatalf("Failed to marshal response to JSON: %v", err)
-		}
-		jsonString := string(jsonBytes)
+	// レスポンスの検証
+	assert.NotNil(t, res)
+	assert.Equal(t, "CLMMfdsGetNewsHead", res.CLMID)
 
-		_, err = file.WriteString(jsonString)
-		if err != nil {
-			t.Fatalf("Failed to write to file: %v", err)
-		}
+	// ニュースヘッダーが存在するかチェック
+	if len(res.CLMMfdsNewsHead) > 0 {
+		// 最初のニュースヘッダーの検証
+		assert.NotEmpty(t, res.CLMMfdsNewsHead[0].PID, "ニュースIDが空でないこと")
+		assert.NotEmpty(t, res.CLMMfdsNewsHead[0].PDT, "ニュース日付が空でないこと")
+		assert.NotEmpty(t, res.CLMMfdsNewsHead[0].PTM, "ニュース時刻が空でないこと")
+		assert.NotEmpty(t, res.CLMMfdsNewsHead[0].PHDL, "ニュースヘッドラインが空でないこと")
 	} else {
-		fmt.Printf("resp is nil")
+		t.Log("ニュースヘッダーが存在しません")
+	}
+}
+func TestGetNewsBody(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// ログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.Login(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	// リクエストパラメータの設定 (必須パラメータのみ)
+	newsID := "20230315121900_NYU8165"
+	req := request.ReqGetNewsBody{
+		NewsID: newsID, // 適切なニュースIDを設定
 	}
 
-	// ログアウト
-	reqLogout := request_auth.ReqLogout{}
-	_, err = c.Logout(context.Background(), reqLogout)
-	require.NoError(t, err, "logout failed")
-	assert.False(t, c.GetLogginedForTest(), "client should be logged out")
+	// API呼び出し
+	res, err := c.GetNewsBody(context.Background(), req)
+	if err != nil {
+		t.Fatalf("API呼び出しエラー: %v", err)
+	}
+
+	// レスポンスの検証
+	assert.NotNil(t, res)
+	assert.Equal(t, "CLMMfdsGetNewsBody", res.CLMID)
+
+	// ニュース本文が存在するかチェック
+	if len(res.CLMMfdsNewsBody) > 0 {
+		// 最初のニュース本文の検証
+		assert.Equal(t, newsID, res.CLMMfdsNewsBody[0].PID, "ニュースIDが一致すること")
+		assert.NotEmpty(t, res.CLMMfdsNewsBody[0].PDT, "ニュース日付が空でないこと")
+		assert.NotEmpty(t, res.CLMMfdsNewsBody[0].PTM, "ニュース時刻が空でないこと")
+		assert.NotEmpty(t, res.CLMMfdsNewsBody[0].PHDL, "ニュースヘッドラインが空でないこと")
+		assert.NotEmpty(t, res.CLMMfdsNewsBody[0].PTX, "ニュース本文が空でないこと")
+	} else {
+		t.Log("ニュース本文が存在しません")
+	}
+}
+
+func TestGetIssueDetail(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// ログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.Login(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	// リクエストパラメータの設定
+	targetIssueCode := "6501,7203" // 銘柄コード指定
+	req := request.ReqGetIssueDetail{
+		TargetIssueCodes: targetIssueCode,
+	}
+
+	// API呼び出し
+	res, err := c.GetIssueDetail(context.Background(), req)
+	if err != nil {
+		t.Fatalf("API呼び出しエラー: %v", err)
+	}
+
+	// レスポンスの検証
+	assert.NotNil(t, res)
+	assert.Equal(t, "CLMMfdsGetIssueDetail", res.CLMID)
+
+	// 銘柄詳細情報が存在するかチェック
+	if len(res.CLMMfdsIssueDetail) > 0 {
+		// 最初の銘柄詳細情報の検証
+		assert.NotEmpty(t, res.CLMMfdsIssueDetail[0].IssueCode, "銘柄コードが空でないこと")
+		// 他のフィールドも必要に応じて検証
+	} else {
+		t.Log("銘柄詳細情報が存在しません")
+	}
+}
+
+func TestGetMarginInfo(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// ログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.Login(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	// リクエストパラメータの設定
+	targetIssueCode := "6501,7203" // 銘柄コード指定
+	req := request.ReqGetMarginInfo{
+		TargetIssueCodes: targetIssueCode,
+	}
+
+	// API呼び出し
+	res, err := c.GetMarginInfo(context.Background(), req)
+	if err != nil {
+		t.Fatalf("API呼び出しエラー: %v", err)
+	}
+
+	// レスポンスの検証
+	assert.NotNil(t, res)
+	assert.Equal(t, "CLMMfdsGetSyoukinZan", res.CLMID)
+
+	// 銘柄詳細情報が存在するかチェック
+	if len(res.CLMMfdsSyoukinZan) > 0 {
+		// 最初の銘柄詳細情報の検証
+		assert.NotEmpty(t, res.CLMMfdsSyoukinZan[0].IssueCode, "銘柄コードが空でないこと")
+		// 他のフィールドも必要に応じて検証
+	} else {
+		t.Log("証金残情報が存在しません")
+	}
+}
+
+func TestGetCreditInfo(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// ログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.Login(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	// リクエストパラメータの設定
+	targetIssueCode := "6501,7203" // 銘柄コード指定
+	req := request.ReqGetCreditInfo{
+		TargetIssueCodes: targetIssueCode,
+	}
+
+	// API呼び出し
+	res, err := c.GetCreditInfo(context.Background(), req)
+	if err != nil {
+		t.Fatalf("API呼び出しエラー: %v", err)
+	}
+
+	// レスポンスの検証
+	assert.NotNil(t, res)
+	assert.Equal(t, "CLMMfdsGetShinyouZan", res.CLMID)
+
+	// 銘柄詳細情報が存在するかチェック
+	if len(res.CLMMfdsShinyouZan) > 0 {
+		// 最初の銘柄詳細情報の検証
+		assert.NotEmpty(t, res.CLMMfdsShinyouZan[0].IssueCode, "銘柄コードが空でないこと")
+		// 他のフィールドも必要に応じて検証
+	} else {
+		t.Log("信用残情報が存在しません")
+	}
+}
+
+func TestGetMarginPremiumInfo(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// ログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.Login(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	// リクエストパラメータの設定
+	targetIssueCode := "6501,7203" // 銘柄コード指定
+	req := request.ReqGetMarginPremiumInfo{
+		TargetIssueCodes: targetIssueCode,
+	}
+
+	// API呼び出し
+	res, err := c.GetMarginPremiumInfo(context.Background(), req)
+	if err != nil {
+		t.Fatalf("API呼び出しエラー: %v", err)
+	}
+
+	// レスポンスの検証
+	assert.NotNil(t, res)
+	assert.Equal(t, "CLMMfdsGetHibuInfo", res.CLMID)
+
+	// 銘柄詳細情報が存在するかチェック
+	if len(res.CLMMfdsHibuInfo) > 0 {
+		// 最初の銘柄詳細情報の検証
+		assert.NotEmpty(t, res.CLMMfdsHibuInfo[0].IssueCode, "銘柄コードが空でないこと")
+		// 他のフィールドも必要に応じて検証
+		assert.NotEmpty(t, res.CLMMfdsHibuInfo[0].PBWRQ, "逆日歩が空でないこと")
+	} else {
+		t.Log("逆日歩情報が存在しません")
+	}
 }
 
 // go test -v ./internal/infrastructure/client/tests/master_data_client_impl_test.go
