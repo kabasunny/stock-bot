@@ -8,7 +8,7 @@ import (
 // internal/infrastructure/client/dto/price/request/get_price_info.go
 type ReqGetPriceInfo struct {
 	dto.RequestBase
-	SCLMID           string `json:"sCLMID"`           // 機能ID (CLMMfdsGetMarketPrice)
-	STargetIssueCode string `json:"sTargetIssueCode"` // 対象銘柄コード (カンマ区切り)
-	STargetColumn    string `json:"sTargetColumn"`    // 対象情報コード (カンマ区切り)
+	CLMID           string `json:"sCLMID"`           // 機能ID (CLMMfdsGetMarketPrice)
+	TargetIssueCode string `json:"sTargetIssueCode"` // 対象銘柄コード (カンマ区切り)
+	TargetColumn    string `json:"sTargetColumn"`    // 対象情報コード (カンマ区切り)
 }

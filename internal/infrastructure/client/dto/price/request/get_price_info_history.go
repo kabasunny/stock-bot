@@ -9,7 +9,7 @@ import (
 
 type ReqGetPriceInfoHistory struct {
 	dto.RequestBase
-	SCLMID     string `json:"sCLMID"`             // 機能ID (CLMMfdsGetMarketPriceHistory)
-	SIssueCode string `json:"sIssueCode"`         // 銘柄コード
-	SSizyouC   string `json:"sSizyouC,omitempty"` // 市場コード (省略可能, デフォルト="00":東証)
+	CLMID     string `json:"sCLMID"`             // 機能ID (CLMMfdsGetMarketPriceHistory)
+	IssueCode string `json:"sIssueCode"`         // 銘柄コード
+	SizyouC   string `json:"sSizyouC,omitempty"` // 市場コード (省略可能, デフォルト="00":東証)
 }
