@@ -37,7 +37,7 @@ func TestOrderClientImpl_GetOrderListDetail(t *testing.T) {
 			GenkinShinyouKubun:       "0",                    // 現物
 			OrderExpireDay:           "0",                    // 当日限り
 			GyakusasiOrderType:       "1",                    // 逆指値
-			GyakusasiZyouken:         "570",                  // 逆指値条件 (460円以上)
+			GyakusasiZyouken:         "572",                  // 逆指値条件 (460円以上)
 			GyakusasiPrice:           "550",                  // 逆指値値段 (455円)
 			TatebiType:               "*",                    // 指定なし
 			TategyokuZyoutoekiKazeiC: "*",                    // 指定なし

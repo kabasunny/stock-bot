@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"stock-bot/internal/infrastructure/client/dto/balance/request"
 	"stock-bot/internal/infrastructure/client/dto/balance/response"
+	"strconv"
 	"time"
 
 	"github.com/cockroachdb/errors"
@@ -26,7 +27,7 @@ func NewBalanceClientImpl(client *TachibanaClient, logger *zap.Logger) *balanceC
 	}
 }
 
-func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context, req request.ReqGenbutuKabuList) (*response.ResGenbutuKabuList, error) {
+func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context) (*response.ResGenbutuKabuList, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -38,6 +39,7 @@ func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context, req request.
 	}
 
 	// 2. リクエストパラメータの作成
+	req := request.ReqGenbutuKabuList{}
 	req.CLMID = "CLMGenbutuKabuList"
 	req.P_no = b.client.getPNo()
 	req.P_sd_date = formatSDDate(time.Now())
@@ -78,7 +80,7 @@ func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context, req request.
 
 // internal/infrastructure/client/balance_client_impl.go
 
-func (b *balanceClientImpl) GetShinyouTategyokuList(ctx context.Context, req request.ReqShinyouTategyokuList) (*response.ResShinyouTategyokuList, error) {
+func (b *balanceClientImpl) GetShinyouTategyokuList(ctx context.Context) (*response.ResShinyouTategyokuList, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -90,6 +92,7 @@ func (b *balanceClientImpl) GetShinyouTategyokuList(ctx context.Context, req req
 	}
 
 	// 2. リクエストパラメータの作成
+	req := request.ReqShinyouTategyokuList{}
 	req.CLMID = "CLMShinyouTategyokuList" // 修正: CLMID を設定
 	req.P_no = b.client.getPNo()
 	req.P_sd_date = formatSDDate(time.Now())
@@ -230,7 +233,7 @@ func (b *balanceClientImpl) GetZanKaiKanougakuSuii(ctx context.Context, req requ
 	return res, nil
 }
 
-func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context, req request.ReqZanKaiSummary) (*response.ResZanKaiSummary, error) {
+func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context) (*response.ResZanKaiSummary, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -242,6 +245,7 @@ func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context, req request.Re
 	}
 
 	// 2. リクエストパラメータの作成
+	req := request.ReqZanKaiSummary{}
 	req.CLMID = "CLMZanKaiSummary" // CLMID を設定
 	req.P_no = b.client.getPNo()
 	req.P_sd_date = formatSDDate(time.Now())
@@ -280,7 +284,7 @@ func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context, req request.Re
 	return res, nil
 }
 
-func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, req request.ReqZanKaiGenbutuKaitukeSyousai) (*response.ResZanKaiGenbutuKaitukeSyousai, error) {
+func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, tradingDay int) (*response.ResZanKaiGenbutuKaitukeSyousai, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -292,7 +296,9 @@ func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, 
 	}
 
 	// 2. リクエストパラメータの作成
+	req := request.ReqZanKaiGenbutuKaitukeSyousai{}
 	req.CLMID = "CLMZanKaiGenbutuKaitukeSyousai" // CLMID を設定
+	req.HitukeIndex = strconv.Itoa(tradingDay)
 	req.P_no = b.client.getPNo()
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
@@ -332,7 +338,7 @@ func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, 
 
 // internal/infrastructure/client/balance_client_impl.go
 
-func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousai(ctx context.Context, req request.ReqZanKaiSinyouSinkidateSyousai) (*response.ResZanKaiSinyouSinkidateSyousai, error) {
+func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousai(ctx context.Context, tradingDay int) (*response.ResZanKaiSinyouSinkidateSyousai, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -344,7 +350,9 @@ func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousai(ctx context.Context,
 	}
 
 	// 2. リクエストパラメータの作成
+	req := request.ReqZanKaiSinyouSinkidateSyousai{}
 	req.CLMID = "CLMZanKaiSinyouSinkidateSyousai" // CLMID を設定
+	req.HitukeIndex = strconv.Itoa(tradingDay)
 	req.P_no = b.client.getPNo()
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
