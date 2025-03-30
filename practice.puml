@@ -1,0 +1,66 @@
+@startuml
+
+interface InterfaceA {
+  + MethodA(): string
+}
+
+interface InterfaceB {
+  + MethodB(): string
+}
+
+interface InterfaceC {
+  + MethodC(): string
+}
+
+interface InterfaceABC {
+}
+
+InterfaceABC <|-- InterfaceA
+InterfaceABC <|-- InterfaceB
+InterfaceABC <|-- InterfaceC
+
+class ImplementationABC {
+}
+
+ImplementationABC ..|> InterfaceABC
+ImplementationABC *-- ImplementationA
+ImplementationABC *-- ImplementationB
+ImplementationABC *-- ImplementationC
+
+class ImplementationA {
+  + MethodA(): string
+}
+
+class ImplementationB {
+  + MethodB(): string
+}
+
+class ImplementationC {
+  + MethodC(): string
+}
+
+interface InterfaceD {
+  + MethodD(): string
+}
+
+class ImplementationD {
+  + MethodD(): string
+}
+
+ImplementationD ..|> InterfaceD
+ImplementationD ..> InterfaceA : dependency
+
+class ImplementationE {
+}
+
+class ImplementationF {
+}
+
+class ImplementationDEF {
+}
+
+ImplementationDEF *-- ImplementationD
+ImplementationDEF *-- ImplementationE
+ImplementationDEF *-- ImplementationF
+
+@enduml

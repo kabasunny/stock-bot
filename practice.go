@@ -2,102 +2,82 @@ package main
 
 import "fmt"
 
-// InterfaceA
-type InterfaceA interface {
-	MethodA() string
-}
-
-// InterfaceB (例)
-type InterfaceB interface {
-	MethodB() string
-}
-
-// InterfaceC (例)
-type InterfaceC interface {
-	MethodC() string
-}
-
-// InterfaceABC は、A, B, C を集約するマーカーインターフェース
+//--------第1層---------
 type InterfaceABC interface {
-	InterfaceA
+	InterfaceA // 埋め込みフィールド
 	InterfaceB
 	InterfaceC
 }
-
-// InterfaceD
-type InterfaceD interface {
-	MethodD() string
+type InterfaceA interface {
+	MethodA() string
 }
-
-// InterfaceE (例)
-type InterfaceE interface {
-	MethodE() string
+type InterfaceB interface {
+	MethodB() string
 }
-
-// InterfaceF (例)
-type InterfaceF interface {
-	MethodF() string
+type InterfaceC interface {
+	MethodC() string
 }
-
-// InterfaceDEF は、D, E, F を集約するマーカーインターフェース
-type InterfaceDEF interface {
-	InterfaceD
-	InterfaceE
-	InterfaceF
-}
-
-// ImplementationA
 type ImplementationA struct{}
 
 func (i *ImplementationA) MethodA() string {
 	return "ImplementationA: MethodA"
 }
 
-// ImplementationB
 type ImplementationB struct{}
 
 func (i *ImplementationB) MethodB() string {
 	return "ImplementationB: MethodB"
 }
 
-// ImplementationC
 type ImplementationC struct{}
 
 func (i *ImplementationC) MethodC() string {
 	return "ImplementationC: MethodC"
 }
 
-// ImplementationABC は、A, B, C の実装を埋め込むだけの構造体
-type ImplementationABC struct {
-	ImplementationA // InterfaceAの実装を埋め込む (匿名フィールド)
-	ImplementationB // InterfaceBの実装を埋め込む (匿名フィールド)
-	ImplementationC // InterfaceCの実装を埋め込む (匿名フィールド)
+type ImplementationABC struct { // フィールドに各実装を持つだけで、ABCInterfaceを実装したわけではない
+	A ImplementationA
+	B ImplementationB
+	C ImplementationC
 }
 
 // NewImplementationABC は、ImplementationABCのファクトリメソッド
 func NewImplementationABC() *ImplementationABC {
 	return &ImplementationABC{
-		ImplementationA: ImplementationA{},
-		ImplementationB: ImplementationB{},
-		ImplementationC: ImplementationC{},
+		A: ImplementationA{},
+		B: ImplementationB{},
+		C: ImplementationC{},
 	}
 }
 
-// ImplementationD
+//--------代2層---------
+type InterfaceDEF interface {
+	InterfaceD
+	InterfaceE
+	InterfaceF
+}
+
+type InterfaceD interface {
+	MethodD() string
+}
+type InterfaceE interface {
+	MethodE() string
+}
+type InterfaceF interface {
+	MethodF() string
+}
 type ImplementationD struct {
-	InterfaceA // InterfaceAに依存 (フィールド名を削除)
+	a InterfaceA
 }
 
 func (i *ImplementationD) MethodD() string {
-	return "ImplementationD: MethodD, " + i.MethodA() // i.ImplementationA.MethodA() から i.MethodA() に変更
+	return "ImplementationD: MethodD, " + a.MethodA() // i.ImplementationA.MethodA() から i.MethodA() に変更
 }
 
-// ImplementationE
 type ImplementationE struct {
-	//InterfaceE への依存
+	b InterfaceB
 }
 
-//ImplementationF
 type ImplementationF struct {
 	//InterfaceF への依存
 }
