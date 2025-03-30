@@ -11,9 +11,9 @@ import (
 	"go.uber.org/zap"
 )
 
-// TachibanaClient, NewTachibanaClient, LoginInfo, getPNo は変更なし (省略)
-// TachibanaClient は、橘証券 e支店 API クライアントの構造体です。
-type TachibanaClient struct {
+// TachibanaClientImpl, NewTachibanaClient, LoginInfo, getPNo は変更なし (省略)
+// TachibanaClientImpl は、橘証券 e支店 API クライアントの構造体です。
+type TachibanaClientImpl struct {
 	baseURL          *url.URL     // APIのベースURL (本番/デモ環境)
 	sUserId          string       // e支店口座のログインＩＤ
 	sPassword        string       // e支店口座のログインパスワード
@@ -27,6 +27,7 @@ type TachibanaClient struct {
 	logger           *zap.Logger  // ロガー
 
 	// 埋め込みフィールド
+	// 型名がフィールド名となり、同じ型の複数の埋め込みは不可の模様
 	*authClientImpl
 	*orderClientImpl
 	*balanceClientImpl
@@ -36,9 +37,9 @@ type TachibanaClient struct {
 
 // NewTachibanaClient は TachibanaClient のコンストラクタです。
 // 必要な情報を引数で受け取り、TachibanaClient インスタンスを生成して返します。
-func NewTachibanaClient(cfg *config.Config, logger *zap.Logger) *TachibanaClient {
+func NewTachibanaClient(cfg *config.Config, logger *zap.Logger) *TachibanaClientImpl {
 	baseURL, _ := url.Parse(cfg.TachibanaBaseURL) // 文字列から *url.URL に変換
-	client := &TachibanaClient{
+	client := &TachibanaClientImpl{
 		baseURL:          baseURL, // *url.URL型
 		sUserId:          cfg.TachibanaUserID,
 		sPassword:        cfg.TachibanaPassword,
@@ -71,7 +72,7 @@ type LoginInfo struct {
 }
 
 // getPNo は p_no を取得し、インクリメントする (スレッドセーフ)
-func (tc *TachibanaClient) getPNo() string {
+func (tc *TachibanaClientImpl) getPNo() string {
 	tc.p_NoMu.Lock()
 	defer tc.p_NoMu.Unlock()
 	tc.p_no++

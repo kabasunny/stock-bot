@@ -6,11 +6,22 @@ import (
 	"fmt"
 	"stock-bot/internal/infrastructure/client"
 	"strconv"
+
+	"go.uber.org/zap"
 )
 
-// BalanceInformation は、口座情報を表す
+// BalanceUseCaseImpl は、口座情報を表す
 type BalanceUseCaseImpl struct {
-	client *client.TachibanaClient
+	client client.BalanceClient // BalanceClientインターフェースを使用
+	logger *zap.Logger          // Loggerを追加
+}
+
+// NewBalanceUseCaseImpl は、BalanceUseCaseImplのコンストラクタ
+func NewBalanceUseCaseImpl(client client.BalanceClient, logger *zap.Logger) BalanceUseCase {
+	return &BalanceUseCaseImpl{
+		client: client,
+		logger: logger,
+	}
 }
 
 func (uc *BalanceUseCaseImpl) CanEntry(ctx context.Context, issueCode string) (bool, float64, error) {
@@ -27,7 +38,7 @@ func (uc *BalanceUseCaseImpl) CanEntry(ctx context.Context, issueCode string) (b
 
 	zanKaiSummary, err := uc.client.GetZanKaiSummary(ctx)
 	if err != nil {
-		return false, 0, fmt.Errorf("GetZanKaiGenbutuKaitukeSyousai failed: %w", err)
+		return false, 0, fmt.Errorf("GetZanKaiSummary failed: %w", err)
 	}
 	// 2. 取得した情報を基に口座情報を計算
 	//  genbutuKabuList 及び shinyouTategyokuList に issueCode が含まれなければ、エントリ可

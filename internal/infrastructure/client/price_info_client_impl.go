@@ -12,7 +12,7 @@ import (
 )
 
 type priceInfoClientImpl struct {
-	client *TachibanaClient
+	client *TachibanaClientImpl
 	logger *zap.Logger // 追加
 }
 

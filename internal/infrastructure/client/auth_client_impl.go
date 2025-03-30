@@ -17,7 +17,7 @@ import (
 )
 
 type authClientImpl struct {
-	client *TachibanaClient
+	client *TachibanaClientImpl
 	logger *zap.Logger
 }
 

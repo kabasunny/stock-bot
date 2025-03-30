@@ -17,7 +17,7 @@ import (
 )
 
 type orderClientImpl struct {
-	client *TachibanaClient
+	client *TachibanaClientImpl
 	logger *zap.Logger
 }
 

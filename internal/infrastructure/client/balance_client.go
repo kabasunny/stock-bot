@@ -18,7 +18,7 @@ type BalanceClient interface {
 	// GetZanKaiKanougakuSuii は、現物や信用の可能額、委託保証金率等の推移を過去6営業日に遡って取得
 	GetZanKaiKanougakuSuii(ctx context.Context, req request.ReqZanKaiKanougakuSuii) (*response.ResZanKaiKanougakuSuii, error)
 	// GetZanKaiSummary 可能額サマリーを取得
-	GetZanKaiSummary(ctx context.Context, req request.ReqZanKaiSummary) (*response.ResZanKaiSummary, error)
+	GetZanKaiSummary(ctx context.Context) (*response.ResZanKaiSummary, error)
 	// GetZanKaiGenbutuKaitukeSyousai は、指定営業日の現物株式買付可能額詳細を取得
 	GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, tradingDay int) (*response.ResZanKaiGenbutuKaitukeSyousai, error)
 	// GetZanKaiSinyouSinkidateSyousai は、指定営業日の信用新規建て可能額詳細を取得

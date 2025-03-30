@@ -16,11 +16,11 @@ import (
 )
 
 type balanceClientImpl struct {
-	client *TachibanaClient
+	client *TachibanaClientImpl
 	logger *zap.Logger // Loggerを追加
 }
 
-func NewBalanceClientImpl(client *TachibanaClient, logger *zap.Logger) *balanceClientImpl {
+func NewBalanceClientImpl(client *TachibanaClientImpl, logger *zap.Logger) *balanceClientImpl {
 	return &balanceClientImpl{
 		client: client,
 		logger: logger,

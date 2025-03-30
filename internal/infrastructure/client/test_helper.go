@@ -15,8 +15,8 @@ import (
 	"go.uber.org/zap/zaptest"
 )
 
-// CreateTestClient はテスト用の TachibanaClient インスタンスを作成します。
-func CreateTestClient(t *testing.T) *TachibanaClient {
+// CreateTestClient はテスト用の TachibanaClient インスタンスを作成
+func CreateTestClient(t *testing.T) *TachibanaClientImpl {
 	t.Helper()
 
 	// .env ファイルのパスを修正
@@ -50,42 +50,42 @@ func CreateTestClient(t *testing.T) *TachibanaClient {
 }
 
 // GetLogginedForTest はテスト用にlogginedを取得
-func (tc *TachibanaClient) GetLogginedForTest() bool { // レシーバを変更
+func (tc *TachibanaClientImpl) GetLogginedForTest() bool { // レシーバを変更
 	tc.mu.RLock()
 	defer tc.mu.RUnlock()
 	return tc.loggined
 }
 
 // GetLoginInfoForTest はテスト用に loginInfo を取得 (テストヘルパー)
-func (tc *TachibanaClient) GetLoginInfoForTest() *LoginInfo { // レシーバを変更
+func (tc *TachibanaClientImpl) GetLoginInfoForTest() *LoginInfo { // レシーバを変更
 	tc.mu.RLock()
 	defer tc.mu.RUnlock()
 	return tc.loginInfo
 }
 
 // GetUserIDForTest はテスト用に userID を取得します。
-func (tc *TachibanaClient) GetUserIDForTest() string {
+func (tc *TachibanaClientImpl) GetUserIDForTest() string {
 	tc.mu.RLock()
 	defer tc.mu.RUnlock()
 	return tc.sUserId
 }
 
 // GetPasswordForTest はテスト用に password を取得します。
-func (tc *TachibanaClient) GetPasswordForTest() string {
+func (tc *TachibanaClientImpl) GetPasswordForTest() string {
 	tc.mu.RLock()
 	defer tc.mu.RUnlock()
 	return tc.sPassword
 }
 
 // GetBaseURLForTest はテスト用に baseURL を取得します。
-func (tc *TachibanaClient) GetBaseURLForTest() string {
+func (tc *TachibanaClientImpl) GetBaseURLForTest() string {
 	tc.mu.RLock()
 	defer tc.mu.RUnlock()
 	return tc.baseURL.String() // 文字列で返す
 }
 
 // SetBaseURLForTest はテスト用に baseURL を設定します。
-func (tc *TachibanaClient) SetBaseURLForTest(baseURL string) {
+func (tc *TachibanaClientImpl) SetBaseURLForTest(baseURL string) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 	parsedURL, _ := url.Parse(baseURL) // 文字列から *url.URL に変換
@@ -93,28 +93,28 @@ func (tc *TachibanaClient) SetBaseURLForTest(baseURL string) {
 }
 
 // SetUserIDForTest はテスト用に userID を設定します。
-func (tc *TachibanaClient) SetUserIDForTest(userID string) {
+func (tc *TachibanaClientImpl) SetUserIDForTest(userID string) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 	tc.sUserId = userID
 }
 
 // SetPasswordForTest はテスト用に password を設定します。
-func (tc *TachibanaClient) SetPasswordForTest(password string) {
+func (tc *TachibanaClientImpl) SetPasswordForTest(password string) {
 	tc.mu.Lock()
 	defer tc.mu.Unlock()
 	tc.sPassword = password
 }
 
 // GetBaseURLForTest はテスト用に baseURL を取得します。
-func (tc *TachibanaClient) GetLastRequestURLForTest() string {
+func (tc *TachibanaClientImpl) GetLastRequestURLForTest() string {
 	tc.mu.RLock()
 	defer tc.mu.RUnlock()
 	return tc.loginInfo.RequestURL // 文字列で返す
 }
 
 // GetBaseURLForTest はテスト用に baseURL を取得します。
-func (tc *TachibanaClient) FormatSDDateForTest() string {
+func (tc *TachibanaClientImpl) FormatSDDateForTest() string {
 	tc.mu.RLock()
 	defer tc.mu.RUnlock()
 	return formatSDDate(time.Now())
