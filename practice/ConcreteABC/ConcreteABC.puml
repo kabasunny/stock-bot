@@ -1,0 +1,56 @@
+@startuml
+package ConcreteABC {
+
+  interface InterfaceABC {
+    {field} InterfaceA
+    {field} InterfaceB
+    {field} InterfaceC
+  }
+
+  interface InterfaceA {
+    MethodA() string
+  }
+
+  interface InterfaceB {
+    MethodB() string
+  }
+
+  interface InterfaceC {
+    MethodC() string
+  }
+
+  struct ImplementationA {
+    MethodA() string
+  }
+
+  struct ImplementationB {
+    MethodB() string
+  }
+
+  struct ImplementationC {
+    MethodC() string
+  }
+
+  struct ConcreteABC {
+    {field} A ImplementationA
+    {field} B ImplementationB
+    {field} C ImplementationC
+  }
+
+  InterfaceABC ..> InterfaceA : depends on
+  InterfaceABC ..> InterfaceB : depends on
+  InterfaceABC ..> InterfaceC : depends on
+
+  ImplementationA --|> InterfaceA : implements
+  ImplementationB --|> InterfaceB : implements
+  ImplementationC --|> InterfaceC : implements
+
+  ConcreteABC -- ImplementationA : has
+  ConcreteABC -- ImplementationB : has
+  ConcreteABC -- ImplementationC : has
+
+  ConcreteABC ..> ImplementationA : creates >
+  ConcreteABC ..> ImplementationB : creates >
+  ConcreteABC ..> ImplementationC : creates >
+}
+@enduml

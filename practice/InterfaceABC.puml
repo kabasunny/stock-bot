@@ -1,0 +1,27 @@
+@startuml
+package ABCImplementations {
+
+  interface InterfaceABC {
+    {field} InterfaceA
+    {field} InterfaceB
+    {field} InterfaceC
+  }
+
+  interface InterfaceA {
+    MethodA() string
+  }
+
+  interface InterfaceB {
+    MethodB() string
+  }
+
+  interface InterfaceC {
+    MethodC() string
+  }
+
+  InterfaceABC ..> InterfaceA : depends on
+  InterfaceABC ..> InterfaceB : depends on
+  InterfaceABC ..> InterfaceC : depends on
+
+}
+@enduml

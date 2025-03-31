@@ -1,0 +1,53 @@
+@startuml
+package DelegatingABC {
+
+  interface InterfaceABC {
+    {field} InterfaceA
+    {field} InterfaceB
+    {field} InterfaceC
+  }
+
+  interface InterfaceA {
+    MethodA() string
+  }
+
+  interface InterfaceB {
+    MethodB() string
+  }
+
+  interface InterfaceC {
+    MethodC() string
+  }
+
+  struct ImplementationA {
+    MethodA() string
+  }
+
+  struct ImplementationB {
+    MethodB() string
+  }
+
+  struct ImplementationC {
+    MethodC() string
+  }
+
+  struct DelegatingABC {
+    {field} abc InterfaceABC
+    MethodA() string
+    MethodB() string
+    MethodC() string
+  }
+
+  InterfaceABC ..> InterfaceA : depends on
+  InterfaceABC ..> InterfaceB : depends on
+  InterfaceABC ..> InterfaceC : depends on
+
+  ImplementationA --|> InterfaceA : implements
+  ImplementationB --|> InterfaceB : implements
+  ImplementationC --|> InterfaceC : implements
+
+  DelegatingABC -- InterfaceABC : has
+
+  DelegatingABC --|> InterfaceABC : implements
+}
+@enduml
