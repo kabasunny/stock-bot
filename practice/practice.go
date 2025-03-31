@@ -127,19 +127,27 @@ type ImplementationD struct {
 }
 
 func (i *ImplementationD) MethodD() string {
-	return "MethodD" + A.MethodA() // i.ImplementationA.MethodA() から i.MethodA() に変更
+	return "MethodD" + " + " + i.A.MethodA()
 }
 
 type ImplementationE struct {
-	b InterfaceB
+	B InterfaceB
+}
+
+func (i *ImplementationE) MethodE() string {
+	return "MethodE" + " + " + i.B.MethodB()
 }
 
 type ImplementationF struct {
-	//InterfaceF への依存
+	C InterfaceC
+}
+
+func (i *ImplementationF) MethodF() string {
+	return "MethodF" + " + " + i.C.MethodC()
 }
 
 type ImplementationDEF struct {
-	ImplementationD // InterfaceDに依存 (フィールド名を削除)
+	ImplementationD
 	ImplementationE
 	ImplementationF
 }
