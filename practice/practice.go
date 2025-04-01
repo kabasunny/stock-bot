@@ -100,13 +100,7 @@ type ImplementationDEF struct {
 }
 
 func NewImplementationDEF(abc *DelegatingABC) *ImplementationDEF {
-Def:
-	abc
-	return &ImplementationDEF{
-		ImplementationD: d,
-		ImplementationE: e,
-		ImplementationF: f,
-	}
+
 }
 
 // --- メイン関数 ---
