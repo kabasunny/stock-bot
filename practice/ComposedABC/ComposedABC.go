@@ -42,14 +42,14 @@ func NewComposedABC(a InterfaceA, b InterfaceB, c InterfaceC) *ComposedABC {
 	return &ComposedABC{a: a, b: b, c: c}
 }
 
-func (i *ComposedABC) MethodA() string {
-	return i.a.MethodA()
+func (c *ComposedABC) MethodA() string {
+	return c.a.MethodA()
 }
 
-func (i *ComposedABC) MethodB() string {
-	return i.b.MethodB()
+func (c *ComposedABC) MethodB() string {
+	return c.b.MethodB()
 }
 
-func (i *ComposedABC) MethodC() string {
-	return i.c.MethodC()
+func (c *ComposedABC) MethodC() string {
+	return c.c.MethodC()
 }

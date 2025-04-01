@@ -40,7 +40,6 @@ func NewDelegatingABC(abc InterfaceABC) *DelegatingABC {
 	return &DelegatingABC{abc: abc}
 }
 
-// InterfaceABC のメソッドを実装
 func (i *DelegatingABC) MethodA() string {
 	return i.abc.MethodA()
 }
