@@ -33,23 +33,23 @@ func (i *ImplementationC) MethodC() string {
 }
 
 type ComposedABC struct {
-	a InterfaceA
-	b InterfaceB
-	c InterfaceC
+	A InterfaceA
+	B InterfaceB
+	C InterfaceC
 }
 
 func NewComposedABC(a InterfaceA, b InterfaceB, c InterfaceC) *ComposedABC {
-	return &ComposedABC{a: a, b: b, c: c}
+	return &ComposedABC{A: a, B: b, C: c}
 }
 
 func (c *ComposedABC) MethodA() string {
-	return c.a.MethodA()
+	return c.A.MethodA()
 }
 
 func (c *ComposedABC) MethodB() string {
-	return c.b.MethodB()
+	return c.B.MethodB()
 }
 
 func (c *ComposedABC) MethodC() string {
-	return c.c.MethodC()
+	return c.C.MethodC()
 }

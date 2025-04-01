@@ -33,21 +33,21 @@ func (i *ImplementationC) MethodC() string {
 }
 
 type DelegatingABC struct {
-	abc InterfaceABC
+	Abc InterfaceABC
 }
 
 func NewDelegatingABC(abc InterfaceABC) *DelegatingABC {
-	return &DelegatingABC{abc: abc}
+	return &DelegatingABC{Abc: abc}
 }
 
 func (d *DelegatingABC) MethodA() string {
-	return d.abc.MethodA()
+	return d.Abc.MethodA()
 }
 
 func (d *DelegatingABC) MethodB() string {
-	return d.abc.MethodB()
+	return d.Abc.MethodB()
 }
 
 func (d *DelegatingABC) MethodC() string {
-	return d.abc.MethodC()
+	return d.Abc.MethodC()
 }
