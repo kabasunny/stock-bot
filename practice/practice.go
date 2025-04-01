@@ -96,16 +96,12 @@ func (i *ImplementationF) MethodF() string {
 }
 
 type ImplementationDEF struct {
-	ImplementationD
-	ImplementationE
-	ImplementationF
+	Def InterfaceDEF
 }
 
 func NewImplementationDEF(abc *DelegatingABC) *ImplementationDEF {
-	// d := ImplementationD{InterfaceA: &abc.ImplementationA}
-	d := ImplementationD{InterfaceA: a}
-	e := ImplementationE{}
-	f := ImplementationF{}
+Def:
+	abc
 	return &ImplementationDEF{
 		ImplementationD: d,
 		ImplementationE: e,
