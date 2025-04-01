@@ -55,6 +55,7 @@ func (i *DelegatingABC) MethodC() string {
 }
 
 //--------代2層---------
+
 type InterfaceDEF interface {
 	InterfaceD
 	InterfaceE
