@@ -32,11 +32,11 @@ func (i *ImplementationC) MethodC() string {
 	return "MethodC"
 }
 
-type ConcreteABC struct { // フィールドに各実装を持つだけで、ABCInterfaceを実装したわけではない
+type ConcreteABC struct {
 	A ImplementationA
 	B ImplementationB
 	C ImplementationC
-} // フィールドは具象型で、単なるデータ構造体。ポリモーフィズムが活用できない（蜜結合で、柔軟性や拡張性が不要な特化用途）
+}
 
 func NewConcreteABC() *ConcreteABC {
 	return &ConcreteABC{

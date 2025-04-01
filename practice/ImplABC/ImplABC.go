@@ -1,4 +1,4 @@
-package ImplementationsABC
+package ImplABC
 
 type InterfaceABC interface {
 	InterfaceA
@@ -32,14 +32,14 @@ func (i *ImplementationC) MethodC() string {
 	return "MethodC"
 }
 
-type ImplementationsABC struct { // フィールドに各実装を持つだけで、ABCInterfaceを実装したわけではない
+type ImplABC struct {
 	A InterfaceA
 	B InterfaceB
 	C InterfaceC
-} // フィールドはインターフェース型で、柔軟で拡張性のあるコンポーネント。ポリモーフィズムの活用
+}
 
-func NewImplementationsABC(a InterfaceA, b InterfaceB, c InterfaceC) *ImplementationsABC {
-	return &ImplementationsABC{
+func NewImplsABC(a InterfaceA, b InterfaceB, c InterfaceC) *ImplABC {
+	return &ImplABC{
 		A: a,
 		B: b,
 		C: c,

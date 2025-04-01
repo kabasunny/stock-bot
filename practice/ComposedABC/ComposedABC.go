@@ -32,11 +32,11 @@ func (i *ImplementationC) MethodC() string {
 	return "MethodC"
 }
 
-type ComposedABC struct { // 個別にフィールドを持ち、InterfaceABC を実装する構造体
+type ComposedABC struct {
 	a InterfaceA
 	b InterfaceB
 	c InterfaceC
-} // 複数のインターフェースを組み合わせて新しい機能を実現する合成パターン
+}
 
 func NewComposedABC(a InterfaceA, b InterfaceB, c InterfaceC) *ComposedABC {
 	return &ComposedABC{a: a, b: b, c: c}
