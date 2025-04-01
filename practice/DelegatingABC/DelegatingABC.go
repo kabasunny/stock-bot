@@ -40,14 +40,14 @@ func NewDelegatingABC(abc InterfaceABC) *DelegatingABC {
 	return &DelegatingABC{abc: abc}
 }
 
-func (i *DelegatingABC) MethodA() string {
-	return i.abc.MethodA()
+func (d *DelegatingABC) MethodA() string {
+	return d.abc.MethodA()
 }
 
-func (i *DelegatingABC) MethodB() string {
-	return i.abc.MethodB()
+func (d *DelegatingABC) MethodB() string {
+	return d.abc.MethodB()
 }
 
-func (i *DelegatingABC) MethodC() string {
-	return i.abc.MethodC()
+func (d *DelegatingABC) MethodC() string {
+	return d.abc.MethodC()
 }
