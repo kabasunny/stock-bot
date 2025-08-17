@@ -8,17 +8,17 @@ import (
 	"fmt"
 	"net/http"
 	"net/url"
-	"stock-bot/internal/infrastructure/client/dto/order/request"
-	"stock-bot/internal/infrastructure/client/dto/order/response"
 	"time"
 
+	"stock-bot/internal/infrastructure/client/dto/order/request"
+	"stock-bot/internal/infrastructure/client/dto/order/response"
+	_ "stock-bot/internal/logger"
+
 	"github.com/cockroachdb/errors"
-	"go.uber.org/zap"
 )
 
 type orderClientImpl struct {
 	client *TachibanaClientImpl
-	logger *zap.Logger
 }
 
 func (o *orderClientImpl) NewOrder(ctx context.Context, req request.ReqNewOrder) (*response.ResNewOrder, error) {
@@ -92,7 +92,7 @@ func (o *orderClientImpl) NewOrder(ctx context.Context, req request.ReqNewOrder)
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, o.logger)
+	respMap, err := SendRequest(httpReq, 3)
 
 	if err != nil {
 		return nil, errors.Wrap(err, "new order failed")
@@ -144,7 +144,7 @@ func (o *orderClientImpl) CorrectOrder(ctx context.Context, req request.ReqCorre
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, o.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "correct order failed")
 	}
@@ -189,7 +189,7 @@ func (o *orderClientImpl) CancelOrder(ctx context.Context, req request.ReqCancel
 		return nil, errors.Wrap(err, "failed to create http request")
 	}
 
-	respMap, err := SendRequest(httpReq, 3, o.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "cancel order failed")
 	}
@@ -232,7 +232,7 @@ func (o *orderClientImpl) CancelOrderAll(ctx context.Context, req request.ReqCan
 		return nil, errors.Wrap(err, "failed to create http request")
 	}
 
-	respMap, err := SendRequest(httpReq, 3, o.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "cancel all order failed")
 	}
@@ -275,7 +275,7 @@ func (o *orderClientImpl) GetOrderList(ctx context.Context, req request.ReqOrder
 		return nil, errors.Wrap(err, "failed to create http request")
 	}
 
-	respMap, err := SendRequest(httpReq, 3, o.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get order list failed")
 	}
@@ -319,7 +319,7 @@ func (o *orderClientImpl) GetOrderListDetail(ctx context.Context, req request.Re
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create http request")
 	}
-	respMap, err := SendRequest(httpReq, 3, o.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get order list detail failed")
 	}

@@ -13,12 +13,10 @@ import (
 	"stock-bot/internal/infrastructure/client/dto/auth/response"
 
 	"github.com/cockroachdb/errors"
-	"go.uber.org/zap"
 )
 
 type authClientImpl struct {
 	client *TachibanaClientImpl
-	logger *zap.Logger
 }
 
 func (a *authClientImpl) Login(ctx context.Context, req request.ReqLogin) (*response.ResLogin, error) {
@@ -55,7 +53,7 @@ func (a *authClientImpl) Login(ctx context.Context, req request.ReqLogin) (*resp
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, a.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "login failed")
 	}
@@ -66,8 +64,9 @@ func (a *authClientImpl) Login(ctx context.Context, req request.ReqLogin) (*resp
 		return nil, err
 	}
 
-	// 6. ログイン成功時の処理
+	// 6. ログイン成功/失敗の判定
 	if res.ResultCode == "0" {
+		// ログイン成功時の処理
 		a.client.loggined = true
 
 		// p_noの更新 (Login APIのレスポンスで返ってくる値で更新)
@@ -87,9 +86,11 @@ func (a *authClientImpl) Login(ctx context.Context, req request.ReqLogin) (*resp
 			EventURL:   res.EventURL,
 			Expiry:     time.Now().Add(24 * time.Hour),
 		}
+		return res, nil
 	}
 
-	return res, nil
+	// ログイン失敗時の処理
+	return nil, errors.Errorf("login failed with result code %s: %s", res.ResultCode, res.ResultText)
 }
 
 func (a *authClientImpl) Logout(ctx context.Context, req request.ReqLogout) (*response.ResLogout, error) {
@@ -128,7 +129,7 @@ func (a *authClientImpl) Logout(ctx context.Context, req request.ReqLogout) (*re
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, a.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		//ログアウト失敗時も、ログイン状態はfalseにする
 		a.client.loggined = false

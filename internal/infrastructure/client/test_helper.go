@@ -2,7 +2,6 @@
 package client
 
 import (
-	"fmt"
 	"net/url"
 	"path/filepath"
 	"runtime"
@@ -11,8 +10,6 @@ import (
 	"time"
 
 	"stock-bot/internal/config"
-
-	"go.uber.org/zap/zaptest"
 )
 
 // CreateTestClient はテスト用の TachibanaClient インスタンスを作成
@@ -35,16 +32,13 @@ func CreateTestClient(t *testing.T) *TachibanaClientImpl {
 
 	// デモ環境かどうかのチェックと表示
 	if strings.Contains(cfg.TachibanaBaseURL, "demo") {
-		fmt.Println("APIの　デモ　環境に接続")
+		t.Log("APIの　デモ　環境に接続")
 	} else {
-		fmt.Println("APIの　本番　環境に接続")
+		t.Log("APIの　本番　環境に接続")
 	}
 
-	// ロガーの作成 (テスト用)
-	logger := zaptest.NewLogger(t) // テストログを出力
-
 	// TachibanaClient インスタンスの作成
-	tachibanaClient := NewTachibanaClient(cfg, logger)
+	tachibanaClient := NewTachibanaClient(cfg)
 
 	return tachibanaClient
 }

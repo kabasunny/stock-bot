@@ -68,3 +68,5 @@ func TestBalanceUseCaseImpl_CanEntry_RealAPI(t *testing.T) {
 	// 例: 銘柄をすでに保有している場合にfalseが返ることを検証するテストケース
 	// 例: APIからのデータ取得でエラーが発生した場合にエラーが伝播されることを検証するテストケース
 }
+
+// go test ./internal/app/tests -v

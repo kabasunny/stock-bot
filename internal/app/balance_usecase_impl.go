@@ -4,23 +4,22 @@ package app
 import (
 	"context"
 	"fmt"
-	"stock-bot/internal/infrastructure/client"
+	"log/slog"
 	"strconv"
 
-	"go.uber.org/zap"
+	"stock-bot/internal/infrastructure/client"
+	_ "stock-bot/internal/logger"
 )
 
 // BalanceUseCaseImpl は、口座情報を表す
 type BalanceUseCaseImpl struct {
 	client client.BalanceClient // BalanceClientインターフェースを使用
-	logger *zap.Logger          // Loggerを追加
 }
 
 // NewBalanceUseCaseImpl は、BalanceUseCaseImplのコンストラクタ
-func NewBalanceUseCaseImpl(client client.BalanceClient, logger *zap.Logger) BalanceUseCase {
+func NewBalanceUseCaseImpl(client client.BalanceClient) BalanceUseCase {
 	return &BalanceUseCaseImpl{
 		client: client,
-		logger: logger,
 	}
 }
 
@@ -66,25 +65,25 @@ func (uc *BalanceUseCaseImpl) CanEntry(ctx context.Context, issueCode string) (b
 	// stringをfloat64に変換
 	zanKaiSummaryValue, err1 := strconv.ParseFloat(zanKaiSummary.GenbutuKabuKaituke, 64)
 	if err1 != nil {
-		fmt.Println("変換エラー:", err1)
+		slog.Error("failed to parse float for zanKaiSummaryValue", slog.Any("error", err1), slog.String("value", zanKaiSummary.GenbutuKabuKaituke))
 		return false, 0, err1
 	}
 
 	shinyouTategyokuListValue, err2 := strconv.ParseFloat(shinyouTategyokuList.TotalHyoukaSonekiGoukei, 64)
 	if err2 != nil {
-		fmt.Println("変換エラー:", err2)
+		slog.Error("failed to parse float for shinyouTategyokuListValue", slog.Any("error", err2), slog.String("value", shinyouTategyokuList.TotalHyoukaSonekiGoukei))
 		return false, 0, err1
 	}
 
 	genbutuKabuListValue, err3 := strconv.ParseFloat(genbutuKabuList.TotalGaisanHyoukagakuGoukei, 64)
 	if err3 != nil {
-		fmt.Println("変換エラー:", err3)
+		slog.Error("failed to parse float for genbutuKabuListValue", slog.Any("error", err3), slog.String("value", genbutuKabuList.TotalGaisanHyoukagakuGoukei))
 		return false, 0, err1
 	}
 
 	// 加算処理
 	totalAssets := zanKaiSummaryValue + shinyouTategyokuListValue + genbutuKabuListValue
-	fmt.Println("総資産:", totalAssets)
+	slog.Info("calculated total assets", slog.Float64("totalAssets", totalAssets))
 
 	return !isHolding, totalAssets, nil
 }

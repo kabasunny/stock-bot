@@ -4,23 +4,22 @@ package client
 
 import (
 	"context"
-	"fmt"
+	"log/slog"
+
 	"stock-bot/internal/infrastructure/client/dto/price/request"
 	"stock-bot/internal/infrastructure/client/dto/price/response"
-
-	"go.uber.org/zap"
+	_ "stock-bot/internal/logger"
 )
 
 type priceInfoClientImpl struct {
 	client *TachibanaClientImpl
-	logger *zap.Logger // 追加
 }
 
 func (p *priceInfoClientImpl) GetPriceInfo(ctx context.Context, req request.ReqGetPriceInfo) (*response.ResGetPriceInfo, error) {
-	fmt.Println("Dummy GetPriceInfo")
+	slog.Info("Dummy GetPriceInfo")
 	return nil, nil
 }
 func (p *priceInfoClientImpl) GetPriceInfoHistory(ctx context.Context, req request.ReqGetPriceInfoHistory) (*response.ResGetPriceInfoHistory, error) {
-	fmt.Println("Dummy GetPriceInfoHistory")
+	slog.Info("Dummy GetPriceInfoHistory")
 	return nil, nil
 }

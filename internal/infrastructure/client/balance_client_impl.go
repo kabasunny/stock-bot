@@ -6,25 +6,18 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/url"
-	"stock-bot/internal/infrastructure/client/dto/balance/request"
-	"stock-bot/internal/infrastructure/client/dto/balance/response"
 	"strconv"
 	"time"
 
+	"stock-bot/internal/infrastructure/client/dto/balance/request"
+	"stock-bot/internal/infrastructure/client/dto/balance/response"
+	_ "stock-bot/internal/logger"
+
 	"github.com/cockroachdb/errors"
-	"go.uber.org/zap"
 )
 
 type balanceClientImpl struct {
 	client *TachibanaClientImpl
-	logger *zap.Logger // Loggerを追加
-}
-
-func NewBalanceClientImpl(client *TachibanaClientImpl, logger *zap.Logger) *balanceClientImpl {
-	return &balanceClientImpl{
-		client: client,
-		logger: logger,
-	}
 }
 
 func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context) (*response.ResGenbutuKabuList, error) {
@@ -65,7 +58,7 @@ func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context) (*response.R
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, b.logger) // b.logger を使用
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetGenbutuKabuList failed")
 	}
@@ -118,7 +111,7 @@ func (b *balanceClientImpl) GetShinyouTategyokuList(ctx context.Context) (*respo
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, b.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetShinyouTategyokuList failed")
 	}
@@ -170,7 +163,7 @@ func (b *balanceClientImpl) GetZanKaiKanougaku(ctx context.Context, req request.
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, b.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiKanougaku failed")
 	}
@@ -220,7 +213,7 @@ func (b *balanceClientImpl) GetZanKaiKanougakuSuii(ctx context.Context, req requ
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, b.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiKanougakuSuii failed")
 	}
@@ -271,7 +264,7 @@ func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context) (*response.Res
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, b.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiSummary failed")
 	}
@@ -323,7 +316,7 @@ func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, 
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, b.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiGenbutuKaitukeSyousai failed")
 	}
@@ -377,7 +370,7 @@ func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousai(ctx context.Context,
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, b.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiSinyouSinkidateSyousai failed")
 	}
@@ -429,7 +422,7 @@ func (b *balanceClientImpl) GetZanRealHosyoukinRitu(ctx context.Context, req req
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, b.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanRealHosyoukinRitu failed")
 	}
@@ -473,7 +466,7 @@ func (b *balanceClientImpl) GetZanShinkiKanoIjiritu(ctx context.Context, req req
 		return nil, errors.Wrap(err, "failed to create http request")
 	}
 
-	respMap, err := SendRequest(httpReq, 3, b.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanShinkiKanoIjiritu failed")
 	}
@@ -517,7 +510,7 @@ func (b *balanceClientImpl) GetZanUriKanousuu(ctx context.Context, req request.R
 		return nil, errors.Wrap(err, "failed to create http request")
 	}
 
-	respMap, err := SendRequest(httpReq, 3, b.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanUriKanousuu failed")
 	}

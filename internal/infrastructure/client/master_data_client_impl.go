@@ -6,23 +6,24 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"net/http"
 	"net/url"
 	"os"
-	"stock-bot/internal/infrastructure/client/dto/master/request"
-	"stock-bot/internal/infrastructure/client/dto/master/response"
 	"strings"
 	"time"
 
+	"stock-bot/internal/infrastructure/client/dto/master/request"
+	"stock-bot/internal/infrastructure/client/dto/master/response"
+	_ "stock-bot/internal/logger"
+
 	"github.com/cockroachdb/errors"
-	"go.uber.org/zap"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 )
 
 type masterDataClientImpl struct {
 	client *TachibanaClientImpl
-	logger *zap.Logger // 追加
 }
 
 func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req request.ReqDownloadMaster) (*response.ResDownloadMaster, error) {
@@ -58,12 +59,8 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create http request")
 	}
-	fmt.Println("---------------------------------")
-	// req.URL をデコードして表示
 	decodedURL, _ := url.QueryUnescape(httpReq.URL.String())
-	// logger.Debug("Decoded URL:", zap.String("decodedUrl", decodedURL))
-	fmt.Println("Decoded URL:", decodedURL)
-	fmt.Println("---------------------------------")
+	slog.Debug("Decoded URL", slog.String("decodedUrl", decodedURL))
 
 	// 4. リクエストの送信 (SendRequestを直接使わず、専用の処理を行う)
 	httpClient := &http.Client{}
@@ -87,7 +84,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 	// ファイルを作成
 	file, err := os.Create("raw_response.txt")
 	if err != nil {
-		fmt.Println("ファイル作成エラー:", err)
+		slog.Error("ファイル作成エラー", slog.Any("error", err))
 		//return nil, fmt.Errorf("ファイル作成エラー: %w", err)
 	}
 	defer file.Close()
@@ -116,21 +113,21 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		// Shift-JIS から UTF-8 への変換
 		bodyUTF8, _, err := transform.Bytes(japanese.ShiftJIS.NewDecoder(), []byte(jsonString))
 		if err != nil {
-			m.logger.Warn("shift-jis decode error", zap.Error(err))
+			slog.Warn("shift-jis decode error", slog.Any("error", err))
 			continue
 		}
 
 		// JSONとしてデコード
 		var item map[string]interface{}
 		if err := json.Unmarshal([]byte(bodyUTF8), &item); err != nil {
-			m.logger.Warn("Failed to unmarshal line", zap.Error(err), zap.String("line", jsonString))
+			slog.Warn("Failed to unmarshal line", slog.Any("error", err), slog.String("line", jsonString))
 			continue // デコードに失敗したらスキップ
 		}
 
 		// sCLMID キーの存在確認
 		sCLMID, ok := item["sCLMID"].(string)
 		if !ok {
-			m.logger.Warn("sCLMID not found in response item", zap.Any("item", item))
+			slog.Warn("sCLMID not found in response item", slog.Any("item", item))
 			continue
 		}
 
@@ -139,7 +136,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMSystemStatus":
 			var systemStatus response.ResSystemStatus
 			if err := convertMapToStruct(item, &systemStatus, ""); err != nil {
-				m.logger.Error("failed to map SystemStatus", zap.Error(err))
+				slog.Error("failed to map SystemStatus", slog.Any("error", err))
 				continue
 			}
 			res.SystemStatus = systemStatus
@@ -147,7 +144,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMDateZyouhou":
 			var dateInfo response.ResDateInfo
 			if err := convertMapToStruct(item, &dateInfo, ""); err != nil {
-				m.logger.Error("failed to map DateInfo", zap.Error(err))
+				slog.Error("failed to map DateInfo", slog.Any("error", err))
 				continue
 			}
 			res.DateInfo = append(res.DateInfo, dateInfo)
@@ -155,7 +152,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMYobine":
 			var tickRule response.ResTickRule
 			if err := convertMapToStruct(item, &tickRule, ""); err != nil {
-				m.logger.Error("failed to map TickRule", zap.Error(err))
+				slog.Error("failed to map TickRule", slog.Any("error", err))
 				continue
 			}
 			res.TickRule = append(res.TickRule, tickRule)
@@ -163,7 +160,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMUnyouStatus":
 			var operationStatus response.ResOperationStatus
 			if err := convertMapToStruct(item, &operationStatus, ""); err != nil {
-				m.logger.Error("failed to map OperationStatus", zap.Error(err))
+				slog.Error("failed to map OperationStatus", slog.Any("error", err))
 				continue
 			}
 			res.OperationStatus = append(res.OperationStatus, operationStatus)
@@ -171,7 +168,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMUnyouStatusKabu":
 			var operationStatusStock response.ResOperationStatus
 			if err := convertMapToStruct(item, &operationStatusStock, ""); err != nil {
-				m.logger.Error("failed to map OperationStatusKabu", zap.Error(err))
+				slog.Error("failed to map OperationStatusKabu", slog.Any("error", err))
 				continue
 			}
 			res.OperationStatusStock = append(res.OperationStatusStock, operationStatusStock)
@@ -179,7 +176,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMUnyouStatusHasei":
 			var operationStatusDerivative response.ResOperationStatus
 			if err := convertMapToStruct(item, &operationStatusDerivative, ""); err != nil {
-				m.logger.Error("failed to map OperationStatusHasei", zap.Error(err))
+				slog.Error("failed to map OperationStatusHasei", slog.Any("error", err))
 				continue
 			}
 			res.OperationStatusDerivative = append(res.OperationStatusDerivative, operationStatusDerivative)
@@ -187,7 +184,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMIssueMstKabu":
 			var stockMaster response.ResStockMaster
 			if err := convertMapToStruct(item, &stockMaster, ""); err != nil {
-				m.logger.Error("failed to map StockMaster", zap.Error(err))
+				slog.Error("failed to map StockMaster", slog.Any("error", err))
 				continue
 			}
 			res.StockMaster = append(res.StockMaster, stockMaster)
@@ -195,7 +192,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMIssueSizyouMstKabu":
 			var stockMarketMaster response.ResStockMarketMaster
 			if err := convertMapToStruct(item, &stockMarketMaster, ""); err != nil {
-				m.logger.Error("failed to map StockMarketMaster", zap.Error(err))
+				slog.Error("failed to map StockMarketMaster", slog.Any("error", err))
 				continue
 			}
 			res.StockMarketMaster = append(res.StockMarketMaster, stockMarketMaster)
@@ -203,7 +200,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMIssueSizyouKiseiKabu":
 			var stockIssueRegulation response.ResStockIssueRegulation
 			if err := convertMapToStruct(item, &stockIssueRegulation, ""); err != nil {
-				m.logger.Error("failed to map StockIssueRegulation", zap.Error(err))
+				slog.Error("failed to map StockIssueRegulation", slog.Any("error", err))
 				continue
 			}
 			res.StockIssueRegulation = append(res.StockIssueRegulation, stockIssueRegulation)
@@ -211,7 +208,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMIssueMstSak":
 			var futureMaster response.ResFutureMaster
 			if err := convertMapToStruct(item, &futureMaster, ""); err != nil {
-				m.logger.Error("failed to map FutureMaster", zap.Error(err))
+				slog.Error("failed to map FutureMaster", slog.Any("error", err))
 				continue
 			}
 			res.FutureMaster = append(res.FutureMaster, futureMaster)
@@ -219,7 +216,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMIssueMstOp":
 			var optionMaster response.ResOptionMaster
 			if err := convertMapToStruct(item, &optionMaster, ""); err != nil {
-				m.logger.Error("failed to map OptionMaster", zap.Error(err))
+				slog.Error("failed to map OptionMaster", slog.Any("error", err))
 				continue
 			}
 			res.OptionMaster = append(res.OptionMaster, optionMaster)
@@ -227,7 +224,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMIssueSizyouKiseiHasei":
 			var futureOptionRegulation response.ResFutureOptionRegulation
 			if err := convertMapToStruct(item, &futureOptionRegulation, ""); err != nil {
-				m.logger.Error("failed to map FutureOptionRegulation", zap.Error(err))
+				slog.Error("failed to map FutureOptionRegulation", slog.Any("error", err))
 				continue
 			}
 			res.FutureOptionRegulation = append(res.FutureOptionRegulation, futureOptionRegulation)
@@ -235,7 +232,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMDaiyouKakeme":
 			var marginRate response.ResMarginRate
 			if err := convertMapToStruct(item, &marginRate, ""); err != nil {
-				m.logger.Error("failed to map MarginRate", zap.Error(err))
+				slog.Error("failed to map MarginRate", slog.Any("error", err))
 				continue
 			}
 			res.MarginRate = append(res.MarginRate, marginRate)
@@ -243,7 +240,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMHosyoukinMst":
 			var marginMaster response.ResMarginMaster
 			if err := convertMapToStruct(item, &marginMaster, ""); err != nil {
-				m.logger.Error("failed to map MarginMaster", zap.Error(err))
+				slog.Error("failed to map MarginMaster", slog.Any("error", err))
 				continue
 			}
 			res.MarginMaster = append(res.MarginMaster, marginMaster)
@@ -251,22 +248,22 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		case "CLMOrderErrReason":
 			var errorReason response.ResErrorReason
 			if err := convertMapToStruct(item, &errorReason, ""); err != nil {
-				m.logger.Error("failed to map ErrorReason", zap.Error(err))
+				slog.Error("failed to map ErrorReason", slog.Any("error", err))
 				continue
 			}
 			res.ErrorReason = append(res.ErrorReason, errorReason)
 
 		case "CLMEventDownloadComplete":
-			fmt.Println("CLMEventDownloadComplete")
+			slog.Info("CLMEventDownloadComplete")
 			return res, nil // 正常終了
 
 		default:
-			m.logger.Warn("Unknown master data type", zap.String("sCLMID", sCLMID))
+			slog.Warn("Unknown master data type", slog.String("sCLMID", sCLMID))
 		}
 	}
 
 	// タイムアウトまたはエラーが発生した場合、エラーを返す
-	m.logger.Info("DownloadMasterData: タイムアウトまたはエラー") // ログ出力
+	slog.Info("DownloadMasterData: タイムアウトまたはエラー") // ログ出力
 	return res, errors.New("タイムアウトまたはエラー")
 }
 
@@ -303,7 +300,7 @@ func (m *masterDataClientImpl) GetMasterDataQuery(ctx context.Context, req reque
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, m.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get master data query failed")
 	}
@@ -350,7 +347,7 @@ func (m *masterDataClientImpl) GetNewsHeader(ctx context.Context, req request.Re
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, m.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get news header failed")
 	}
@@ -397,7 +394,7 @@ func (m *masterDataClientImpl) GetNewsBody(ctx context.Context, req request.ReqG
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, m.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get news body failed")
 	}
@@ -444,7 +441,7 @@ func (m *masterDataClientImpl) GetIssueDetail(ctx context.Context, req request.R
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, m.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get issue detail failed")
 	}
@@ -491,7 +488,7 @@ func (m *masterDataClientImpl) GetMarginInfo(ctx context.Context, req request.Re
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, m.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get margin info failed")
 	}
@@ -538,7 +535,7 @@ func (m *masterDataClientImpl) GetCreditInfo(ctx context.Context, req request.Re
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, m.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get credit info failed")
 	}
@@ -585,7 +582,7 @@ func (m *masterDataClientImpl) GetMarginPremiumInfo(ctx context.Context, req req
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3, m.logger)
+	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get margin premium info failed")
 	}

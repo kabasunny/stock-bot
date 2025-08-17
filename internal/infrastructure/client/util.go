@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log/slog"
 	"math"
 	"net/http"
 	"net/url"
@@ -15,8 +16,9 @@ import (
 	"strings"
 	"time"
 
+	_ "stock-bot/internal/logger"
+
 	"github.com/cockroachdb/errors"
-	"go.uber.org/zap"
 	"golang.org/x/text/encoding/japanese"
 	"golang.org/x/text/transform"
 )
@@ -25,12 +27,10 @@ import (
 func SendRequest(
 	req *http.Request,
 	maxRetries int,
-	logger *zap.Logger,
-) (map[string]interface{}, error) { // 引数をシンプルに
+) (map[string]interface{}, error) { // logger引数を削除
 	var response map[string]interface{}
 
 	// retryDoに渡す関数
-	// loggerをキャプチャするように変更
 	retryFunc := func(client *http.Client, decodeFunc func([]byte, interface{}) error) (*http.Response, error) {
 		//timeoutコンテキストを作成
 		req, cancel := withContextAndTimeout(req, 60*time.Second)
@@ -50,7 +50,7 @@ func SendRequest(
 		if err != nil {
 			return resp, fmt.Errorf("response body read error: %w", err)
 		}
-		logRequestAndResponse(req, body, logger) // ここで外側の logger を使用
+		logRequestAndResponse(req, body) // loggerを渡さない
 
 		if err := decodeFunc(body, &response); err != nil {
 			return resp, fmt.Errorf("レスポンスのデコードに失敗: %w", err)
@@ -503,25 +503,23 @@ func withContextAndTimeout(req *http.Request, timeout time.Duration) (*http.Requ
 	return req.WithContext(ctx), cancel
 }
 
-// logRequestAndResponse は、リクエストとレスポンスをログに出力する（bufio.Scannerを使わないバージョン）
-func logRequestAndResponse(req *http.Request, respBody []byte, logger *zap.Logger) {
+// logRequestAndResponse は、リクエストとレスポンスをログに出力する
+func logRequestAndResponse(req *http.Request, respBody []byte) {
 	// リクエスト情報のログ出力
-	logger.Debug("Request:",
-		zap.String("method", req.Method),
-		zap.String("url", req.URL.String()),
-		zap.Any("headers", req.Header),
+	slog.Debug("Request",
+		slog.String("method", req.Method),
+		slog.String("url", req.URL.String()),
+		slog.Any("headers", req.Header),
 	)
-	fmt.Println("---------------------------------")
+
 	// req.URL をデコードして表示
 	decodedURL, _ := url.QueryUnescape(req.URL.String())
-	// logger.Debug("Decoded URL:", zap.String("decodedUrl", decodedURL))
-	fmt.Println("Decoded URL:", decodedURL)
-	fmt.Println("---------------------------------")
+	slog.Debug("Decoded URL", slog.String("decodedUrl", decodedURL))
 
 	// UTF-8に変換を試みる（Shift_JISデコード）
 	bodyUTF8, _, err := transform.Bytes(japanese.ShiftJIS.NewDecoder(), respBody)
 	if err != nil {
-		fmt.Println("Failed to decode response body to UTF-8:", err)
+		slog.Error("Failed to decode response body to UTF-8", slog.Any("error", err))
 		return
 	}
 
@@ -529,12 +527,12 @@ func logRequestAndResponse(req *http.Request, respBody []byte, logger *zap.Logge
 	var prettyBody bytes.Buffer
 	err = json.Indent(&prettyBody, bodyUTF8, "", "    ")
 	if err != nil {
-		fmt.Println("Failed to format JSON:", err)
+		slog.Error("Failed to format JSON", slog.Any("error", err))
+		slog.Debug("Raw Response Body (UTF-8)", slog.String("body", string(bodyUTF8)))
 		return
 	}
 
-	fmt.Println("Formatted Response Body (UTF-8):")
-	fmt.Println(prettyBody.String())
+	slog.Debug("Formatted Response Body (UTF-8)", slog.String("body", prettyBody.String()))
 }
 
 func RetryDo(

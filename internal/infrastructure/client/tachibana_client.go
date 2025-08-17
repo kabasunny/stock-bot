@@ -4,11 +4,10 @@ package client
 import (
 	"net/url"
 	"stock-bot/internal/config"
+	_ "stock-bot/internal/logger"
 	"strconv"
 	"sync"
 	"time"
-
-	"go.uber.org/zap"
 )
 
 // TachibanaClientImpl, NewTachibanaClient, LoginInfo, getPNo は変更なし (省略)
@@ -24,7 +23,6 @@ type TachibanaClientImpl struct {
 	p_no             int64        // リクエストに付与する一意な番号 (連番)
 	p_NoMu           sync.Mutex   // p_no の排他制御用ミューテックス
 	targetIssueCodes []string     // 利用する銘柄コード
-	logger           *zap.Logger  // ロガー
 
 	// 埋め込みフィールド
 	// 型名がフィールド名となり、同じ型の複数の埋め込みは不可の模様
@@ -37,7 +35,7 @@ type TachibanaClientImpl struct {
 
 // NewTachibanaClient は TachibanaClient のコンストラクタです。
 // 必要な情報を引数で受け取り、TachibanaClient インスタンスを生成して返します。
-func NewTachibanaClient(cfg *config.Config, logger *zap.Logger) *TachibanaClientImpl {
+func NewTachibanaClient(cfg *config.Config) *TachibanaClientImpl {
 	baseURL, _ := url.Parse(cfg.TachibanaBaseURL) // 文字列から *url.URL に変換
 	client := &TachibanaClientImpl{
 		baseURL:          baseURL, // *url.URL型
@@ -50,14 +48,13 @@ func NewTachibanaClient(cfg *config.Config, logger *zap.Logger) *TachibanaClient
 		mu:               sync.RWMutex{}, // 初期化
 		p_no:             0,              // 初期値は0
 		p_NoMu:           sync.Mutex{},   // 初期化
-		logger:           logger,         // ロガー
 	}
 	// 埋め込む構造体の初期化 (各機能別のクライアント実装を関連付け)
-	client.authClientImpl = &authClientImpl{client: client, logger: logger}
-	client.orderClientImpl = &orderClientImpl{client: client, logger: logger}
-	client.balanceClientImpl = &balanceClientImpl{client: client, logger: logger}
-	client.masterDataClientImpl = &masterDataClientImpl{client: client, logger: logger}
-	client.priceInfoClientImpl = &priceInfoClientImpl{client: client, logger: logger}
+	client.authClientImpl = &authClientImpl{client: client}
+	client.orderClientImpl = &orderClientImpl{client: client}
+	client.balanceClientImpl = &balanceClientImpl{client: client}
+	client.masterDataClientImpl = &masterDataClientImpl{client: client}
+	client.priceInfoClientImpl = &priceInfoClientImpl{client: client}
 
 	return client
 }
