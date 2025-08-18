@@ -66,32 +66,32 @@ func TestOrderClientImpl_CancelOrder(t *testing.T) {
 		}
 	})
 
-	// t.Run("異常系: ログインしていない状態で注文取消が失敗すること", func(t *testing.T) {
-	// 	// ログアウト
-	// 	logoutReq := request_auth.ReqLogout{}
-	// 	_, err := c.Logout(context.Background(), logoutReq)
-	// 	assert.NoError(t, err)
+	t.Run("異常系: ログインしていない状態で注文取消が失敗すること", func(t *testing.T) {
+		// ログアウト
+		logoutReq := request_auth.ReqLogout{}
+		_, err := c.Logout(context.Background(), logoutReq)
+		assert.NoError(t, err)
 
-	// 	// CancelOrder リクエストを作成 (ダミーの値)
-	// 	cancelReq := request.ReqCancelOrder{
-	// 		OrderNumber:    "dummy_order_number",
-	// 		EigyouDay:      "20230101", // ダミーの値
-	// 		SecondPassword: c.GetPasswordForTest(),
-	// 	}
+		// CancelOrder リクエストを作成 (ダミーの値)
+		cancelReq := request.ReqCancelOrder{
+			OrderNumber:    "dummy_order_number",
+			EigyouDay:      "20230101", // ダミーの値
+			SecondPassword: c.GetPasswordForTest(),
+		}
 
-	// 	// CancelOrder 実行
-	// 	_, err = c.CancelOrder(context.Background(), cancelReq)
-	// 	assert.Error(t, err)
-	// 	assert.Equal(t, "not logged in", err.Error()) // エラーメッセージを検証
+		// CancelOrder 実行
+		_, err = c.CancelOrder(context.Background(), cancelReq)
+		assert.Error(t, err)
+		assert.Equal(t, "not logged in", err.Error()) // エラーメッセージを検証
 
-	// 	// ログイン (後処理)
-	// 	loginReq := request_auth.ReqLogin{
-	// 		UserId:   c.GetUserIDForTest(),
-	// 		Password: c.GetPasswordForTest(),
-	// 	}
-	// 	_, err = c.Login(context.Background(), loginReq)
-	// 	assert.NoError(t, err)
-	// })
+		// ログイン (後処理)
+		loginReq := request_auth.ReqLogin{
+			UserId:   c.GetUserIDForTest(),
+			Password: c.GetPasswordForTest(),
+		}
+		_, err = c.Login(context.Background(), loginReq)
+		assert.NoError(t, err)
+	})
 }
 
 // go test -v ./internal/infrastructure/client/tests/order_client_impl_cancelorder_test.go

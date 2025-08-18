@@ -154,6 +154,10 @@ func (o *orderClientImpl) CorrectOrder(ctx context.Context, req request.ReqCorre
 	if err != nil {
 		return nil, err
 	}
+	if res.ResultCode != "0" {
+		return nil, fmt.Errorf("API error: %s (errno: %s)", res.ResultText, res.ResultCode)
+	}
+
 	return res, nil
 }
 

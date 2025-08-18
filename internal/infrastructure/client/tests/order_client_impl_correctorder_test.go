@@ -33,7 +33,7 @@ func TestOrderClientImpl_CorrectOrder(t *testing.T) {
 
 		// 例: 現物買い注文　トリガー前の逆指値注文の注文値段は訂正できません
 		// 休憩中に指値か成行きを入れて検証する
-		// 営業中だと、指値は即座に約定するようだ
+		// 指値は即座に約定し、テストは失敗する
 		orderReq := request.ReqNewOrder{
 			ZyoutoekiKazeiC:          "1",                    // 特定口座
 			IssueCode:                "6658",                 // 例: シスメックス
@@ -74,15 +74,16 @@ func TestOrderClientImpl_CorrectOrder(t *testing.T) {
 		// ... レスポンスの検証 ...
 	})
 
-	// t.Run("異常系: 存在しない注文番号で訂正が失敗すること", func(t *testing.T) {
-	// 	correctReq := request.ReqCorrectOrder{
-	// 		OrderNumber: "invalid_order_number", // 存在しない注文番号
-	// 		// ... 他のパラメータ ...
-	// 	}
+	t.Run("異常系: 存在しない注文番号で訂正が失敗すること", func(t *testing.T) {
+		badCorrectReq := request.ReqCorrectOrder{
+			OrderNumber:    "invalid_order_number", // 存在しない注文番号
+			EigyouDay:      "20250818",             // 営業日を適切に設定 (例)
+			SecondPassword: c.GetPasswordForTest(), // 第二パスワードを設定
+		}
 
-	// 	_, err := c.CorrectOrder(context.Background(), correctReq)
-	// 	assert.Error(t, err)
-	// })
+		_, err := c.CorrectOrder(context.Background(), badCorrectReq)
+		assert.Error(t, err)
+	})
 
 	// ... 他の異常系テストケース (ログインしていない、第二パスワード間違いなど) ...
 	// 異常系: ログインしていない
