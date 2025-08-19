@@ -176,41 +176,81 @@ func TestOrderClientImpl_NewOrder_Cases(t *testing.T) {
 		}
 	})
 
-	t.Run("正常系: 信用 買建の売返済注文 (個別指定、成行、特定口座) が成功すること", func(t *testing.T) {
-		orderReq := request.ReqNewOrder{
-			ZyoutoekiKazeiC:          "1",                    // 特定口座
-			IssueCode:                "3556",                 // 例: アテクト
-			SizyouC:                  "00",                   // 東証
-			BaibaiKubun:              "1",                    // 売 (信用返済)
-			Condition:                "0",                    // 指定なし
-			OrderPrice:               "0",                    // 指値
-			OrderSuryou:              "100",                  // 200株 (数量は減らす必要あり)
-			GenkinShinyouKubun:       "4",                    // 信用返済 (制度信用6ヶ月)
-			OrderExpireDay:           "0",                    // 当日限り
-			GyakusasiOrderType:       "0",                    // 通常注文
-			GyakusasiZyouken:         "0",                    // 指定なし
-			GyakusasiPrice:           "*",                    // 指定なし
-			TatebiType:               "1",                    // 個別指定 ここは注意が必要
-			TategyokuZyoutoekiKazeiC: "*",                    // 指定なし
-			SecondPassword:           c.GetPasswordForTest(), // 第二パスワード (発注パスワード)
-			CLMKabuHensaiData: []request.ReqHensaiData{ // 返済リスト
+	t.Run("正常系: 信用 買建→売返済注文 (個別指定、成行、特定口座)", func(t *testing.T) {
+		// 1. 信用新規買建 注文
+		newOrderReq := request.ReqNewOrder{
+			ZyoutoekiKazeiC:          "1",    // 特定口座
+			IssueCode:                "3556", // 銘柄コード
+			SizyouC:                  "00",   // 東証
+			BaibaiKubun:              "3",    // 買
+			Condition:                "0",
+			OrderPrice:               "0", // 成行
+			OrderSuryou:              "100",
+			GenkinShinyouKubun:       "2", // 新規 (制度信用6ヶ月)
+			OrderExpireDay:           "0",
+			GyakusasiOrderType:       "0",
+			GyakusasiZyouken:         "0",
+			GyakusasiPrice:           "*",
+			TatebiType:               "*",
+			TategyokuZyoutoekiKazeiC: "*",
+			SecondPassword:           c.GetPasswordForTest(),
+		}
+
+		resNew, err := c.NewOrder(context.Background(), newOrderReq)
+		assert.NoError(t, err)
+		assert.NotNil(t, resNew)
+		assert.Equal(t, "0", resNew.ResultCode)
+
+		// 2. 建玉リストを取得（約定処理があるので少し待機）
+		time.Sleep(5 * time.Second)
+
+		tategyokuRes, err := c.GetShinyouTategyokuList(context.Background())
+		assert.NoError(t, err)
+		assert.NotNil(t, tategyokuRes)
+
+		// 今回建てた銘柄の建玉番号を探す
+		var tategyokuNo string
+		for _, tg := range tategyokuRes.SinyouTategyokuList {
+			if tg.OrderIssueCode == "3556" {
+				tategyokuNo = tg.OrderTategyokuNumber
+				break
+			}
+		}
+		assert.NotEmpty(t, tategyokuNo, "建玉番号が取得できませんでした")
+
+		// 3. 信用返済注文（売）
+		hensaiOrderReq := request.ReqNewOrder{
+			ZyoutoekiKazeiC:          "1", // 特定口座
+			IssueCode:                "3556",
+			SizyouC:                  "00",
+			BaibaiKubun:              "1", // 売 (返済)
+			Condition:                "0",
+			OrderPrice:               "0", // 成行
+			OrderSuryou:              "100",
+			GenkinShinyouKubun:       "4", // 返済 (制度信用6ヶ月)
+			OrderExpireDay:           "0",
+			GyakusasiOrderType:       "0",
+			GyakusasiZyouken:         "0",
+			GyakusasiPrice:           "*",
+			TatebiType:               "1", // 個別指定
+			TategyokuZyoutoekiKazeiC: "*",
+			SecondPassword:           c.GetPasswordForTest(),
+			CLMKabuHensaiData: []request.ReqHensaiData{
 				{
-					TategyokuNumber: "202503250000007", // 建玉番号 日々変わる
+					TategyokuNumber: tategyokuNo,
 					TatebiZyuni:     "1",
 					OrderSuryou:     "100",
 				},
 			},
 		}
 
-		time.Sleep(3 * time.Second) // 1秒のタイムラグ
-
-		res, err := c.NewOrder(context.Background(), orderReq)
+		resHensai, err := c.NewOrder(context.Background(), hensaiOrderReq)
 		assert.NoError(t, err)
-		assert.NotNil(t, res)
-		if res != nil {
-			assert.Equal(t, "0", res.ResultCode)
-			assert.NotEmpty(t, res.OrderNumber)
-			assert.NotEmpty(t, res.EigyouDay)
+		assert.NotNil(t, resHensai)
+		if resHensai != nil {
+			assert.Equal(t, "0", resHensai.ResultCode)
+			assert.NotEmpty(t, resHensai.OrderNumber)
+			assert.NotEmpty(t, resHensai.EigyouDay)
 		}
 	})
 
@@ -287,8 +327,8 @@ func TestOrderClientImpl_NewOrder_Cases(t *testing.T) {
 			GenkinShinyouKubun:       "0",                    // 現物
 			OrderExpireDay:           "0",                    // 当日限り
 			GyakusasiOrderType:       "1",                    // 逆指値
-			GyakusasiZyouken:         "570",                  // 逆指値条件 (460円以上)
-			GyakusasiPrice:           "555",                  // 逆指値値段 (455円)
+			GyakusasiZyouken:         "461",                  // 逆指値条件 (テスト時、リアル株価を入れる)
+			GyakusasiPrice:           "461",                  // 逆指値値段 (テスト時、リアル株価を入れる)
 			TatebiType:               "*",                    // 指定なし
 			TategyokuZyoutoekiKazeiC: "*",                    // 指定なし
 			SecondPassword:           c.GetPasswordForTest(), // 第二パスワード (発注パスワード)
@@ -332,7 +372,6 @@ func TestOrderClientImpl_NewOrder_Cases(t *testing.T) {
 			assert.NotEmpty(t, res.EigyouDay)
 		}
 	})
-
 	// 他のテストケース (信用返済、現引き/現渡し、逆指値など) は後で追加
 }
 
