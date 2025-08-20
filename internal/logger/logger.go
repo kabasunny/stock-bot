@@ -14,8 +14,13 @@ func init() {
 	// 	Level: slog.LevelDebug, // ログレベルをDEBUGに設定
 	// }
 	// handler := slog.NewJSONHandler(os.Stdout, opts)
+	logLevel := slog.LevelInfo // デフォルトはInfoレベル
+	if os.Getenv("LOG_LEVEL") == "DEBUG" {
+		logLevel = slog.LevelDebug
+	}
+
 	handler := slog.NewTextHandler(os.Stdout, &slog.HandlerOptions{
-		Level: slog.LevelDebug,
+		Level: logLevel,
 	})
 	log = slog.New(handler)
 
