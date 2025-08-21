@@ -21,7 +21,7 @@
   - [x] 1-3. `go mod tidy` を実行して依存関係を整理する
 
 - [ ] **ステップ 2: APIデザインの作成**
-  - [ ] 2-1. `design/design.go` ファイルを新規作成する
+  - [x] 2-1. `design/design.go` ファイルを新規作成する
   - [ ] 2-2. `design.go` に `API`, `Service`, `Method` の基本構造を記述する
   - [ ] 2-3. `summary` メソッドのレスポンスとして返す型(Result Type)を定義する (例: `BalanceSummary`)
   - [ ] 2-4. `Balance` サービスに `summary` メソッドを定義し、レスポンスとして `BalanceSummary` を指定する
