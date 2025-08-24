@@ -1,0 +1,79 @@
+swagger: "2.0"
+info:
+    title: 株式取引ボット API
+    description: 株式取引ボットの機能を提供するAPI
+    version: 0.0.1
+host: localhost:8080
+consumes:
+    - application/json
+    - application/xml
+    - application/gob
+produces:
+    - application/json
+    - application/xml
+    - application/gob
+paths:
+    /balance/summary:
+        get:
+            tags:
+                - balance
+            summary: summary balance
+            description: 口座の残高サマリーを取得します。
+            operationId: balance#summary
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        $ref: '#/definitions/StockBalanceSummary'
+            schemes:
+                - http
+definitions:
+    StockBalanceSummary:
+        title: 'Mediatype identifier: application/vnd.stock.balance.summary; view=default'
+        type: object
+        properties:
+            cash_buying_power:
+                type: number
+                description: 現物買付可能額 (円)
+                example: 1000000
+                format: double
+            margin_buying_power:
+                type: number
+                description: 信用新規建可能額 (円)
+                example: 5000000
+                format: double
+            margin_rate:
+                type: number
+                description: 委託保証金率 (%)
+                example: 60.5
+                format: double
+            total_assets:
+                type: number
+                description: 総資産 (円)
+                example: 3.0000005e+06
+                format: double
+            updated_at:
+                type: string
+                description: 最終更新日時
+                example: "2023-08-23T10:00:00Z"
+                format: date-time
+            withdrawal_possible_amount:
+                type: number
+                description: 出金可能額 (円)
+                example: 500000
+                format: double
+        description: SummaryResponseBody result type (default view)
+        example:
+            cash_buying_power: 1000000
+            margin_buying_power: 5000000
+            margin_rate: 60.5
+            total_assets: 3.0000005e+06
+            updated_at: "2023-08-23T10:00:00Z"
+            withdrawal_possible_amount: 500000
+        required:
+            - total_assets
+            - cash_buying_power
+            - margin_buying_power
+            - withdrawal_possible_amount
+            - margin_rate
+            - updated_at
