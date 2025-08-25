@@ -28,6 +28,15 @@ type SummaryResponseBody struct {
 	UpdatedAt *string `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
 }
 
+// CanEntryResponseBody is the type of the "balance" service "canEntry"
+// endpoint HTTP response body.
+type CanEntryResponseBody struct {
+	// エントリー可能かどうかのフラグ
+	CanEntry *bool `form:"can_entry,omitempty" json:"can_entry,omitempty" xml:"can_entry,omitempty"`
+	// エントリー判断時点の買付余力
+	BuyingPower *float64 `form:"buying_power,omitempty" json:"buying_power,omitempty" xml:"buying_power,omitempty"`
+}
+
 // NewSummaryStockBalanceSummaryOK builds a "balance" service "summary"
 // endpoint result from a HTTP "OK" response.
 func NewSummaryStockBalanceSummaryOK(body *SummaryResponseBody) *balanceviews.StockBalanceSummaryView {
@@ -38,6 +47,17 @@ func NewSummaryStockBalanceSummaryOK(body *SummaryResponseBody) *balanceviews.St
 		WithdrawalPossibleAmount: body.WithdrawalPossibleAmount,
 		MarginRate:               body.MarginRate,
 		UpdatedAt:                body.UpdatedAt,
+	}
+
+	return v
+}
+
+// NewCanEntryStockBalanceCanEntryOK builds a "balance" service "canEntry"
+// endpoint result from a HTTP "OK" response.
+func NewCanEntryStockBalanceCanEntryOK(body *CanEntryResponseBody) *balanceviews.StockBalanceCanEntryView {
+	v := &balanceviews.StockBalanceCanEntryView{
+		CanEntry:    body.CanEntry,
+		BuyingPower: body.BuyingPower,
 	}
 
 	return v

@@ -10,6 +10,7 @@ package server
 import (
 	"context"
 	"net/http"
+	balance "stock-bot/gen/balance"
 	balanceviews "stock-bot/gen/balance/views"
 
 	goahttp "goa.design/goa/v3/http"
@@ -24,5 +25,33 @@ func EncodeSummaryResponse(encoder func(context.Context, http.ResponseWriter) go
 		body := NewSummaryResponseBody(res.Projected)
 		w.WriteHeader(http.StatusOK)
 		return enc.Encode(body)
+	}
+}
+
+// EncodeCanEntryResponse returns an encoder for responses returned by the
+// balance canEntry endpoint.
+func EncodeCanEntryResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
+	return func(ctx context.Context, w http.ResponseWriter, v any) error {
+		res := v.(*balanceviews.StockBalanceCanEntry)
+		enc := encoder(ctx, w)
+		body := NewCanEntryResponseBody(res.Projected)
+		w.WriteHeader(http.StatusOK)
+		return enc.Encode(body)
+	}
+}
+
+// DecodeCanEntryRequest returns a decoder for requests sent to the balance
+// canEntry endpoint.
+func DecodeCanEntryRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Decoder) func(*http.Request) (*balance.CanEntryPayload, error) {
+	return func(r *http.Request) (*balance.CanEntryPayload, error) {
+		var (
+			issueCode string
+
+			params = mux.Vars(r)
+		)
+		issueCode = params["issue_code"]
+		payload := NewCanEntryPayload(issueCode)
+
+		return payload, nil
 	}
 }

@@ -21,6 +21,10 @@ type Client struct {
 	// endpoint.
 	SummaryDoer goahttp.Doer
 
+	// CanEntry Doer is the HTTP client used to make requests to the canEntry
+	// endpoint.
+	CanEntryDoer goahttp.Doer
+
 	// RestoreResponseBody controls whether the response bodies are reset after
 	// decoding so they can be read again.
 	RestoreResponseBody bool
@@ -42,6 +46,7 @@ func NewClient(
 ) *Client {
 	return &Client{
 		SummaryDoer:         doer,
+		CanEntryDoer:        doer,
 		RestoreResponseBody: restoreBody,
 		scheme:              scheme,
 		host:                host,
@@ -64,6 +69,25 @@ func (c *Client) Summary() goa.Endpoint {
 		resp, err := c.SummaryDoer.Do(req)
 		if err != nil {
 			return nil, goahttp.ErrRequestError("balance", "summary", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// CanEntry returns an endpoint that makes HTTP requests to the balance service
+// canEntry server.
+func (c *Client) CanEntry() goa.Endpoint {
+	var (
+		decodeResponse = DecodeCanEntryResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildCanEntryRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.CanEntryDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("balance", "canEntry", err)
 		}
 		return decodeResponse(resp)
 	}

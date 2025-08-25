@@ -23,7 +23,7 @@ import (
 //	command (subcommand1|subcommand2|...)
 func UsageCommands() []string {
 	return []string{
-		"balance summary",
+		"balance (summary|can-entry)",
 	}
 }
 
@@ -46,9 +46,13 @@ func ParseEndpoint(
 		balanceFlags = flag.NewFlagSet("balance", flag.ContinueOnError)
 
 		balanceSummaryFlags = flag.NewFlagSet("summary", flag.ExitOnError)
+
+		balanceCanEntryFlags         = flag.NewFlagSet("can-entry", flag.ExitOnError)
+		balanceCanEntryIssueCodeFlag = balanceCanEntryFlags.String("issue-code", "REQUIRED", "銘柄コード")
 	)
 	balanceFlags.Usage = balanceUsage
 	balanceSummaryFlags.Usage = balanceSummaryUsage
+	balanceCanEntryFlags.Usage = balanceCanEntryUsage
 
 	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
 		return nil, nil, err
@@ -87,6 +91,9 @@ func ParseEndpoint(
 			case "summary":
 				epf = balanceSummaryFlags
 
+			case "can-entry":
+				epf = balanceCanEntryFlags
+
 			}
 
 		}
@@ -114,6 +121,9 @@ func ParseEndpoint(
 			switch epn {
 			case "summary":
 				endpoint = c.Summary()
+			case "can-entry":
+				endpoint = c.CanEntry()
+				data, err = balancec.BuildCanEntryPayload(*balanceCanEntryIssueCodeFlag)
 			}
 		}
 	}
@@ -132,6 +142,7 @@ Usage:
 
 COMMAND:
     summary: 口座の残高サマリーを取得します。
+    can-entry: 指定した銘柄にエントリー可能か判断します。
 
 Additional help:
     %[1]s balance COMMAND --help
@@ -144,5 +155,16 @@ func balanceSummaryUsage() {
 
 Example:
     %[1]s balance summary
+`, os.Args[0])
+}
+
+func balanceCanEntryUsage() {
+	fmt.Fprintf(os.Stderr, `%[1]s [flags] balance can-entry -issue-code STRING
+
+指定した銘柄にエントリー可能か判断します。
+    -issue-code STRING: 銘柄コード
+
+Example:
+    %[1]s balance can-entry --issue-code "Impedit eius ut."
 `, os.Args[0])
 }

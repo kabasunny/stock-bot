@@ -38,7 +38,7 @@
     - [x] 2-0. **事前確認:** `design.go`の記述がGoa v3の公式ドキュメントの作法に準拠しているか確認する（特に型の指定方法）。
     - [x] 2-1. `goa gen` を実行してサーバーコードのひな形を生成する
     - [x] 2-2. 生成された `gen/` ディレクトリ以下のファイルを確認し、意図した型やインターフェースが作成されているか検証する
-- [ ] **ステップ 3: ビジネスロジックのリファクタリング**
+- [x] **ステップ 3: ビジネスロジックのリファクタリング**
     - [x] 3-1. ドメインモデル `domain/model/balance_summary.go` を新規作成する
     - [x] 3-2. `BalanceUseCase` インターフェース (`internal/app/balance_usecase.go`) に `GetSummary` メソッドを追加する
     - [x] 3-3. `BalanceUseCaseImpl` (`internal/app/balance_usecase_impl.go`) に `GetSummary` メソッドを実装する
@@ -48,12 +48,12 @@
     - [x] 4-3. Usecaseから受け取った結果を、Goaが生成した `BalanceSummary` 型に変換して返す
 
 ### フェーズ 2: エントリー可否判断 API の実装 (Balance Service)
-- [ ] **ステップ 1: APIデザインの定義**
-    - [ ] 1-1. `design.go` の `Balance` サービスに `canEntry` メソッドを追加する
-- [ ] **ステップ 2: コード生成と確認**
-    - [ ] 2-1. `goa gen` を実行してサーバーコードのひな形を生成する
-- [ ] **ステップ 3: ビジネスロジックの実装**
-    - [ ] 3-1. `balance_service.go` に `CanEntry` メソッドを実装し、既存の `BalanceUsecase.CanEntry` を呼び出す
+- [x] **ステップ 1: APIデザインの定義**
+    - [x] 1-1. `design.go` の `Balance` サービスに `canEntry` メソッドを追加する
+- [x] **ステップ 2: コード生成と確認**
+    - [x] 2-1. `goa gen` を実行してサーバーコードのひな形を生成する
+- [x] **ステップ 3: ビジネスロジックの実装**
+    - [x] 3-1. `balance_service.go` に `CanEntry` メソッドを実装し、既存の `BalanceUsecase.CanEntry` を呼び出す
 
 ### フェーズ 3: 注文 API の実装 (Order Service)
 *(フェーズ2完了後に詳細化)*

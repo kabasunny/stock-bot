@@ -6,3 +6,20 @@
 // $ goa gen stock-bot/design
 
 package client
+
+import (
+	balance "stock-bot/gen/balance"
+)
+
+// BuildCanEntryPayload builds the payload for the balance canEntry endpoint
+// from CLI flags.
+func BuildCanEntryPayload(balanceCanEntryIssueCode string) (*balance.CanEntryPayload, error) {
+	var issueCode string
+	{
+		issueCode = balanceCanEntryIssueCode
+	}
+	v := &balance.CanEntryPayload{}
+	v.IssueCode = issueCode
+
+	return v, nil
+}

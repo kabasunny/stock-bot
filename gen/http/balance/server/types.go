@@ -8,6 +8,7 @@
 package server
 
 import (
+	balance "stock-bot/gen/balance"
 	balanceviews "stock-bot/gen/balance/views"
 )
 
@@ -28,6 +29,15 @@ type SummaryResponseBody struct {
 	UpdatedAt string `form:"updated_at" json:"updated_at" xml:"updated_at"`
 }
 
+// CanEntryResponseBody is the type of the "balance" service "canEntry"
+// endpoint HTTP response body.
+type CanEntryResponseBody struct {
+	// エントリー可能かどうかのフラグ
+	CanEntry bool `form:"can_entry" json:"can_entry" xml:"can_entry"`
+	// エントリー判断時点の買付余力
+	BuyingPower float64 `form:"buying_power" json:"buying_power" xml:"buying_power"`
+}
+
 // NewSummaryResponseBody builds the HTTP response body from the result of the
 // "summary" endpoint of the "balance" service.
 func NewSummaryResponseBody(res *balanceviews.StockBalanceSummaryView) *SummaryResponseBody {
@@ -40,4 +50,22 @@ func NewSummaryResponseBody(res *balanceviews.StockBalanceSummaryView) *SummaryR
 		UpdatedAt:                *res.UpdatedAt,
 	}
 	return body
+}
+
+// NewCanEntryResponseBody builds the HTTP response body from the result of the
+// "canEntry" endpoint of the "balance" service.
+func NewCanEntryResponseBody(res *balanceviews.StockBalanceCanEntryView) *CanEntryResponseBody {
+	body := &CanEntryResponseBody{
+		CanEntry:    *res.CanEntry,
+		BuyingPower: *res.BuyingPower,
+	}
+	return body
+}
+
+// NewCanEntryPayload builds a balance service canEntry endpoint payload.
+func NewCanEntryPayload(issueCode string) *balance.CanEntryPayload {
+	v := &balance.CanEntryPayload{}
+	v.IssueCode = issueCode
+
+	return v
 }

@@ -18,8 +18,9 @@ import (
 
 // Server lists the balance service endpoint HTTP handlers.
 type Server struct {
-	Mounts  []*MountPoint
-	Summary http.Handler
+	Mounts   []*MountPoint
+	Summary  http.Handler
+	CanEntry http.Handler
 }
 
 // MountPoint holds information about the mounted endpoints.
@@ -50,8 +51,10 @@ func New(
 	return &Server{
 		Mounts: []*MountPoint{
 			{"Summary", "GET", "/balance/summary"},
+			{"CanEntry", "GET", "/balance/can_entry/{issue_code}"},
 		},
-		Summary: NewSummaryHandler(e.Summary, mux, decoder, encoder, errhandler, formatter),
+		Summary:  NewSummaryHandler(e.Summary, mux, decoder, encoder, errhandler, formatter),
+		CanEntry: NewCanEntryHandler(e.CanEntry, mux, decoder, encoder, errhandler, formatter),
 	}
 }
 
@@ -61,6 +64,7 @@ func (s *Server) Service() string { return "balance" }
 // Use wraps the server handlers with the given middleware.
 func (s *Server) Use(m func(http.Handler) http.Handler) {
 	s.Summary = m(s.Summary)
+	s.CanEntry = m(s.CanEntry)
 }
 
 // MethodNames returns the methods served.
@@ -69,6 +73,7 @@ func (s *Server) MethodNames() []string { return balance.MethodNames[:] }
 // Mount configures the mux to serve the balance endpoints.
 func Mount(mux goahttp.Muxer, h *Server) {
 	MountSummaryHandler(mux, h.Summary)
+	MountCanEntryHandler(mux, h.CanEntry)
 }
 
 // Mount configures the mux to serve the balance endpoints.
@@ -108,6 +113,59 @@ func NewSummaryHandler(
 		ctx = context.WithValue(ctx, goa.ServiceKey, "balance")
 		var err error
 		res, err := endpoint(ctx, nil)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountCanEntryHandler configures the mux to serve the "balance" service
+// "canEntry" endpoint.
+func MountCanEntryHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("GET", "/balance/can_entry/{issue_code}", f)
+}
+
+// NewCanEntryHandler creates a HTTP handler which loads the HTTP request and
+// calls the "balance" service "canEntry" endpoint.
+func NewCanEntryHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeCanEntryRequest(mux, decoder)
+		encodeResponse = EncodeCanEntryResponse(encoder)
+		encodeError    = goahttp.ErrorEncoder(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "canEntry")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "balance")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
 		if err != nil {
 			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
 				errhandler(ctx, w, err)

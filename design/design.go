@@ -49,6 +49,24 @@ var BalanceSummary = ResultType("application/vnd.stock.balance.summary", func() 
 	Required("total_assets", "cash_buying_power", "margin_buying_power", "withdrawal_possible_amount", "margin_rate", "updated_at")
 })
 
+// CanEntryResult はエントリー可否の判断結果を定義します。
+var CanEntryResult = ResultType("application/vnd.stock.balance.can.entry", func() {
+	Description("エントリー可否の判断結果")
+	Attributes(func() {
+		Attribute("can_entry", Boolean, "エントリー可能かどうかのフラグ", func() {
+			Example(true)
+		})
+		Attribute("buying_power", Float64, "エントリー判断時点の買付余力", func() {
+			Example(1234567.89)
+		})
+	})
+	View("default", func() {
+		Attribute("can_entry")
+		Attribute("buying_power")
+	})
+	Required("can_entry", "buying_power")
+})
+
 var _ = Service("balance", func() {
 	Description("残高サービスは口座の残高情報を提供します。")
 
@@ -57,6 +75,19 @@ var _ = Service("balance", func() {
 		Result(BalanceSummary)
 		HTTP(func() {
 			GET("/balance/summary")
+			Response(StatusOK)
+		})
+	})
+
+	Method("canEntry", func() {
+		Description("指定した銘柄にエントリー可能か判断します。")
+		Payload(func() {
+			Attribute("issue_code", String, "銘柄コード")
+			Required("issue_code")
+		})
+		Result(CanEntryResult)
+		HTTP(func() {
+			GET("/balance/can_entry/{issue_code}")
 			Response(StatusOK)
 		})
 	})

@@ -6,6 +6,33 @@ info:
 servers:
     - url: http://localhost:8080
 paths:
+    /balance/can_entry/{issue_code}:
+        get:
+            tags:
+                - balance
+            summary: canEntry balance
+            description: 指定した銘柄にエントリー可能か判断します。
+            operationId: balance#canEntry
+            parameters:
+                - name: issue_code
+                  in: path
+                  description: 銘柄コード
+                  required: true
+                  schema:
+                    type: string
+                    description: 銘柄コード
+                    example: Sunt fuga qui harum eos voluptatem.
+                  example: Eum tenetur earum.
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StockBalanceCanEntry'
+                            example:
+                                buying_power: 1.23456789e+06
+                                can_entry: true
     /balance/summary:
         get:
             tags:
@@ -29,6 +56,25 @@ paths:
                                 withdrawal_possible_amount: 500000
 components:
     schemas:
+        StockBalanceCanEntry:
+            type: object
+            properties:
+                buying_power:
+                    type: number
+                    description: エントリー判断時点の買付余力
+                    example: 1.23456789e+06
+                    format: double
+                can_entry:
+                    type: boolean
+                    description: エントリー可能かどうかのフラグ
+                    example: true
+            description: エントリー可否の判断結果
+            example:
+                buying_power: 1.23456789e+06
+                can_entry: true
+            required:
+                - can_entry
+                - buying_power
         StockBalanceSummary:
             type: object
             properties:

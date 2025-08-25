@@ -7,7 +7,16 @@
 
 package client
 
+import (
+	"fmt"
+)
+
 // SummaryBalancePath returns the URL path to the balance service summary HTTP endpoint.
 func SummaryBalancePath() string {
 	return "/balance/summary"
+}
+
+// CanEntryBalancePath returns the URL path to the balance service canEntry HTTP endpoint.
+func CanEntryBalancePath(issueCode string) string {
+	return fmt.Sprintf("/balance/can_entry/%v", issueCode)
 }

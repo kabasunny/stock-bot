@@ -20,6 +20,15 @@ type StockBalanceSummary struct {
 	View string
 }
 
+// StockBalanceCanEntry is the viewed result type that is projected based on a
+// view.
+type StockBalanceCanEntry struct {
+	// Type to project
+	Projected *StockBalanceCanEntryView
+	// View to render
+	View string
+}
+
 // StockBalanceSummaryView is a type that runs validations on a projected type.
 type StockBalanceSummaryView struct {
 	// 総資産 (円)
@@ -36,6 +45,14 @@ type StockBalanceSummaryView struct {
 	UpdatedAt *string
 }
 
+// StockBalanceCanEntryView is a type that runs validations on a projected type.
+type StockBalanceCanEntryView struct {
+	// エントリー可能かどうかのフラグ
+	CanEntry *bool
+	// エントリー判断時点の買付余力
+	BuyingPower *float64
+}
+
 var (
 	// StockBalanceSummaryMap is a map indexing the attribute names of
 	// StockBalanceSummary by view name.
@@ -49,6 +66,14 @@ var (
 			"updated_at",
 		},
 	}
+	// StockBalanceCanEntryMap is a map indexing the attribute names of
+	// StockBalanceCanEntry by view name.
+	StockBalanceCanEntryMap = map[string][]string{
+		"default": {
+			"can_entry",
+			"buying_power",
+		},
+	}
 )
 
 // ValidateStockBalanceSummary runs the validations defined on the viewed
@@ -57,6 +82,18 @@ func ValidateStockBalanceSummary(result *StockBalanceSummary) (err error) {
 	switch result.View {
 	case "default", "":
 		err = ValidateStockBalanceSummaryView(result.Projected)
+	default:
+		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
+	}
+	return
+}
+
+// ValidateStockBalanceCanEntry runs the validations defined on the viewed
+// result type StockBalanceCanEntry.
+func ValidateStockBalanceCanEntry(result *StockBalanceCanEntry) (err error) {
+	switch result.View {
+	case "default", "":
+		err = ValidateStockBalanceCanEntryView(result.Projected)
 	default:
 		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
 	}
@@ -86,6 +123,18 @@ func ValidateStockBalanceSummaryView(result *StockBalanceSummaryView) (err error
 	}
 	if result.UpdatedAt != nil {
 		err = goa.MergeErrors(err, goa.ValidateFormat("result.updated_at", *result.UpdatedAt, goa.FormatDateTime))
+	}
+	return
+}
+
+// ValidateStockBalanceCanEntryView runs the validations defined on
+// StockBalanceCanEntryView using the "default" view.
+func ValidateStockBalanceCanEntryView(result *StockBalanceCanEntryView) (err error) {
+	if result.CanEntry == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("can_entry", "result"))
+	}
+	if result.BuyingPower == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("buying_power", "result"))
 	}
 	return
 }

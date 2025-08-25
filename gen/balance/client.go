@@ -15,13 +15,15 @@ import (
 
 // Client is the "balance" service client.
 type Client struct {
-	SummaryEndpoint goa.Endpoint
+	SummaryEndpoint  goa.Endpoint
+	CanEntryEndpoint goa.Endpoint
 }
 
 // NewClient initializes a "balance" service client given the endpoints.
-func NewClient(summary goa.Endpoint) *Client {
+func NewClient(summary, canEntry goa.Endpoint) *Client {
 	return &Client{
-		SummaryEndpoint: summary,
+		SummaryEndpoint:  summary,
+		CanEntryEndpoint: canEntry,
 	}
 }
 
@@ -33,4 +35,14 @@ func (c *Client) Summary(ctx context.Context) (res *StockBalanceSummary, err err
 		return
 	}
 	return ires.(*StockBalanceSummary), nil
+}
+
+// CanEntry calls the "canEntry" endpoint of the "balance" service.
+func (c *Client) CanEntry(ctx context.Context, p *CanEntryPayload) (res *StockBalanceCanEntry, err error) {
+	var ires any
+	ires, err = c.CanEntryEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*StockBalanceCanEntry), nil
 }

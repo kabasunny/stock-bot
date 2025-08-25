@@ -38,3 +38,20 @@ func (s *balanceService) Summary(ctx context.Context) (*genbalance.StockBalanceS
 
 	return res, nil
 }
+
+// CanEntry は指定した銘柄にエントリー可能か判断します。
+func (s *balanceService) CanEntry(ctx context.Context, p *genbalance.CanEntryPayload) (*genbalance.StockBalanceCanEntry, error) {
+	// ユースケースを呼び出してエントリー可否を取得
+	canEntry, buyingPower, err := s.usecase.CanEntry(ctx, p.IssueCode)
+	if err != nil {
+		return nil, err
+	}
+
+	// 結果をGoaのレスポンス型に変換
+	res := &genbalance.StockBalanceCanEntry{
+		CanEntry:    canEntry,
+		BuyingPower: buyingPower,
+	}
+
+	return res, nil
+}

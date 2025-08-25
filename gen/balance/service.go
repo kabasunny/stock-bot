@@ -16,6 +16,8 @@ import (
 type Service interface {
 	// 口座の残高サマリーを取得します。
 	Summary(context.Context) (res *StockBalanceSummary, err error)
+	// 指定した銘柄にエントリー可能か判断します。
+	CanEntry(context.Context, *CanEntryPayload) (res *StockBalanceCanEntry, err error)
 }
 
 // APIName is the name of the API as defined in the design.
@@ -32,7 +34,22 @@ const ServiceName = "balance"
 // MethodNames lists the service method names as defined in the design. These
 // are the same values that are set in the endpoint request contexts under the
 // MethodKey key.
-var MethodNames = [1]string{"summary"}
+var MethodNames = [2]string{"summary", "canEntry"}
+
+// CanEntryPayload is the payload type of the balance service canEntry method.
+type CanEntryPayload struct {
+	// 銘柄コード
+	IssueCode string
+}
+
+// StockBalanceCanEntry is the result type of the balance service canEntry
+// method.
+type StockBalanceCanEntry struct {
+	// エントリー可能かどうかのフラグ
+	CanEntry bool
+	// エントリー判断時点の買付余力
+	BuyingPower float64
+}
 
 // StockBalanceSummary is the result type of the balance service summary method.
 type StockBalanceSummary struct {
@@ -62,6 +79,20 @@ func NewStockBalanceSummary(vres *balanceviews.StockBalanceSummary) *StockBalanc
 func NewViewedStockBalanceSummary(res *StockBalanceSummary, view string) *balanceviews.StockBalanceSummary {
 	p := newStockBalanceSummaryView(res)
 	return &balanceviews.StockBalanceSummary{Projected: p, View: "default"}
+}
+
+// NewStockBalanceCanEntry initializes result type StockBalanceCanEntry from
+// viewed result type StockBalanceCanEntry.
+func NewStockBalanceCanEntry(vres *balanceviews.StockBalanceCanEntry) *StockBalanceCanEntry {
+	return newStockBalanceCanEntry(vres.Projected)
+}
+
+// NewViewedStockBalanceCanEntry initializes viewed result type
+// StockBalanceCanEntry from result type StockBalanceCanEntry using the given
+// view.
+func NewViewedStockBalanceCanEntry(res *StockBalanceCanEntry, view string) *balanceviews.StockBalanceCanEntry {
+	p := newStockBalanceCanEntryView(res)
+	return &balanceviews.StockBalanceCanEntry{Projected: p, View: "default"}
 }
 
 // newStockBalanceSummary converts projected type StockBalanceSummary to
@@ -99,6 +130,29 @@ func newStockBalanceSummaryView(res *StockBalanceSummary) *balanceviews.StockBal
 		WithdrawalPossibleAmount: &res.WithdrawalPossibleAmount,
 		MarginRate:               &res.MarginRate,
 		UpdatedAt:                &res.UpdatedAt,
+	}
+	return vres
+}
+
+// newStockBalanceCanEntry converts projected type StockBalanceCanEntry to
+// service type StockBalanceCanEntry.
+func newStockBalanceCanEntry(vres *balanceviews.StockBalanceCanEntryView) *StockBalanceCanEntry {
+	res := &StockBalanceCanEntry{}
+	if vres.CanEntry != nil {
+		res.CanEntry = *vres.CanEntry
+	}
+	if vres.BuyingPower != nil {
+		res.BuyingPower = *vres.BuyingPower
+	}
+	return res
+}
+
+// newStockBalanceCanEntryView projects result type StockBalanceCanEntry to
+// projected type StockBalanceCanEntryView using the "default" view.
+func newStockBalanceCanEntryView(res *StockBalanceCanEntry) *balanceviews.StockBalanceCanEntryView {
+	vres := &balanceviews.StockBalanceCanEntryView{
+		CanEntry:    &res.CanEntry,
+		BuyingPower: &res.BuyingPower,
 	}
 	return vres
 }

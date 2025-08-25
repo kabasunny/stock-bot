@@ -15,19 +15,22 @@ import (
 
 // Endpoints wraps the "balance" service endpoints.
 type Endpoints struct {
-	Summary goa.Endpoint
+	Summary  goa.Endpoint
+	CanEntry goa.Endpoint
 }
 
 // NewEndpoints wraps the methods of the "balance" service with endpoints.
 func NewEndpoints(s Service) *Endpoints {
 	return &Endpoints{
-		Summary: NewSummaryEndpoint(s),
+		Summary:  NewSummaryEndpoint(s),
+		CanEntry: NewCanEntryEndpoint(s),
 	}
 }
 
 // Use applies the given middleware to all the "balance" service endpoints.
 func (e *Endpoints) Use(m func(goa.Endpoint) goa.Endpoint) {
 	e.Summary = m(e.Summary)
+	e.CanEntry = m(e.CanEntry)
 }
 
 // NewSummaryEndpoint returns an endpoint function that calls the method
@@ -39,6 +42,20 @@ func NewSummaryEndpoint(s Service) goa.Endpoint {
 			return nil, err
 		}
 		vres := NewViewedStockBalanceSummary(res, "default")
+		return vres, nil
+	}
+}
+
+// NewCanEntryEndpoint returns an endpoint function that calls the method
+// "canEntry" of service "balance".
+func NewCanEntryEndpoint(s Service) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*CanEntryPayload)
+		res, err := s.CanEntry(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedStockBalanceCanEntry(res, "default")
 		return vres, nil
 	}
 }
