@@ -10,6 +10,7 @@
 4.  **提案の基準**: あなたからの作業提案は、必ずこのロードマップのいずれかのステップに基づいている必要があります。提案の際には、「ロードマップのフェーズX、ステップY-Zに基づき、〜を行います」のように、根拠を明確に示してください。
 5.  **一貫性の維持**: この指示に従うことで、セッションをまたいでも一貫した方針でアシストを継続してください。過去のやり取りの繰り返しを避けることが目的です。
 6.  **技術バージョン規約**: このプロジェクトでは **Goa v3** を使用します。v1など古いバージョンの記法（例: `DateTime`）は使用しないでください。不明な点があれば、`goa.design`の公式ドキュメントを参照するか、ユーザーに確認してください。
+7.  **言語規約**: 機能に直接影響しないコード内の記述（コメント、Description、Attributeの説明など）は、**すべて日本語を使用してください。** これにより、プロジェクト全体の言語統一性を保ちます。
 
 ---
 ## 1. このプロジェクトについて
@@ -56,10 +57,34 @@
     - [x] 3-1. `balance_service.go` に `CanEntry` メソッドを実装し、既存の `BalanceUsecase.CanEntry` を呼び出す
 
 ### フェーズ 3: 注文 API の実装 (Order Service)
-*(フェーズ2完了後に詳細化)*
+- [x] **ステップ 1: APIデザインの定義**
+    - [x] 1-1. `design.go` に `Order` サービスと `newOrder` メソッドの基本構造を記述する
+    - [x] 1-2. `newOrder` メソッドのペイロードとして使用する型 `NewOrderPayload` を定義する
+    - [x] 1-3. `newOrder` メソッドのレスポンスとして返す型 `OrderResult` (Result Type) を定義する
+    - [x] 1-4. `Order` サービスの `newOrder` メソッドに、ペイロードとレスポンスを指定する
+- [x] **ステップ 2: コード生成と確認**
+    - [x] 2-1. `goa gen` を実行してサーバーコードのひな形を生成する
+    - [x] 2-2. 生成された `gen/` ディレクトリ以下のファイルを確認し、意図した型やインターフェースが作成されているか検証する
+- [x] **ステップ 3: ビジネスロジックの実装**
+    - [x] 3-1. `internal/interface/order/order_service.go` を新規作成し、`order.Service` インターフェースを実装する構造体を定義する
+    - [x] 3-2. `newOrder` メソッドを実装し、その中で `OrderUsecase.ExecuteOrder` を呼び出す
+    - [x] 3-3. Usecaseから受け取った結果を、Goaが生成した `OrderResult` 型に変換して返す
 
 ### フェーズ 4: 建玉 API の実装 (Position Service)
-*(フェーズ3完了後に詳細化)*
+- [ ] **ステップ 1: ビジネスロジックの作成**
+    - [ ] 1-1. `PositionUseCase` インターフェース (`internal/app/position_usecase.go`) を新規作成し、`List` メソッドを定義する
+    - [ ] 1-2. `PositionUseCaseImpl` (`internal/app/position_usecase_impl.go`) を新規作成し、`List` メソッドを実装する。この実装は `PositionRepository.FindAll` を呼び出す。
+- [ ] **ステップ 2: APIデザインの定義**
+    - [ ] 2-1. `design.go` に `Position` サービスと `list` メソッドの基本構造を記述する
+    - [ ] 2-2. `list` メソッドのレスポンスとして返す型 `PositionResult` (Result Type) を定義する。これは `Position` モデルを反映する。
+    - [ ] 2-3. `Position` サービスの `list` メソッドに、レスポンスとして `PositionResult` の配列を指定する
+- [ ] **ステップ 3: コード生成と確認**
+    - [ ] 3-1. `goa gen` を実行してサーバーコードのひな形を生成する
+    - [ ] 3-2. 生成された `gen/` ディレクトリ以下のファイルを確認する
+- [ ] **ステップ 4: ビジネスロジックの実装**
+    - [ ] 4-1. `internal/interface/position/position_service.go` を新規作成し、`position.Service` インターフェースを実装する構造体を定義する
+    - [ ] 4-2. `list` メソッドを実装し、その中で `PositionUsecase.List` を呼び出す
+    - [ ] 4-3. Usecaseから受け取った結果を、Goaが生成した `PositionResult` 型に変換して返す
 
 ### フェーズ 5: サーバーの構築と全サービスの統合
 *(フェーズ4完了後に詳細化)*

@@ -47,7 +47,97 @@ paths:
                         $ref: '#/definitions/StockBalanceSummary'
             schemes:
                 - http
+    /orders:
+        post:
+            tags:
+                - order
+            summary: newOrder order
+            description: 新しい株式注文を作成します。
+            operationId: order#newOrder
+            parameters:
+                - name: NewOrderRequestBody
+                  in: body
+                  required: true
+                  schema:
+                    $ref: '#/definitions/NewOrderPayload'
+                    required:
+                        - symbol
+                        - trade_type
+                        - order_type
+                        - quantity
+            responses:
+                "201":
+                    description: Created response.
+                    schema:
+                        $ref: '#/definitions/StockOrder'
+            schemes:
+                - http
 definitions:
+    NewOrderPayload:
+        title: NewOrderPayload
+        type: object
+        properties:
+            is_margin:
+                type: boolean
+                description: 信用取引かどうか
+                default: false
+                example: false
+            order_type:
+                type: string
+                description: 注文種別
+                example: LIMIT
+                enum:
+                    - MARKET
+                    - LIMIT
+                    - STOP
+                    - STOP_LIMIT
+            price:
+                type: number
+                description: 指値価格
+                example: 3000.5
+                format: double
+            quantity:
+                type: integer
+                description: 注文数量
+                example: 100
+                format: int64
+            symbol:
+                type: string
+                description: 銘柄コード
+                example: "9432"
+            time_in_force:
+                type: string
+                description: 注文の有効期間
+                default: DAY
+                example: DAY
+                enum:
+                    - DAY
+            trade_type:
+                type: string
+                description: 取引種別
+                example: BUY
+                enum:
+                    - BUY
+                    - SELL
+            trigger_price:
+                type: number
+                description: 逆指値トリガー価格
+                example: 3100
+                format: double
+        example:
+            is_margin: true
+            order_type: LIMIT
+            price: 3000.5
+            quantity: 100
+            symbol: "9432"
+            time_in_force: DAY
+            trade_type: BUY
+            trigger_price: 3100
+        required:
+            - symbol
+            - trade_type
+            - order_type
+            - quantity
     StockBalanceCanEntry:
         title: 'Mediatype identifier: application/vnd.stock.balance.can.entry; view=default'
         type: object
@@ -116,4 +206,85 @@ definitions:
             - margin_buying_power
             - withdrawal_possible_amount
             - margin_rate
+            - updated_at
+    StockOrder:
+        title: 'Mediatype identifier: application/vnd.stock.order; view=default'
+        type: object
+        properties:
+            created_at:
+                type: string
+                description: 作成タイムスタンプ
+                example: "2013-03-18T20:19:42Z"
+                format: date-time
+            is_margin:
+                type: boolean
+                description: 信用取引かどうか
+                example: true
+            order_id:
+                type: string
+                description: 一意の注文ID
+                example: 20230824-123456
+            order_status:
+                type: string
+                description: 注文ステータス
+                example: Excepturi architecto dolorum illum maiores.
+            order_type:
+                type: string
+                description: 注文種別
+                example: Qui at deserunt autem et recusandae sequi.
+            price:
+                type: number
+                description: 指値価格
+                example: 0.25396396236390706
+                format: double
+            quantity:
+                type: integer
+                description: 注文数量
+                example: 8760874815210805206
+                format: int64
+            symbol:
+                type: string
+                description: 銘柄コード
+                example: "9432"
+            time_in_force:
+                type: string
+                description: 注文の有効期間
+                example: Laudantium reiciendis minima aut voluptatem quidem.
+            trade_type:
+                type: string
+                description: 取引種別
+                example: Dolorum aut ullam consectetur.
+            trigger_price:
+                type: number
+                description: 逆指値トリガー価格
+                example: 0.740529396870943
+                format: double
+            updated_at:
+                type: string
+                description: 更新タイムスタンプ
+                example: "1994-04-27T03:42:12Z"
+                format: date-time
+        description: NewOrderResponseBody result type (default view)
+        example:
+            created_at: "1999-02-04T18:19:54Z"
+            is_margin: true
+            order_id: 20230824-123456
+            order_status: Aliquid iure non praesentium molestiae delectus.
+            order_type: Molestiae provident enim et incidunt eum.
+            price: 0.40990335988131127
+            quantity: 1929409649213341634
+            symbol: "9432"
+            time_in_force: Itaque error.
+            trade_type: Architecto qui.
+            trigger_price: 0.5578293036117382
+            updated_at: "1976-05-21T02:29:21Z"
+        required:
+            - order_id
+            - symbol
+            - trade_type
+            - order_type
+            - quantity
+            - order_status
+            - is_margin
+            - created_at
             - updated_at

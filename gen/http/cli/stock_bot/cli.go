@@ -13,6 +13,7 @@ import (
 	"net/http"
 	"os"
 	balancec "stock-bot/gen/http/balance/client"
+	orderc "stock-bot/gen/http/order/client"
 
 	goahttp "goa.design/goa/v3/http"
 	goa "goa.design/goa/v3/pkg"
@@ -24,12 +25,23 @@ import (
 func UsageCommands() []string {
 	return []string{
 		"balance (summary|can-entry)",
+		"order new-order",
 	}
 }
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
 	return os.Args[0] + ` balance summary` + "\n" +
+		os.Args[0] + ` order new-order --body '{
+      "is_margin": true,
+      "order_type": "LIMIT",
+      "price": 3000.5,
+      "quantity": 100,
+      "symbol": "9432",
+      "time_in_force": "DAY",
+      "trade_type": "BUY",
+      "trigger_price": 3100
+   }'` + "\n" +
 		""
 }
 
@@ -49,10 +61,18 @@ func ParseEndpoint(
 
 		balanceCanEntryFlags         = flag.NewFlagSet("can-entry", flag.ExitOnError)
 		balanceCanEntryIssueCodeFlag = balanceCanEntryFlags.String("issue-code", "REQUIRED", "銘柄コード")
+
+		orderFlags = flag.NewFlagSet("order", flag.ContinueOnError)
+
+		orderNewOrderFlags    = flag.NewFlagSet("new-order", flag.ExitOnError)
+		orderNewOrderBodyFlag = orderNewOrderFlags.String("body", "REQUIRED", "")
 	)
 	balanceFlags.Usage = balanceUsage
 	balanceSummaryFlags.Usage = balanceSummaryUsage
 	balanceCanEntryFlags.Usage = balanceCanEntryUsage
+
+	orderFlags.Usage = orderUsage
+	orderNewOrderFlags.Usage = orderNewOrderUsage
 
 	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
 		return nil, nil, err
@@ -71,6 +91,8 @@ func ParseEndpoint(
 		switch svcn {
 		case "balance":
 			svcf = balanceFlags
+		case "order":
+			svcf = orderFlags
 		default:
 			return nil, nil, fmt.Errorf("unknown service %q", svcn)
 		}
@@ -93,6 +115,13 @@ func ParseEndpoint(
 
 			case "can-entry":
 				epf = balanceCanEntryFlags
+
+			}
+
+		case "order":
+			switch epn {
+			case "new-order":
+				epf = orderNewOrderFlags
 
 			}
 
@@ -124,6 +153,13 @@ func ParseEndpoint(
 			case "can-entry":
 				endpoint = c.CanEntry()
 				data, err = balancec.BuildCanEntryPayload(*balanceCanEntryIssueCodeFlag)
+			}
+		case "order":
+			c := orderc.NewClient(scheme, host, doer, enc, dec, restore)
+			switch epn {
+			case "new-order":
+				endpoint = c.NewOrder()
+				data, err = orderc.BuildNewOrderPayload(*orderNewOrderBodyFlag)
 			}
 		}
 	}
@@ -165,6 +201,39 @@ func balanceCanEntryUsage() {
     -issue-code STRING: 銘柄コード
 
 Example:
-    %[1]s balance can-entry --issue-code "Impedit eius ut."
+    %[1]s balance can-entry --issue-code "Error quaerat quibusdam sequi mollitia nihil."
+`, os.Args[0])
+}
+
+// orderUsage displays the usage of the order command and its subcommands.
+func orderUsage() {
+	fmt.Fprintf(os.Stderr, `注文サービスは株式の注文操作を提供します。
+Usage:
+    %[1]s [globalflags] order COMMAND [flags]
+
+COMMAND:
+    new-order: 新しい株式注文を作成します。
+
+Additional help:
+    %[1]s order COMMAND --help
+`, os.Args[0])
+}
+func orderNewOrderUsage() {
+	fmt.Fprintf(os.Stderr, `%[1]s [flags] order new-order -body JSON
+
+新しい株式注文を作成します。
+    -body JSON: 
+
+Example:
+    %[1]s order new-order --body '{
+      "is_margin": true,
+      "order_type": "LIMIT",
+      "price": 3000.5,
+      "quantity": 100,
+      "symbol": "9432",
+      "time_in_force": "DAY",
+      "trade_type": "BUY",
+      "trigger_price": 3100
+   }'
 `, os.Args[0])
 }

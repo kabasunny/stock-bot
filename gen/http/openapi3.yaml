@@ -21,8 +21,8 @@ paths:
                   schema:
                     type: string
                     description: 銘柄コード
-                    example: Sunt fuga qui harum eos voluptatem.
-                  example: Eum tenetur earum.
+                    example: Placeat molestiae illo voluptatum minima ullam corrupti.
+                  example: Beatae reprehenderit blanditiis laborum sunt.
             responses:
                 "200":
                     description: OK response.
@@ -54,8 +54,115 @@ paths:
                                 total_assets: 3.0000005e+06
                                 updated_at: "2023-08-23T10:00:00Z"
                                 withdrawal_possible_amount: 500000
+    /orders:
+        post:
+            tags:
+                - order
+            summary: newOrder order
+            description: 新しい株式注文を作成します。
+            operationId: order#newOrder
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/NewOrderPayload'
+                        example:
+                            is_margin: true
+                            order_type: LIMIT
+                            price: 3000.5
+                            quantity: 100
+                            symbol: "9432"
+                            time_in_force: DAY
+                            trade_type: BUY
+                            trigger_price: 3100
+            responses:
+                "201":
+                    description: Created response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StockOrder'
+                            example:
+                                created_at: "2011-12-11T08:53:58Z"
+                                is_margin: false
+                                order_id: 20230824-123456
+                                order_status: Eos aut culpa tenetur facilis.
+                                order_type: Voluptatibus porro.
+                                price: 0.6133315158499287
+                                quantity: 574158941857668223
+                                symbol: "9432"
+                                time_in_force: Quae aut dolores autem sit est voluptates.
+                                trade_type: Hic incidunt.
+                                trigger_price: 0.11161642135947698
+                                updated_at: "1975-03-13T23:16:05Z"
 components:
     schemas:
+        NewOrderPayload:
+            type: object
+            properties:
+                is_margin:
+                    type: boolean
+                    description: 信用取引かどうか
+                    default: false
+                    example: true
+                order_type:
+                    type: string
+                    description: 注文種別
+                    example: LIMIT
+                    enum:
+                        - MARKET
+                        - LIMIT
+                        - STOP
+                        - STOP_LIMIT
+                price:
+                    type: number
+                    description: 指値価格
+                    example: 3000.5
+                    format: double
+                quantity:
+                    type: integer
+                    description: 注文数量
+                    example: 100
+                    format: int64
+                symbol:
+                    type: string
+                    description: 銘柄コード
+                    example: "9432"
+                time_in_force:
+                    type: string
+                    description: 注文の有効期間
+                    default: DAY
+                    example: DAY
+                    enum:
+                        - DAY
+                trade_type:
+                    type: string
+                    description: 取引種別
+                    example: BUY
+                    enum:
+                        - BUY
+                        - SELL
+                trigger_price:
+                    type: number
+                    description: 逆指値トリガー価格
+                    example: 3100
+                    format: double
+            description: 新規注文を作成するためのペイロード
+            example:
+                is_margin: true
+                order_type: LIMIT
+                price: 3000.5
+                quantity: 100
+                symbol: "9432"
+                time_in_force: DAY
+                trade_type: BUY
+                trigger_price: 3100
+            required:
+                - symbol
+                - trade_type
+                - order_type
+                - quantity
         StockBalanceCanEntry:
             type: object
             properties:
@@ -123,6 +230,88 @@ components:
                 - withdrawal_possible_amount
                 - margin_rate
                 - updated_at
+        StockOrder:
+            type: object
+            properties:
+                created_at:
+                    type: string
+                    description: 作成タイムスタンプ
+                    example: "1973-01-30T10:05:54Z"
+                    format: date-time
+                is_margin:
+                    type: boolean
+                    description: 信用取引かどうか
+                    example: true
+                order_id:
+                    type: string
+                    description: 一意の注文ID
+                    example: 20230824-123456
+                order_status:
+                    type: string
+                    description: 注文ステータス
+                    example: Repellendus id numquam.
+                order_type:
+                    type: string
+                    description: 注文種別
+                    example: Maiores hic dignissimos molestiae inventore voluptas omnis.
+                price:
+                    type: number
+                    description: 指値価格
+                    example: 0.9817042181237097
+                    format: double
+                quantity:
+                    type: integer
+                    description: 注文数量
+                    example: 4890251465174790012
+                    format: int64
+                symbol:
+                    type: string
+                    description: 銘柄コード
+                    example: "9432"
+                time_in_force:
+                    type: string
+                    description: 注文の有効期間
+                    example: Reprehenderit nesciunt numquam rem.
+                trade_type:
+                    type: string
+                    description: 取引種別
+                    example: Praesentium dolorum aut sunt.
+                trigger_price:
+                    type: number
+                    description: 逆指値トリガー価格
+                    example: 0.5131786410497762
+                    format: double
+                updated_at:
+                    type: string
+                    description: 更新タイムスタンプ
+                    example: "2006-09-08T08:22:42Z"
+                    format: date-time
+            description: 注文操作の結果
+            example:
+                created_at: "1995-07-05T21:27:18Z"
+                is_margin: false
+                order_id: 20230824-123456
+                order_status: Saepe culpa saepe asperiores consequatur delectus.
+                order_type: Nobis in.
+                price: 0.8350763040058155
+                quantity: 6036016598389905361
+                symbol: "9432"
+                time_in_force: Laborum enim saepe ipsa iste.
+                trade_type: Dolores atque consequatur.
+                trigger_price: 0.1780407295315989
+                updated_at: "2011-02-21T09:56:43Z"
+            required:
+                - order_id
+                - symbol
+                - trade_type
+                - order_type
+                - quantity
+                - order_status
+                - is_margin
+                - created_at
+                - updated_at
 tags:
     - name: balance
       description: 残高サービスは口座の残高情報を提供します。
+    - name: order
+      description: 注文サービスは株式の注文操作を提供します。
