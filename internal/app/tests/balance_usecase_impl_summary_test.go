@@ -15,7 +15,7 @@ func TestBalanceUseCaseImpl_GetSummary_RealAPI(t *testing.T) {
 	c := client.CreateTestClient(t)
 
 	// UseCaseImplのインスタンスを作成
-	uc := app.NewBalanceUseCaseImpl(c)
+	uc := app.NewBalanceUseCase(c)
 
 	// ログイン
 	loginReq := request_auth.ReqLogin{

@@ -11,7 +11,12 @@ type OrderUseCase interface {
 }
 
 type OrderParams struct {
-	Symbol    string
-	TradeType model.TradeType
-	// 他の注文に必要なパラメータ
+	Symbol       string
+	TradeType    model.TradeType
+	OrderType    model.OrderType
+	Quantity     int
+	Price        float64
+	TriggerPrice float64
+	TimeInForce  model.TimeInForce
+	IsMargin     bool
 }

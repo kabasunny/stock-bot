@@ -2,6 +2,7 @@ package balance
 
 import (
 	"context"
+	"log/slog"
 	"time"
 
 	"stock-bot/internal/app"
@@ -11,18 +12,25 @@ import (
 // balanceService は balance.Service インターフェースを実装します。
 type balanceService struct {
 	usecase app.BalanceUseCase
+	logger  *slog.Logger
 }
 
 // NewBalanceService は新しい balance サービスを作成します。
 func NewBalanceService(usecase app.BalanceUseCase) genbalance.Service {
-	return &balanceService{usecase: usecase}
+	return &balanceService{
+		usecase: usecase,
+		logger:  slog.Default(),
+	}
 }
 
 // Summary はユースケースを呼び出し、ドメインモデルをGoaのレスポンス型に変換します。
 func (s *balanceService) Summary(ctx context.Context) (*genbalance.StockBalanceSummary, error) {
+	s.logger.InfoContext(ctx, "balance.Summary")
+
 	// ユースケースを呼び出してドメインモデルを取得
 	domainSummary, err := s.usecase.GetSummary(ctx)
 	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to get summary", "error", err)
 		return nil, err
 	}
 
@@ -41,9 +49,12 @@ func (s *balanceService) Summary(ctx context.Context) (*genbalance.StockBalanceS
 
 // CanEntry は指定した銘柄にエントリー可能か判断します。
 func (s *balanceService) CanEntry(ctx context.Context, p *genbalance.CanEntryPayload) (*genbalance.StockBalanceCanEntry, error) {
+	s.logger.InfoContext(ctx, "balance.CanEntry", "payload", p)
+
 	// ユースケースを呼び出してエントリー可否を取得
 	canEntry, buyingPower, err := s.usecase.CanEntry(ctx, p.IssueCode)
 	if err != nil {
+		s.logger.ErrorContext(ctx, "failed to check can entry", "error", err)
 		return nil, err
 	}
 

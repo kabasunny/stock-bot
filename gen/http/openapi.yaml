@@ -72,6 +72,22 @@ paths:
                         $ref: '#/definitions/StockOrder'
             schemes:
                 - http
+    /positions:
+        get:
+            tags:
+                - position
+            summary: list position
+            description: 建玉の一覧を取得します。
+            operationId: position#list
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        type: array
+                        items:
+                            $ref: '#/definitions/StockPosition'
+            schemes:
+                - http
 definitions:
     NewOrderPayload:
         title: NewOrderPayload
@@ -125,7 +141,7 @@ definitions:
                 example: 3100
                 format: double
         example:
-            is_margin: true
+            is_margin: false
             order_type: LIMIT
             price: 3000.5
             quantity: 100
@@ -214,7 +230,7 @@ definitions:
             created_at:
                 type: string
                 description: 作成タイムスタンプ
-                example: "2013-03-18T20:19:42Z"
+                example: "2006-10-04T00:00:29Z"
                 format: date-time
             is_margin:
                 type: boolean
@@ -227,20 +243,20 @@ definitions:
             order_status:
                 type: string
                 description: 注文ステータス
-                example: Excepturi architecto dolorum illum maiores.
+                example: Non aliquam esse.
             order_type:
                 type: string
                 description: 注文種別
-                example: Qui at deserunt autem et recusandae sequi.
+                example: Reiciendis minima aut.
             price:
                 type: number
                 description: 指値価格
-                example: 0.25396396236390706
+                example: 0.8471446425158398
                 format: double
             quantity:
                 type: integer
                 description: 注文数量
-                example: 8760874815210805206
+                example: 4755510750313608555
                 format: int64
             symbol:
                 type: string
@@ -249,35 +265,35 @@ definitions:
             time_in_force:
                 type: string
                 description: 注文の有効期間
-                example: Laudantium reiciendis minima aut voluptatem quidem.
+                example: Architecto dolorum illum maiores dignissimos voluptate.
             trade_type:
                 type: string
                 description: 取引種別
-                example: Dolorum aut ullam consectetur.
+                example: Commodi consequatur nam soluta.
             trigger_price:
                 type: number
                 description: 逆指値トリガー価格
-                example: 0.740529396870943
+                example: 0.9766755781596382
                 format: double
             updated_at:
                 type: string
                 description: 更新タイムスタンプ
-                example: "1994-04-27T03:42:12Z"
+                example: "1993-12-27T17:17:51Z"
                 format: date-time
         description: NewOrderResponseBody result type (default view)
         example:
-            created_at: "1999-02-04T18:19:54Z"
+            created_at: "2013-01-01T14:10:21Z"
             is_margin: true
             order_id: 20230824-123456
-            order_status: Aliquid iure non praesentium molestiae delectus.
-            order_type: Molestiae provident enim et incidunt eum.
-            price: 0.40990335988131127
-            quantity: 1929409649213341634
+            order_status: Perferendis fuga labore quae impedit modi nostrum.
+            order_type: Architecto rem.
+            price: 0.4738885312924669
+            quantity: 8569502191661081447
             symbol: "9432"
-            time_in_force: Itaque error.
-            trade_type: Architecto qui.
-            trigger_price: 0.5578293036117382
-            updated_at: "1976-05-21T02:29:21Z"
+            time_in_force: Iure non praesentium molestiae delectus.
+            trade_type: Et incidunt eum labore.
+            trigger_price: 0.22291739028829524
+            updated_at: "1990-06-29T00:06:23Z"
         required:
             - order_id
             - symbol
@@ -286,5 +302,62 @@ definitions:
             - quantity
             - order_status
             - is_margin
+            - created_at
+            - updated_at
+    StockPosition:
+        title: 'Mediatype identifier: application/vnd.stock.position; view=default'
+        type: object
+        properties:
+            average_price:
+                type: number
+                description: 平均取得単価
+                example: 1500.5
+                format: double
+            created_at:
+                type: string
+                description: 作成日時
+                example: "2023-08-25T14:30:00Z"
+                format: date-time
+            id:
+                type: integer
+                description: ID
+                example: 1
+                format: int64
+            position_type:
+                type: string
+                description: ポジション種別 (LONG or SHORT)
+                example: LONG
+                enum:
+                    - LONG
+                    - SHORT
+            quantity:
+                type: integer
+                description: 保有数量
+                example: 100
+                format: int64
+            symbol:
+                type: string
+                description: 銘柄コード
+                example: "9432"
+            updated_at:
+                type: string
+                description: 更新日時
+                example: "2023-08-25T15:00:00Z"
+                format: date-time
+        description: 建玉情報 (default view)
+        example:
+            average_price: 1500.5
+            created_at: "2023-08-25T14:30:00Z"
+            id: 1
+            position_type: LONG
+            quantity: 100
+            symbol: "9432"
+            updated_at: "2023-08-25T15:00:00Z"
+        required:
+            - id
+            - symbol
+            - position_type
+            - average_price
+            - quantity
             - created_at
             - updated_at

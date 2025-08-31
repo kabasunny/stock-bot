@@ -21,8 +21,8 @@ paths:
                   schema:
                     type: string
                     description: 銘柄コード
-                    example: Placeat molestiae illo voluptatum minima ullam corrupti.
-                  example: Beatae reprehenderit blanditiis laborum sunt.
+                    example: Enim esse.
+                  example: Distinctio odio aut et at debitis.
             responses:
                 "200":
                     description: OK response.
@@ -68,7 +68,7 @@ paths:
                         schema:
                             $ref: '#/components/schemas/NewOrderPayload'
                         example:
-                            is_margin: true
+                            is_margin: false
                             order_type: LIMIT
                             price: 3000.5
                             quantity: 100
@@ -84,18 +84,71 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/StockOrder'
                             example:
-                                created_at: "2011-12-11T08:53:58Z"
-                                is_margin: false
+                                created_at: "1993-03-23T05:51:12Z"
+                                is_margin: true
                                 order_id: 20230824-123456
-                                order_status: Eos aut culpa tenetur facilis.
-                                order_type: Voluptatibus porro.
-                                price: 0.6133315158499287
-                                quantity: 574158941857668223
+                                order_status: Ipsam rerum sapiente beatae.
+                                order_type: Quae aut dolores autem sit est voluptates.
+                                price: 0.26380613269373276
+                                quantity: 4049269221085332884
                                 symbol: "9432"
-                                time_in_force: Quae aut dolores autem sit est voluptates.
-                                trade_type: Hic incidunt.
-                                trigger_price: 0.11161642135947698
-                                updated_at: "1975-03-13T23:16:05Z"
+                                time_in_force: Tenetur facilis.
+                                trade_type: Soluta voluptatem enim.
+                                trigger_price: 0.11934394818766299
+                                updated_at: "1992-10-28T00:28:43Z"
+    /positions:
+        get:
+            tags:
+                - position
+            summary: list position
+            description: 建玉の一覧を取得します。
+            operationId: position#list
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                type: array
+                                items:
+                                    $ref: '#/components/schemas/StockPosition'
+                                example:
+                                    - average_price: 1500.5
+                                      created_at: "2023-08-25T14:30:00Z"
+                                      id: 1
+                                      position_type: LONG
+                                      quantity: 100
+                                      symbol: "9432"
+                                      updated_at: "2023-08-25T15:00:00Z"
+                                    - average_price: 1500.5
+                                      created_at: "2023-08-25T14:30:00Z"
+                                      id: 1
+                                      position_type: LONG
+                                      quantity: 100
+                                      symbol: "9432"
+                                      updated_at: "2023-08-25T15:00:00Z"
+                            example:
+                                - average_price: 1500.5
+                                  created_at: "2023-08-25T14:30:00Z"
+                                  id: 1
+                                  position_type: LONG
+                                  quantity: 100
+                                  symbol: "9432"
+                                  updated_at: "2023-08-25T15:00:00Z"
+                                - average_price: 1500.5
+                                  created_at: "2023-08-25T14:30:00Z"
+                                  id: 1
+                                  position_type: LONG
+                                  quantity: 100
+                                  symbol: "9432"
+                                  updated_at: "2023-08-25T15:00:00Z"
+                                - average_price: 1500.5
+                                  created_at: "2023-08-25T14:30:00Z"
+                                  id: 1
+                                  position_type: LONG
+                                  quantity: 100
+                                  symbol: "9432"
+                                  updated_at: "2023-08-25T15:00:00Z"
 components:
     schemas:
         NewOrderPayload:
@@ -105,7 +158,7 @@ components:
                     type: boolean
                     description: 信用取引かどうか
                     default: false
-                    example: true
+                    example: false
                 order_type:
                     type: string
                     description: 注文種別
@@ -236,7 +289,7 @@ components:
                 created_at:
                     type: string
                     description: 作成タイムスタンプ
-                    example: "1973-01-30T10:05:54Z"
+                    example: "2007-05-24T00:42:16Z"
                     format: date-time
                 is_margin:
                     type: boolean
@@ -249,20 +302,20 @@ components:
                 order_status:
                     type: string
                     description: 注文ステータス
-                    example: Repellendus id numquam.
+                    example: Qui ducimus assumenda veniam saepe sed nisi.
                 order_type:
                     type: string
                     description: 注文種別
-                    example: Maiores hic dignissimos molestiae inventore voluptas omnis.
+                    example: Officia praesentium officia reprehenderit nesciunt numquam.
                 price:
                     type: number
                     description: 指値価格
-                    example: 0.9817042181237097
+                    example: 0.31131266330012414
                     format: double
                 quantity:
                     type: integer
                     description: 注文数量
-                    example: 4890251465174790012
+                    example: 9165706554504809977
                     format: int64
                 symbol:
                     type: string
@@ -271,35 +324,35 @@ components:
                 time_in_force:
                     type: string
                     description: 注文の有効期間
-                    example: Reprehenderit nesciunt numquam rem.
+                    example: Numquam sunt ex dolore optio.
                 trade_type:
                     type: string
                     description: 取引種別
-                    example: Praesentium dolorum aut sunt.
+                    example: Maiores hic dignissimos molestiae inventore voluptas omnis.
                 trigger_price:
                     type: number
                     description: 逆指値トリガー価格
-                    example: 0.5131786410497762
+                    example: 0.4023435577773333
                     format: double
                 updated_at:
                     type: string
                     description: 更新タイムスタンプ
-                    example: "2006-09-08T08:22:42Z"
+                    example: "1981-11-10T05:32:46Z"
                     format: date-time
             description: 注文操作の結果
             example:
-                created_at: "1995-07-05T21:27:18Z"
+                created_at: "2007-07-24T13:39:49Z"
                 is_margin: false
                 order_id: 20230824-123456
-                order_status: Saepe culpa saepe asperiores consequatur delectus.
-                order_type: Nobis in.
-                price: 0.8350763040058155
-                quantity: 6036016598389905361
+                order_status: Necessitatibus aut expedita eveniet non possimus numquam.
+                order_type: Saepe culpa saepe asperiores consequatur delectus.
+                price: 0.9296620264377603
+                quantity: 7613147753953877349
                 symbol: "9432"
-                time_in_force: Laborum enim saepe ipsa iste.
-                trade_type: Dolores atque consequatur.
-                trigger_price: 0.1780407295315989
-                updated_at: "2011-02-21T09:56:43Z"
+                time_in_force: Hic autem nihil id ratione explicabo sunt.
+                trade_type: Ipsa iste.
+                trigger_price: 0.7717723005272117
+                updated_at: "2013-08-15T13:29:41Z"
             required:
                 - order_id
                 - symbol
@@ -310,8 +363,66 @@ components:
                 - is_margin
                 - created_at
                 - updated_at
+        StockPosition:
+            type: object
+            properties:
+                average_price:
+                    type: number
+                    description: 平均取得単価
+                    example: 1500.5
+                    format: double
+                created_at:
+                    type: string
+                    description: 作成日時
+                    example: "2023-08-25T14:30:00Z"
+                    format: date-time
+                id:
+                    type: integer
+                    description: ID
+                    example: 1
+                    format: int64
+                position_type:
+                    type: string
+                    description: ポジション種別 (LONG or SHORT)
+                    example: LONG
+                    enum:
+                        - LONG
+                        - SHORT
+                quantity:
+                    type: integer
+                    description: 保有数量
+                    example: 100
+                    format: int64
+                symbol:
+                    type: string
+                    description: 銘柄コード
+                    example: "9432"
+                updated_at:
+                    type: string
+                    description: 更新日時
+                    example: "2023-08-25T15:00:00Z"
+                    format: date-time
+            description: 建玉情報
+            example:
+                average_price: 1500.5
+                created_at: "2023-08-25T14:30:00Z"
+                id: 1
+                position_type: LONG
+                quantity: 100
+                symbol: "9432"
+                updated_at: "2023-08-25T15:00:00Z"
+            required:
+                - id
+                - symbol
+                - position_type
+                - average_price
+                - quantity
+                - created_at
+                - updated_at
 tags:
     - name: balance
       description: 残高サービスは口座の残高情報を提供します。
     - name: order
       description: 注文サービスは株式の注文操作を提供します。
+    - name: position
+      description: 建玉サービスは現在保有している建玉の情報を提供します。

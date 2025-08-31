@@ -11,6 +11,8 @@
 5.  **一貫性の維持**: この指示に従うことで、セッションをまたいでも一貫した方針でアシストを継続してください。過去のやり取りの繰り返しを避けることが目的です。
 6.  **技術バージョン規約**: このプロジェクトでは **Goa v3** を使用します。v1など古いバージョンの記法（例: `DateTime`）は使用しないでください。不明な点があれば、`goa.design`の公式ドキュメントを参照するか、ユーザーに確認してください。
 7.  **言語規約**: 機能に直接影響しないコード内の記述（コメント、Description、Attributeの説明など）は、**すべて日本語を使用してください。** これにより、プロジェクト全体の言語統一性を保ちます。
+8.  **モデルの検証**: APIデザイン（`design.go`）を作成・修正する前には、**必ず対応するドメインモデル（`domain/model/*.go`）の最新の内容を読み込み、その構造が正しいことを確認してください。** 思い込みや過去のキャッシュされた情報に頼らず、常にファイルシステムの現在の状態を正としてください。これにより、APIとドメインモデルの乖離を防ぎます。
+9.  **ロガー規約**: `internal/interface`層のサービス実装では、`internal/logger`で設定されたカスタムロガーを使用します。各サービスの構造体には`logger *slog.Logger`フィールドを定義し、コンストラクタで`slog.Default()`を呼び出して初期化してください。
 
 ---
 ## 1. このプロジェクトについて
@@ -71,25 +73,50 @@
     - [x] 3-3. Usecaseから受け取った結果を、Goaが生成した `OrderResult` 型に変換して返す
 
 ### フェーズ 4: 建玉 API の実装 (Position Service)
-- [ ] **ステップ 1: ビジネスロジックの作成**
-    - [ ] 1-1. `PositionUseCase` インターフェース (`internal/app/position_usecase.go`) を新規作成し、`List` メソッドを定義する
-    - [ ] 1-2. `PositionUseCaseImpl` (`internal/app/position_usecase_impl.go`) を新規作成し、`List` メソッドを実装する。この実装は `PositionRepository.FindAll` を呼び出す。
-- [ ] **ステップ 2: APIデザインの定義**
-    - [ ] 2-1. `design.go` に `Position` サービスと `list` メソッドの基本構造を記述する
-    - [ ] 2-2. `list` メソッドのレスポンスとして返す型 `PositionResult` (Result Type) を定義する。これは `Position` モデルを反映する。
-    - [ ] 2-3. `Position` サービスの `list` メソッドに、レスポンスとして `PositionResult` の配列を指定する
-- [ ] **ステップ 3: コード生成と確認**
-    - [ ] 3-1. `goa gen` を実行してサーバーコードのひな形を生成する
-    - [ ] 3-2. 生成された `gen/` ディレクトリ以下のファイルを確認する
-- [ ] **ステップ 4: ビジネスロジックの実装**
-    - [ ] 4-1. `internal/interface/position/position_service.go` を新規作成し、`position.Service` インターフェースを実装する構造体を定義する
-    - [ ] 4-2. `list` メソッドを実装し、その中で `PositionUsecase.List` を呼び出す
-    - [ ] 4-3. Usecaseから受け取った結果を、Goaが生成した `PositionResult` 型に変換して返す
+- [x] **ステップ 1: ビジネスロジックの作成**
+    - [x] 1-1. `PositionUseCase` インターフェース (`internal/app/position_usecase.go`) を新規作成し、`List` メソッドを定義する
+    - [x] 1-2. `PositionUseCaseImpl` (`internal/app/position_usecase_impl.go`) を新規作成し、`List` メソッドを実装する。この実装は `PositionRepository.FindAll` を呼び出す。
+- [x] **ステップ 2: APIデザインの定義**
+    - [x] 2-1. `design.go` に `Position` サービスと `list` メソッドの基本構造を記述する
+    - [x] 2-2. `list` メソッドのレスポンスとして返す型 `PositionResult` (Result Type) を定義する。これは `Position` モデルを反映する。
+    - [x] 2-3. `Position` サービスの `list` メソッドに、レスポンスとして `PositionResult` の配列を指定する
+- [x] **ステップ 3: コード生成と確認**
+    - [x] 3-1. `goa gen` を実行してサーバーコードのひな形を生成する
+    - [x] 3-2. 生成された `gen/` ディレクトリ以下のファイルを確認する
+- [x] **ステップ 4: ビジネスロジックの実装**
+    - [x] 4-1. `internal/interface/position/position_service.go` を新規作成し、`position.Service` インターフェースを実装する構造体を定義する
+    - [x] 4-2. `list` メソッドを実装し、その中で `PositionUsecase.List` を呼び出す
+    - [x] 4-3. Usecaseから受け取った結果を、Goaが生成した `PositionResult` 型に変換して返す
 
 ### フェーズ 5: サーバーの構築と全サービスの統合
-*(フェーズ4完了後に詳細化)*
+- [x] **ステップ 1: 依存関係の解決**
+    - [x] 1-1. `cmd/myapp/main.go` を修正し、これまで作成した `Repository`, `UseCase`, `Service` の各実装を初期化し、依存関係を注入するコードを追加する。
+- [x] **ステップ 2: エンドポイントの登録**
+    - [x] 2-1. `cmd/myapp/main.go` に、Goaが生成した各サービス (`balance`, `order`, `position`) のエンドポイントをサーバーに登録するコードを追加する。
+- [x] **ステップ 3: サーバーの起動**
+    - [x] 3-1. `cmd/myapp/main.go` の `main` 関数に、HTTPサーバーを起動する処理を記述する。
+- [ ] **ステップ 4: 動作確認**
+    - [ ] 4-1. `go run cmd/myapp/main.go` を実行してサーバーを起動し、エラーが出ないことを確認する。
 
 ---
+--- 
 ## 3. ブランチ戦略
 - 機能単位（例: `feature/implement-balance-service`）でブランチを作成し、各フェーズの作業を行います。
 - フェーズ完了後にメインブランチにマージします。
+
+--- 
+## 4. 次回作業 (Next Steps)
+
+**最終完了日時:** 2025年8月31日
+**最終完了フェーズ:** フェーズ4完了、およびフェーズ5のサーバー実装完了。
+
+**申し送り事項:**
+- `main.go`の作成と、全サービスの依存関係注入（DI）が完了しました。
+- サービス実装に関する既知のエラーはすべて修正済みです。
+- 次のタスクは、サーバーが正しく起動し、動作するかを確認することです。
+
+**次回開始タスク:**
+- **フェーズ5, ステップ4-1: 動作確認**
+  1.  まず、`go mod tidy` を実行して、依存関係を最終整理します。
+  2.  次に、`go run cmd/myapp/main.go` を実行して、サーバーを起動します。
+  3.  コンソールにエラーが出力されず、"HTTP server starting"というログが表示されれば成功です。

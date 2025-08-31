@@ -182,3 +182,57 @@ var _ = Service("order", func() {
 		})
 	})
 })
+
+// PositionResult は建玉の結果型を定義します。
+var PositionResult = ResultType("application/vnd.stock.position", func() {
+	Description("建玉情報")
+	Attributes(func() {
+		Attribute("id", UInt, "ID", func() {
+			Example(1)
+		})
+		Attribute("symbol", String, "銘柄コード", func() {
+			Example("9432")
+		})
+		Attribute("position_type", String, "ポジション種別 (LONG or SHORT)", func() {
+			Enum("LONG", "SHORT")
+			Example("LONG")
+		})
+		Attribute("average_price", Float64, "平均取得単価", func() {
+			Example(1500.5)
+		})
+		Attribute("quantity", Int, "保有数量", func() {
+			Example(100)
+		})
+		Attribute("created_at", String, "作成日時", func() {
+			Format(FormatDateTime)
+			Example("2023-08-25T14:30:00Z")
+		})
+		Attribute("updated_at", String, "更新日時", func() {
+			Format(FormatDateTime)
+			Example("2023-08-25T15:00:00Z")
+		})
+	})
+	View("default", func() {
+		Attribute("id")
+		Attribute("symbol")
+		Attribute("position_type")
+		Attribute("average_price")
+		Attribute("quantity")
+		Attribute("created_at")
+		Attribute("updated_at")
+	})
+	Required("id", "symbol", "position_type", "average_price", "quantity", "created_at", "updated_at")
+})
+
+var _ = Service("position", func() {
+	Description("建玉サービスは現在保有している建玉の情報を提供します。")
+
+	Method("list", func() {
+		Description("建玉の一覧を取得します。")
+		Result(ArrayOf(PositionResult))
+		HTTP(func() {
+			GET("/positions")
+			Response(StatusOK)
+		})
+	})
+})

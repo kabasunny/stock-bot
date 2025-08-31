@@ -14,6 +14,7 @@ import (
 	"os"
 	balancec "stock-bot/gen/http/balance/client"
 	orderc "stock-bot/gen/http/order/client"
+	positionc "stock-bot/gen/http/position/client"
 
 	goahttp "goa.design/goa/v3/http"
 	goa "goa.design/goa/v3/pkg"
@@ -26,6 +27,7 @@ func UsageCommands() []string {
 	return []string{
 		"balance (summary|can-entry)",
 		"order new-order",
+		"position list",
 	}
 }
 
@@ -33,7 +35,7 @@ func UsageCommands() []string {
 func UsageExamples() string {
 	return os.Args[0] + ` balance summary` + "\n" +
 		os.Args[0] + ` order new-order --body '{
-      "is_margin": true,
+      "is_margin": false,
       "order_type": "LIMIT",
       "price": 3000.5,
       "quantity": 100,
@@ -42,6 +44,7 @@ func UsageExamples() string {
       "trade_type": "BUY",
       "trigger_price": 3100
    }'` + "\n" +
+		os.Args[0] + ` position list` + "\n" +
 		""
 }
 
@@ -66,6 +69,10 @@ func ParseEndpoint(
 
 		orderNewOrderFlags    = flag.NewFlagSet("new-order", flag.ExitOnError)
 		orderNewOrderBodyFlag = orderNewOrderFlags.String("body", "REQUIRED", "")
+
+		positionFlags = flag.NewFlagSet("position", flag.ContinueOnError)
+
+		positionListFlags = flag.NewFlagSet("list", flag.ExitOnError)
 	)
 	balanceFlags.Usage = balanceUsage
 	balanceSummaryFlags.Usage = balanceSummaryUsage
@@ -73,6 +80,9 @@ func ParseEndpoint(
 
 	orderFlags.Usage = orderUsage
 	orderNewOrderFlags.Usage = orderNewOrderUsage
+
+	positionFlags.Usage = positionUsage
+	positionListFlags.Usage = positionListUsage
 
 	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
 		return nil, nil, err
@@ -93,6 +103,8 @@ func ParseEndpoint(
 			svcf = balanceFlags
 		case "order":
 			svcf = orderFlags
+		case "position":
+			svcf = positionFlags
 		default:
 			return nil, nil, fmt.Errorf("unknown service %q", svcn)
 		}
@@ -122,6 +134,13 @@ func ParseEndpoint(
 			switch epn {
 			case "new-order":
 				epf = orderNewOrderFlags
+
+			}
+
+		case "position":
+			switch epn {
+			case "list":
+				epf = positionListFlags
 
 			}
 
@@ -160,6 +179,12 @@ func ParseEndpoint(
 			case "new-order":
 				endpoint = c.NewOrder()
 				data, err = orderc.BuildNewOrderPayload(*orderNewOrderBodyFlag)
+			}
+		case "position":
+			c := positionc.NewClient(scheme, host, doer, enc, dec, restore)
+			switch epn {
+			case "list":
+				endpoint = c.List()
 			}
 		}
 	}
@@ -201,7 +226,7 @@ func balanceCanEntryUsage() {
     -issue-code STRING: 銘柄コード
 
 Example:
-    %[1]s balance can-entry --issue-code "Error quaerat quibusdam sequi mollitia nihil."
+    %[1]s balance can-entry --issue-code "Quibusdam sequi mollitia nihil aut magni."
 `, os.Args[0])
 }
 
@@ -226,7 +251,7 @@ func orderNewOrderUsage() {
 
 Example:
     %[1]s order new-order --body '{
-      "is_margin": true,
+      "is_margin": false,
       "order_type": "LIMIT",
       "price": 3000.5,
       "quantity": 100,
@@ -235,5 +260,28 @@ Example:
       "trade_type": "BUY",
       "trigger_price": 3100
    }'
+`, os.Args[0])
+}
+
+// positionUsage displays the usage of the position command and its subcommands.
+func positionUsage() {
+	fmt.Fprintf(os.Stderr, `建玉サービスは現在保有している建玉の情報を提供します。
+Usage:
+    %[1]s [globalflags] position COMMAND [flags]
+
+COMMAND:
+    list: 建玉の一覧を取得します。
+
+Additional help:
+    %[1]s position COMMAND --help
+`, os.Args[0])
+}
+func positionListUsage() {
+	fmt.Fprintf(os.Stderr, `%[1]s [flags] position list
+
+建玉の一覧を取得します。
+
+Example:
+    %[1]s position list
 `, os.Args[0])
 }

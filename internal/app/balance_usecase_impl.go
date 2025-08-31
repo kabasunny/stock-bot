@@ -21,8 +21,8 @@ type BalanceUseCaseImpl struct {
 	client client.BalanceClient // BalanceClientインターフェースを使用
 }
 
-// NewBalanceUseCaseImpl は、BalanceUseCaseImplのコンストラクタ
-func NewBalanceUseCaseImpl(client client.BalanceClient) BalanceUseCase {
+// NewBalanceUseCase は、BalanceUseCaseImplのコンストラクタ
+func NewBalanceUseCase(client client.BalanceClient) BalanceUseCase {
 	return &BalanceUseCaseImpl{
 		client: client,
 	}
