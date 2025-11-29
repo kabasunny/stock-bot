@@ -11,18 +11,14 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
-	"go.uber.org/zap"
 )
 
 func TestBalanceUseCaseImpl_CanEntry_RealAPI(t *testing.T) {
 	// テスト用の TachibanaClient を作成
 	c := client.CreateTestClient(t)
 
-	// ロガーの設定
-	logger := zap.NewNop()
-
 	// UseCaseImplのインスタンスを作成
-	uc := app.NewBalanceUseCaseImpl(c, logger)
+	uc := app.NewBalanceUseCaseImpl(c)
 
 	// ログイン
 	loginReq := request_auth.ReqLogin{

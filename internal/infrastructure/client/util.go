@@ -23,6 +23,37 @@ import (
 	"golang.org/x/text/transform"
 )
 
+// SendPostRequest は、HTTP POSTリクエストを送信し、レスポンスをデコードする
+func SendPostRequest(
+	ctx context.Context,
+	urlStr string,
+	reqData interface{},
+	maxRetries int,
+) (map[string]interface{}, error) {
+	// リクエストデータをJSONにマーシャリング
+	jsonBody, err := json.Marshal(reqData)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to marshal request data")
+	}
+
+	// POSTリクエストを作成
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, urlStr, bytes.NewBuffer(jsonBody))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create post request")
+	}
+
+	// リトライ時にボディを再読み込みできるように、GetBody を設定
+	req.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewBuffer(jsonBody)), nil
+	}
+
+	// Content-Typeヘッダーを設定
+	req.Header.Set("Content-Type", "application/json")
+
+	// 既存のSendRequestを呼び出してリクエストを送信
+	return SendRequest(req, maxRetries)
+}
+
 // SendRequest は、HTTPリクエストを送信し、レスポンスをデコードする (リトライ処理付き)
 func SendRequest(
 	req *http.Request,
@@ -32,11 +63,20 @@ func SendRequest(
 
 	// retryDoに渡す関数
 	retryFunc := func(client *http.Client, decodeFunc func([]byte, interface{}) error) (*http.Response, error) {
+		// リトライのたびにボディを再生成する
+		if req.GetBody != nil {
+			body, err := req.GetBody()
+			if err != nil {
+				return nil, errors.Wrap(err, "failed to get request body for retry")
+			}
+			req.Body = body
+		}
+
 		//timeoutコンテキストを作成
-		req, cancel := withContextAndTimeout(req, 60*time.Second)
+		reqWithTimeout, cancel := withContextAndTimeout(req, 60*time.Second)
 		defer cancel()
 
-		resp, err := client.Do(req) //clientは、http.Client{}
+		resp, err := client.Do(reqWithTimeout) //clientは、http.Client{}
 		if err != nil {
 			return resp, err
 		}
@@ -491,6 +531,10 @@ func retryDo(fn func(*http.Client, func([]byte, interface{}) error) (*http.Respo
 		}
 		lastErr = err
 		if i < maxRetries-1 { // 最後のリトライでなければ
+			slog.Debug("Retrying request",
+				slog.Int("retry_count", i+1),
+				slog.Any("error", err),
+			)
 			time.Sleep(interval) // ちょっと待つ
 		}
 	}

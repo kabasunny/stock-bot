@@ -2,6 +2,7 @@
 package client
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -314,6 +315,61 @@ func (m *masterDataClientImpl) GetMasterDataQuery(ctx context.Context, req reque
 	return res, nil
 }
 
+func (m *masterDataClientImpl) GetMasterDataQueryWithPost(ctx context.Context, req request.ReqGetMasterData) (*response.ResGetMasterData, error) {
+	if !m.client.loggined {
+		return nil, errors.New("not logged in")
+	}
+
+	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse master URL")
+	}
+
+	req.CLMID = "CLMMfdsGetMasterData"
+	req.P_no = m.client.getPNo()
+	req.P_sd_date = formatSDDate(time.Now())
+	req.JsonOfmt = "4"
+
+	params, err := structToMapString(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("{")
+	first := true
+	for k, v := range params {
+		if !first {
+			buf.WriteString(",")
+		}
+		first = false
+		buf.WriteString(fmt.Sprintf(`"%s":"%s"`, k, v))
+	}
+	buf.WriteString("}")
+	payloadJSON := buf.Bytes()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(payloadJSON))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create http request")
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
+	}
+
+	respMap, err := SendRequest(httpReq, 3)
+	if err != nil {
+		return nil, errors.Wrap(err, "get master data query with post failed")
+	}
+
+	res, err := ConvertResponse[response.ResGetMasterData](respMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (m *masterDataClientImpl) GetNewsHeader(ctx context.Context, req request.ReqGetNewsHead) (*response.ResGetNewsHeader, error) {
 	if !m.client.loggined {
 		return nil, errors.New("not logged in")
@@ -353,6 +409,61 @@ func (m *masterDataClientImpl) GetNewsHeader(ctx context.Context, req request.Re
 	}
 
 	// 5. レスポンスの処理
+	res, err := ConvertResponse[response.ResGetNewsHeader](respMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (m *masterDataClientImpl) GetNewsHeaderWithPost(ctx context.Context, req request.ReqGetNewsHead) (*response.ResGetNewsHeader, error) {
+	if !m.client.loggined {
+		return nil, errors.New("not logged in")
+	}
+
+	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse master URL")
+	}
+
+	req.CLMID = "CLMMfdsGetNewsHead"
+	req.P_no = m.client.getPNo()
+	req.P_sd_date = formatSDDate(time.Now())
+	req.JsonOfmt = "4"
+
+	params, err := structToMapString(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("{")
+	first := true
+	for k, v := range params {
+		if !first {
+			buf.WriteString(",")
+		}
+		first = false
+		buf.WriteString(fmt.Sprintf(`"%s":"%s"`, k, v))
+	}
+	buf.WriteString("}")
+	payloadJSON := buf.Bytes()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(payloadJSON))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create http request")
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
+	}
+
+	respMap, err := SendRequest(httpReq, 3)
+	if err != nil {
+		return nil, errors.Wrap(err, "get news header with post failed")
+	}
+
 	res, err := ConvertResponse[response.ResGetNewsHeader](respMap)
 	if err != nil {
 		return nil, err
@@ -408,6 +519,61 @@ func (m *masterDataClientImpl) GetNewsBody(ctx context.Context, req request.ReqG
 	return res, nil
 }
 
+func (m *masterDataClientImpl) GetNewsBodyWithPost(ctx context.Context, req request.ReqGetNewsBody) (*response.ResGetNewsBody, error) {
+	if !m.client.loggined {
+		return nil, errors.New("not logged in")
+	}
+
+	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse master URL")
+	}
+
+	req.CLMID = "CLMMfdsGetNewsBody"
+	req.P_no = m.client.getPNo()
+	req.P_sd_date = formatSDDate(time.Now())
+	req.JsonOfmt = "4"
+
+	params, err := structToMapString(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("{")
+	first := true
+	for k, v := range params {
+		if !first {
+			buf.WriteString(",")
+		}
+		first = false
+		buf.WriteString(fmt.Sprintf(`"%s":"%s"`, k, v))
+	}
+	buf.WriteString("}")
+	payloadJSON := buf.Bytes()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(payloadJSON))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create http request")
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
+	}
+
+	respMap, err := SendRequest(httpReq, 3)
+	if err != nil {
+		return nil, errors.Wrap(err, "get news body with post failed")
+	}
+
+	res, err := ConvertResponse[response.ResGetNewsBody](respMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (m *masterDataClientImpl) GetIssueDetail(ctx context.Context, req request.ReqGetIssueDetail) (*response.ResGetIssueDetail, error) {
 	if !m.client.loggined {
 		return nil, errors.New("not logged in")
@@ -447,6 +613,61 @@ func (m *masterDataClientImpl) GetIssueDetail(ctx context.Context, req request.R
 	}
 
 	// 5. レスポンスの処理
+	res, err := ConvertResponse[response.ResGetIssueDetail](respMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (m *masterDataClientImpl) GetIssueDetailWithPost(ctx context.Context, req request.ReqGetIssueDetail) (*response.ResGetIssueDetail, error) {
+	if !m.client.loggined {
+		return nil, errors.New("not logged in")
+	}
+
+	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse master URL")
+	}
+
+	req.CLMID = "CLMMfdsGetIssueDetail"
+	req.P_no = m.client.getPNo()
+	req.P_sd_date = formatSDDate(time.Now())
+	req.JsonOfmt = "4"
+
+	params, err := structToMapString(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("{")
+	first := true
+	for k, v := range params {
+		if !first {
+			buf.WriteString(",")
+		}
+		first = false
+		buf.WriteString(fmt.Sprintf(`"%s":"%s"`, k, v))
+	}
+	buf.WriteString("}")
+	payloadJSON := buf.Bytes()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(payloadJSON))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create http request")
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
+	}
+
+	respMap, err := SendRequest(httpReq, 3)
+	if err != nil {
+		return nil, errors.Wrap(err, "get issue detail with post failed")
+	}
+
 	res, err := ConvertResponse[response.ResGetIssueDetail](respMap)
 	if err != nil {
 		return nil, err
@@ -502,6 +723,61 @@ func (m *masterDataClientImpl) GetMarginInfo(ctx context.Context, req request.Re
 	return res, nil
 }
 
+func (m *masterDataClientImpl) GetMarginInfoWithPost(ctx context.Context, req request.ReqGetMarginInfo) (*response.ResGetMarginInfo, error) {
+	if !m.client.loggined {
+		return nil, errors.New("not logged in")
+	}
+
+	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse master URL")
+	}
+
+	req.CLMID = "CLMMfdsGetSyoukinZan"
+	req.P_no = m.client.getPNo()
+	req.P_sd_date = formatSDDate(time.Now())
+	req.JsonOfmt = "4"
+
+	params, err := structToMapString(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("{")
+	first := true
+	for k, v := range params {
+		if !first {
+			buf.WriteString(",")
+		}
+		first = false
+		buf.WriteString(fmt.Sprintf(`"%s":"%s"`, k, v))
+	}
+	buf.WriteString("}")
+	payloadJSON := buf.Bytes()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(payloadJSON))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create http request")
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
+	}
+
+	respMap, err := SendRequest(httpReq, 3)
+	if err != nil {
+		return nil, errors.Wrap(err, "get margin info with post failed")
+	}
+
+	res, err := ConvertResponse[response.ResGetMarginInfo](respMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (m *masterDataClientImpl) GetCreditInfo(ctx context.Context, req request.ReqGetCreditInfo) (*response.ResGetCreditInfo, error) {
 	if !m.client.loggined {
 		return nil, errors.New("not logged in")
@@ -549,6 +825,61 @@ func (m *masterDataClientImpl) GetCreditInfo(ctx context.Context, req request.Re
 	return res, nil
 }
 
+func (m *masterDataClientImpl) GetCreditInfoWithPost(ctx context.Context, req request.ReqGetCreditInfo) (*response.ResGetCreditInfo, error) {
+	if !m.client.loggined {
+		return nil, errors.New("not logged in")
+	}
+
+	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse master URL")
+	}
+
+	req.CLMID = "CLMMfdsGetShinyouZan"
+	req.P_no = m.client.getPNo()
+	req.P_sd_date = formatSDDate(time.Now())
+	req.JsonOfmt = "4"
+
+	params, err := structToMapString(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("{")
+	first := true
+	for k, v := range params {
+		if !first {
+			buf.WriteString(",")
+		}
+		first = false
+		buf.WriteString(fmt.Sprintf(`"%s":"%s"`, k, v))
+	}
+	buf.WriteString("}")
+	payloadJSON := buf.Bytes()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(payloadJSON))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create http request")
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
+	}
+
+	respMap, err := SendRequest(httpReq, 3)
+	if err != nil {
+		return nil, errors.Wrap(err, "get credit info with post failed")
+	}
+
+	res, err := ConvertResponse[response.ResGetCreditInfo](respMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
 func (m *masterDataClientImpl) GetMarginPremiumInfo(ctx context.Context, req request.ReqGetMarginPremiumInfo) (*response.ResGetMarginPremiumInfo, error) {
 	if !m.client.loggined {
 		return nil, errors.New("not logged in")
@@ -588,6 +919,61 @@ func (m *masterDataClientImpl) GetMarginPremiumInfo(ctx context.Context, req req
 	}
 
 	// 5. レスポンスの処理
+	res, err := ConvertResponse[response.ResGetMarginPremiumInfo](respMap)
+	if err != nil {
+		return nil, err
+	}
+
+	return res, nil
+}
+
+func (m *masterDataClientImpl) GetMarginPremiumInfoWithPost(ctx context.Context, req request.ReqGetMarginPremiumInfo) (*response.ResGetMarginPremiumInfo, error) {
+	if !m.client.loggined {
+		return nil, errors.New("not logged in")
+	}
+
+	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to parse master URL")
+	}
+
+	req.CLMID = "CLMMfdsGetHibuInfo"
+	req.P_no = m.client.getPNo()
+	req.P_sd_date = formatSDDate(time.Now())
+	req.JsonOfmt = "4"
+
+	params, err := structToMapString(req)
+	if err != nil {
+		return nil, err
+	}
+
+	var buf bytes.Buffer
+	buf.WriteString("{")
+	first := true
+	for k, v := range params {
+		if !first {
+			buf.WriteString(",")
+		}
+		first = false
+		buf.WriteString(fmt.Sprintf(`"%s":"%s"`, k, v))
+	}
+	buf.WriteString("}")
+	payloadJSON := buf.Bytes()
+
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(payloadJSON))
+	if err != nil {
+		return nil, errors.Wrap(err, "failed to create http request")
+	}
+	httpReq.Header.Set("Content-Type", "application/json")
+	httpReq.GetBody = func() (io.ReadCloser, error) {
+		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
+	}
+
+	respMap, err := SendRequest(httpReq, 3)
+	if err != nil {
+		return nil, errors.Wrap(err, "get margin premium info with post failed")
+	}
+
 	res, err := ConvertResponse[response.ResGetMarginPremiumInfo](respMap)
 	if err != nil {
 		return nil, err

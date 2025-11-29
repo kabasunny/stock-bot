@@ -70,3 +70,31 @@ func TestOrderClientImpl_GetOrderListDetail(t *testing.T) {
 }
 
 // go test -v ./internal/infrastructure/client/tests/order_client_impl_getorderlistdetail_test.go
+
+func TestOrderClientImpl_GetOrderListDetailWithPost(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// POST版でログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): 注文詳細取得リクエストが成功すること", func(t *testing.T) {
+		// GetOrderListDetail リクエストを作成
+		// 注意: このテストはPOSTリクエストの仕組みを検証するものであり、
+		// 実際に存在する注文を取得するものではありません。
+		// そのため、ResultCodeが"0"で返ってくることは期待しません。
+		detailReq := request.ReqOrderListDetail{
+			OrderNumber: "1", // 仮の注文番号
+		}
+
+		// GetOrderListDetailWithPost 実行
+		res, err := c.GetOrderListDetailWithPost(context.Background(), detailReq)
+		assert.NoError(t, err) // APIからのエラー応答（例: 注文なし）はerrではなく、resに含まれる
+		assert.NotNil(t, res)
+	})
+}

@@ -314,3 +314,279 @@ func TestBalanceClientImpl_GetZanUriKanousuu(t *testing.T) {
 }
 
 // go test -v ./internal/infrastructure/client/tests/balance_client_impl_test.go
+
+func TestBalanceClientImpl_GetGenbutuKabuListWithPost(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// POST版でログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): 現物保有銘柄一覧が取得できること", func(t *testing.T) {
+		// GetGenbutuKabuListWithPost メソッドを実行
+		res, err := c.GetGenbutuKabuListWithPost(context.Background())
+
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		if res != nil {
+			assert.Equal(t, "0", res.ResultCode) // 成功コードの確認
+		}
+	})
+}
+
+func TestBalanceClientImpl_GetShinyouTategyokuListWithPost(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// POST版でログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): 信用建玉一覧が取得できること", func(t *testing.T) {
+		// GetShinyouTategyokuListWithPost メソッドを実行
+		res, err := c.GetShinyouTategyokuListWithPost(context.Background())
+
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		if res != nil {
+			assert.Equal(t, "0", res.ResultCode) // 成功コードの確認
+		}
+	})
+}
+
+func TestBalanceClientImpl_GetZanKaiKanougakuWithPost(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// POST版でログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): 買余力情報が取得できること", func(t *testing.T) {
+		// リクエストデータを作成 (銘柄コード、市場は未使用なので空文字列でOK)
+		req := request_balance.ReqZanKaiKanougaku{
+			IssueCode: "",
+			SizyouC:   "",
+		}
+
+		// GetZanKaiKanougakuWithPost メソッドを実行
+		res, err := c.GetZanKaiKanougakuWithPost(context.Background(), req)
+
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		if res != nil {
+			assert.Equal(t, "0", res.SResultCode) // 成功コードの確認
+		}
+	})
+}
+
+func TestBalanceClientImpl_GetZanKaiKanougakuSuiiWithPost(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// POST版でログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): 可能額推移情報が取得できること", func(t *testing.T) {
+		// リクエストデータを作成
+		req := request_balance.ReqZanKaiKanougakuSuii{}
+
+		// GetZanKaiKanougakuSuiiWithPost メソッドを実行
+		res, err := c.GetZanKaiKanougakuSuiiWithPost(context.Background(), req)
+
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		if res != nil {
+			assert.Equal(t, "0", res.SResultCode) // 成功コードの確認
+		}
+	})
+}
+
+func TestBalanceClientImpl_GetZanKaiSummaryWithPost(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// POST版でログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): 可能額サマリーが取得できること", func(t *testing.T) {
+		// GetZanKaiSummaryWithPost メソッドを実行
+		res, err := c.GetZanKaiSummaryWithPost(context.Background())
+
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		if res != nil {
+			assert.Equal(t, "0", res.ResultCode) // 成功コードの確認
+		}
+	})
+}
+
+func TestBalanceClientImpl_GetZanKaiGenbutuKaitukeSyousaiWithPost(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// POST版でログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): 指定営業日の現物株式買付可能額詳細が取得できること", func(t *testing.T) {
+		// リクエストデータを作成 (例: 第4営業日を指定)
+		tradingDay := 3 // 第4営業日
+
+		// GetZanKaiGenbutuKaitukeSyousaiWithPost メソッドを実行
+		res, err := c.GetZanKaiGenbutuKaitukeSyousaiWithPost(context.Background(), tradingDay)
+
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		if res != nil {
+			assert.Equal(t, "0", res.ResultCode) // 成功コードの確認
+		}
+	})
+}
+
+func TestBalanceClientImpl_GetZanKaiSinyouSinkidateSyousaiWithPost(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// POST版でログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): 指定営業日の信用新規建て可能額詳細が取得できること", func(t *testing.T) {
+		// リクエストデータを作成 (例: 第1営業日を指定)
+		tradingDay := 0 // 第1営業日
+
+		// GetZanKaiSinyouSinkidateSyousaiWithPost メソッドを実行
+		res, err := c.GetZanKaiSinyouSinkidateSyousaiWithPost(context.Background(), tradingDay)
+
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		if res != nil {
+			assert.Equal(t, "0", res.SResultCode) // 成功コードの確認
+		}
+	})
+}
+
+func TestBalanceClientImpl_GetZanRealHosyoukinRituWithPost(t *testing.T) {
+	// テスト用の TachibanaClient を作成
+	c := client.CreateTestClient(t)
+
+	// POST版でログイン
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): リアルタイム保証金率情報が取得できること", func(t *testing.T) {
+		// リクエストデータを作成 (パラメータは不要)
+		req := request_balance.ReqZanRealHosyoukinRitu{}
+
+		// GetZanRealHosyoukinRituWithPost メソッドを実行
+		res, err := c.GetZanRealHosyoukinRituWithPost(context.Background(), req)
+
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		if res != nil {
+			assert.Equal(t, "0", res.SResultCode) // 成功コードの確認
+		}
+	})
+}
+
+func TestBalanceClientImpl_GetZanShinkiKanoIjirituWithPost(t *testing.T) {
+	c := client.CreateTestClient(t)
+
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): 信用新規建て可能維持率情報が取得できること", func(t *testing.T) {
+		req := request_balance.ReqZanShinkiKanoIjiritu{}
+
+		res, err := c.GetZanShinkiKanoIjirituWithPost(context.Background(), req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		if res != nil {
+			assert.Equal(t, "0", res.SResultCode)
+		}
+	})
+}
+
+func TestBalanceClientImpl_GetZanUriKanousuuWithPost(t *testing.T) {
+	c := client.CreateTestClient(t)
+
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	_, err := c.LoginWithPost(context.Background(), loginReq)
+	assert.NoError(t, err)
+
+	t.Run("正常系 (POST): 売却可能数量情報が取得できること", func(t *testing.T) {
+		req := request_balance.ReqZanUriKanousuu{
+			IssueCode: "8411", // 例としてみずほFGの銘柄コードを指定
+		}
+
+		res, err := c.GetZanUriKanousuuWithPost(context.Background(), req)
+
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
+
+		if res != nil {
+			assert.Equal(t, "0", res.SResultCode)
+		}
+	})
+}

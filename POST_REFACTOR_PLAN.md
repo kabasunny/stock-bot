@@ -1,0 +1,126 @@
+# POSTメソッドへのリファクタリング計画
+
+## 1. 本日の作業内容
+
+### 目的
+API v4r8のリリースに伴い、データ更新系のAPIリクエストを従来の`GET`メソッドから、より標準的な`POST`メソッドに移行する。
+
+### 実施したこと
+1.  **POSTリクエスト用ヘルパーの追加**: `internal/infrastructure/client/util.go`に`SendPostRequest`を追加。
+2.  **認証処理のPOST対応**: `auth_client_impl.go`に`LoginWithPost`, `LogoutWithPost`を追加。
+3.  **認証処理のテスト**: `auth_client_impl_test.go`に`TestAuthClientImpl_LoginWithPost`を追加し、`POST`での認証ライフサイクルが正常に動作することを確認。
+4.  **注文処理のPOST対応（着手）**: `order_client_impl.go`に`NewOrderWithPost`を追加し、そのテスト`TestOrderClientImpl_NewOrderWithPost_Cases`も追加。
+
+---
+
+## 2. 解決済みの問題
+
+当初、`NewOrderWithPost`のテスト実行時に、リトライ処理に起因する `ContentLength` エラーが発生していました。さらに、そのリトライ処理が作動する根本的な原因（APIサーバーからの予期せぬ応答など）も存在しました。
+
+これらの問題は、以下の対応によって**すべて解決済み**です。
+
+1.  **`ContentLength`エラーの解消**: `util.go`でリクエストボディを再生成可能にすることで解決。（詳細は「5. 今回の学び」を参照）
+2.  **根本原因の解消**: APIサーバーが期待する形式（JSONキーの順序など）でリクエストを送信するように修正したことで、不要なリトライが発生しなくなりました。（詳細は「5. 今回の学び」を参照）
+
+提示いただいたテスト結果の通り、`order_client_impl_neworder_test.go`のテストは現在すべて成功 (`PASS`) します。
+
+---
+
+## 3. 次のTODO（全体計画）
+
+`NewOrderWithPost`が正常に動作することを確認できたため、以下の手順でリファクタリングを継続します。
+
+1.  **注文処理のPOST対応（継続）**:
+    *   以下のメソッドを`NewOrder`と同様の手順（`...WithPost`版の追加 → テスト追加 → 実行確認）でPOST化します。
+        *   `CorrectOrder`
+        *   `CancelOrder`
+        *   `CancelOrderAll`
+
+2.  **他クライアントのPOST対応**:
+    *   `balance_client_impl.go`など、他の「リクエストI/F」に属するクライアントも同様にPOST対応を進めます。
+
+3.  **最終的なリファクタリング（クリーンアップ）**:
+    *   すべての`...WithPost`版メソッドの動作確認が完了したら、プロジェクト全体で旧来の`GET`版メソッドを新しい`POST`版ロジックに置き換えます。
+    *   一時的に追加した`...WithPost`サフィックスを持つメソッドとテストをリネームし、コードをクリーンな状態に戻します。
+
+---
+
+## 5. 今回の学びと今後の注意点
+
+今回の`POST`メソッドへのリファクタリング過程で、いくつかの重要な知見が得られた。今後の開発やリファクタリングの際に参照できるよう、注意点と解決策を以下にまとめる。
+
+### 1. 自作リトライ処理と`POST`ボディの再生成
+
+-   **問題**: `POST`リクエストを自前のロジックでリトライする際、一度送信して消費されたリクエストボディが空になり、`http: ContentLength=... with Body length 0` エラーが発生した。
+-   **原因**: Goの`http.Request`オブジェクトをリトライ時に使い回すと、`req.Body`が読み取り済みのままになってしまうため。
+-   **解決策**:
+    1.  リクエスト作成時に `req.GetBody` フィールドに、ボディを再生成する関数を設定する。（`util.go`の`SendPostRequest`関数で実施）
+    2.  さらに、リトライ処理のループ内で、毎回 `req.GetBody()` を呼び出して `req.Body` を明示的にリセットする。これにより、リトライのたびにリクエストボディが新品の状態になることを保証できる。（`util.go`の`SendRequest`関数内の`retryFunc`で実施）
+
+### 2. APIサーバーの特殊な仕様への対応
+
+-   **問題**: APIサーバーが、標準的な`json.Marshal`の出力とは異なる、特殊な形式のJSONを期待している場合があり、単純な`json.Marshal`ではリクエストが受け付けられなかった (`993101`エラーなど)。
+-   **原因**: 今回のAPIは、JSONの**キーの順序**が、成功していたGET版の実装（不定順）と同じであることを期待していた。標準の`json.Marshal`はキーをアルファベット順にソートするため、API側で非互換と判断された。
+-   **解決策**:
+    -   安易に標準ライブラリに頼らず、成功している既存リクエスト（Webブラウザの開発者ツールや、旧実装など）を注意深く分析する。
+    -   キーの順序などを完全にコントロールするために、`map`のループなどを用いて**手動でJSON文字列を構築**する。
+    -   APIによっては、数値なども含めすべての値を文字列として要求する場合もあるため、データ型にも注意を払う。
+
+### 3. テスト環境の分離の重要性
+
+-   **問題**: `NewOrder`のテストが、ローカルのモックサーバーではなく、外部の**デモ環境**に接続していたため、デモ環境の不安定さ（一時的なサービス停止など）が原因でテストが失敗した。
+-   **教訓**:
+    -   クライアントライブラリなど、ロジック単体を検証するユニットテストは、`httptest.NewServer`などを用いて**外部環境から分離し、自己完結させる**ことが望ましい。
+    -   これにより、外部環境の状態に左右されず、安定してテストを実行でき、コード自体の問題なのか環境の問題なのかを迅速に切り分けることができる。
+
+---
+
+## 6. 詳細なTODOリスト (タスク管理)
+
+以下は、POST化リファクタリングの具体的なタスクリストです。完了したタスクには `[x]` を付けます。
+
+### A. 完了済みタスク
+
+- [x] **認証クライアント (`auth_client_impl.go`)**
+  - [x] `Login` -> `LoginWithPost`
+  - [x] `Logout` -> `LogoutWithPost`
+- [x] **注文クライアント (一部) (`order_client_impl.go`)**
+  - [x] `NewOrder` -> `NewOrderWithPost`
+  - [x] `CorrectOrder` -> `CorrectOrderWithPost`
+  - [x] `CancelOrder` -> `CancelOrderWithPost`
+  - [x] `CancelOrderAll` -> `CancelOrderAllWithPost`
+
+### B. 未着手タスク
+
+#### B-1. 残高クライアント (`balance_client_impl.go`)
+- [x] `GetGenbutuKabuList` -> `GetGenbutuKabuListWithPost`
+- [x] `GetShinyouTategyokuList` -> `GetShinyouTategyokuListWithPost`
+- [x] `GetZanKaiKanougaku` -> `GetZanKaiKanougakuWithPost`
+- [x] `GetZanKaiKanougakuSuii` -> `GetZanKaiKanougakuSuiiWithPost`
+- [x] `GetZanKaiSummary` -> `GetZanKaiSummaryWithPost`
+- [x] `GetZanKaiGenbutuKaitukeSyousai` -> `GetZanKaiGenbutuKaitukeSyousaiWithPost`
+- [x] `GetZanKaiSinyouSinkidateSyousai` -> `GetZanKaiSinyouSinkidateSyousaiWithPost`
+- [x] `GetZanRealHosyoukinRitu` -> `GetZanRealHosyoukinRituWithPost`
+- [x] `GetZanShinkiKanoIjiritu` -> `GetZanShinkiKanoIjirituWithPost`
+- [x] `GetZanUriKanousuu` -> `GetZanUriKanousuuWithPost`
+
+#### B-2. 注文クライアント(残り) (`order_client_impl.go`)
+- [x] `GetOrderList` -> `GetOrderListWithPost`
+- [x] `GetOrderListDetail` -> `GetOrderListDetailWithPost`
+
+#### B-3. マスターデータクライアント (`master_data_client_impl.go`)
+- [x] `GetMasterDataQuery` -> `GetMasterDataQueryWithPost`
+- [x] `GetNewsHeader` -> `GetNewsHeaderWithPost`
+- [x] `GetNewsBody` -> `GetNewsBodyWithPost`
+- [x] `GetIssueDetail` -> `GetIssueDetailWithPost`
+- [x] `GetMarginInfo` -> `GetMarginInfoWithPost`
+- [x] `GetCreditInfo` -> `GetCreditInfoWithPost`
+- [x] `GetMarginPremiumInfo` -> `GetMarginPremiumInfoWithPost`
+
+#### B-4. 株価情報クライアント (`price_info_client_impl.go`)
+- [x] `GetPriceInfo` -> `GetPriceInfoWithPost`
+- [x] `GetPriceInfoHistory` -> `GetPriceInfoHistoryWithPost`
+
+### C. 最終クリーンアップ
+- [ ] 全ての `...WithPost` 版のテスト完了後、プロジェクト全体で旧 `GET` 版メソッドを `POST` 版ロジックで置き換える。
+- [ ] `...WithPost` サフィックスを削除し、コードをクリーンな状態に戻す。
