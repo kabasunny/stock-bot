@@ -4,7 +4,6 @@ package client
 import (
 	"bytes"
 	"context"
-	"encoding/json"
 	"fmt"
 	"io"
 	"net/http"
@@ -28,57 +27,6 @@ func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context) (*response.R
 		return nil, errors.New("not logged in")
 	}
 
-	// 1. リクエストURLの作成
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
-	}
-
-	// 2. リクエストパラメータの作成
-	req := request.ReqGenbutuKabuList{}
-	req.CLMID = "CLMGenbutuKabuList"
-	req.P_no = b.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req) //utilの関数
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
-
-	// 3. HTTPリクエストの作成 (GET)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetGenbutuKabuList failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResGenbutuKabuList](respMap) //utliの関数
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (b *balanceClientImpl) GetGenbutuKabuListWithPost(ctx context.Context) (*response.ResGenbutuKabuList, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
 	u, err := url.Parse(b.client.loginInfo.RequestURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse request URL")
@@ -90,7 +38,6 @@ func (b *balanceClientImpl) GetGenbutuKabuListWithPost(ctx context.Context) (*re
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
-	// --- order_client_impl.go と同様のペイロード作成ロジック ---
 	params, err := structToMapString(req)
 	if err != nil {
 		return nil, err
@@ -108,9 +55,7 @@ func (b *balanceClientImpl) GetGenbutuKabuListWithPost(ctx context.Context) (*re
 	}
 	buf.WriteString("}")
 	payloadJSON := buf.Bytes()
-	// --- ペイロード作成ロジックここまで ---
 
-	// --- SendRequestを直接呼び出すロジック ---
 	httpReq, err := http.NewRequestWithContext(ctx, http.MethodPost, u.String(), bytes.NewBuffer(payloadJSON))
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create http request")
@@ -122,9 +67,8 @@ func (b *balanceClientImpl) GetGenbutuKabuListWithPost(ctx context.Context) (*re
 
 	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetGenbutuKabuListWithPost failed")
+		return nil, errors.Wrap(err, "GetGenbutuKabuList failed")
 	}
-	// --- SendRequest呼び出しここまで ---
 
 	res, err := ConvertResponse[response.ResGenbutuKabuList](respMap)
 	if err != nil {
@@ -133,60 +77,7 @@ func (b *balanceClientImpl) GetGenbutuKabuListWithPost(ctx context.Context) (*re
 	return res, nil
 }
 
-// internal/infrastructure/client/balance_client_impl.go
-
 func (b *balanceClientImpl) GetShinyouTategyokuList(ctx context.Context) (*response.ResShinyouTategyokuList, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	// 1. リクエストURLの作成
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
-	}
-
-	// 2. リクエストパラメータの作成
-	req := request.ReqShinyouTategyokuList{}
-	req.CLMID = "CLMShinyouTategyokuList" // 修正: CLMID を設定
-	req.P_no = b.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
-
-	// 3. HTTPリクエストの作成 (GET)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetShinyouTategyokuList failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResShinyouTategyokuList](respMap)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (b *balanceClientImpl) GetShinyouTategyokuListWithPost(ctx context.Context) (*response.ResShinyouTategyokuList, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -231,7 +122,7 @@ func (b *balanceClientImpl) GetShinyouTategyokuListWithPost(ctx context.Context)
 
 	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetShinyouTategyokuListWithPost failed")
+		return nil, errors.Wrap(err, "GetShinyouTategyokuList failed")
 	}
 
 	res, err := ConvertResponse[response.ResShinyouTategyokuList](respMap)
@@ -241,60 +132,7 @@ func (b *balanceClientImpl) GetShinyouTategyokuListWithPost(ctx context.Context)
 	return res, nil
 }
 
-
-// internal/infrastructure/client/balance_client_impl.go
-
 func (b *balanceClientImpl) GetZanKaiKanougaku(ctx context.Context, req request.ReqZanKaiKanougaku) (*response.ResZanKaiKanougaku, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	// 1. リクエストURLの作成
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
-	}
-
-	// 2. リクエストパラメータの作成
-	req.CLMID = "CLMZanKaiKanougaku" // CLMID を設定
-	req.P_no = b.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
-
-	// 3. HTTPリクエストの作成 (GET)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetZanKaiKanougaku failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResZanKaiKanougaku](respMap)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (b *balanceClientImpl) GetZanKaiKanougakuWithPost(ctx context.Context, req request.ReqZanKaiKanougaku) (*response.ResZanKaiKanougaku, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -338,7 +176,7 @@ func (b *balanceClientImpl) GetZanKaiKanougakuWithPost(ctx context.Context, req 
 
 	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetZanKaiKanougakuWithPost failed")
+		return nil, errors.Wrap(err, "GetZanKaiKanougaku failed")
 	}
 
 	res, err := ConvertResponse[response.ResZanKaiKanougaku](respMap)
@@ -349,56 +187,6 @@ func (b *balanceClientImpl) GetZanKaiKanougakuWithPost(ctx context.Context, req 
 }
 
 func (b *balanceClientImpl) GetZanKaiKanougakuSuii(ctx context.Context, req request.ReqZanKaiKanougakuSuii) (*response.ResZanKaiKanougakuSuii, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	// 1. リクエストURLの作成
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
-	}
-
-	// 2. リクエストパラメータの作成
-	req.CLMID = "CLMZanKaiKanougakuSuii" // CLMID を設定
-	req.P_no = b.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
-
-	// 3. HTTPリクエストの作成 (GET)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetZanKaiKanougakuSuii failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResZanKaiKanougakuSuii](respMap)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (b *balanceClientImpl) GetZanKaiKanougakuSuiiWithPost(ctx context.Context, req request.ReqZanKaiKanougakuSuii) (*response.ResZanKaiKanougakuSuii, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -442,7 +230,7 @@ func (b *balanceClientImpl) GetZanKaiKanougakuSuiiWithPost(ctx context.Context, 
 
 	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetZanKaiKanougakuSuiiWithPost failed")
+		return nil, errors.Wrap(err, "GetZanKaiKanougakuSuii failed")
 	}
 
 	res, err := ConvertResponse[response.ResZanKaiKanougakuSuii](respMap)
@@ -453,57 +241,6 @@ func (b *balanceClientImpl) GetZanKaiKanougakuSuiiWithPost(ctx context.Context, 
 }
 
 func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context) (*response.ResZanKaiSummary, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	// 1. リクエストURLの作成
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
-	}
-
-	// 2. リクエストパラメータの作成
-	req := request.ReqZanKaiSummary{}
-	req.CLMID = "CLMZanKaiSummary" // CLMID を設定
-	req.P_no = b.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
-
-	// 3. HTTPリクエストの作成 (GET)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetZanKaiSummary failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResZanKaiSummary](respMap)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (b *balanceClientImpl) GetZanKaiSummaryWithPost(ctx context.Context) (*response.ResZanKaiSummary, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -548,7 +285,7 @@ func (b *balanceClientImpl) GetZanKaiSummaryWithPost(ctx context.Context) (*resp
 
 	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetZanKaiSummaryWithPost failed")
+		return nil, errors.Wrap(err, "GetZanKaiSummary failed")
 	}
 
 	res, err := ConvertResponse[response.ResZanKaiSummary](respMap)
@@ -559,58 +296,6 @@ func (b *balanceClientImpl) GetZanKaiSummaryWithPost(ctx context.Context) (*resp
 }
 
 func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, tradingDay int) (*response.ResZanKaiGenbutuKaitukeSyousai, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	// 1. リクエストURLの作成
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
-	}
-
-	// 2. リクエストパラメータの作成
-	req := request.ReqZanKaiGenbutuKaitukeSyousai{}
-	req.CLMID = "CLMZanKaiGenbutuKaitukeSyousai" // CLMID を設定
-	req.HitukeIndex = strconv.Itoa(tradingDay)
-	req.P_no = b.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
-
-	// 3. HTTPリクエストの作成 (GET)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetZanKaiGenbutuKaitukeSyousai failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResZanKaiGenbutuKaitukeSyousai](respMap)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousaiWithPost(ctx context.Context, tradingDay int) (*response.ResZanKaiGenbutuKaitukeSyousai, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -656,7 +341,7 @@ func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousaiWithPost(ctx context.C
 
 	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetZanKaiGenbutuKaitukeSyousaiWithPost failed")
+		return nil, errors.Wrap(err, "GetZanKaiGenbutuKaitukeSyousai failed")
 	}
 
 	res, err := ConvertResponse[response.ResZanKaiGenbutuKaitukeSyousai](respMap)
@@ -666,61 +351,7 @@ func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousaiWithPost(ctx context.C
 	return res, nil
 }
 
-// internal/infrastructure/client/balance_client_impl.go
-
 func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousai(ctx context.Context, tradingDay int) (*response.ResZanKaiSinyouSinkidateSyousai, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	// 1. リクエストURLの作成
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
-	}
-
-	// 2. リクエストパラメータの作成
-	req := request.ReqZanKaiSinyouSinkidateSyousai{}
-	req.CLMID = "CLMZanKaiSinyouSinkidateSyousai" // CLMID を設定
-	req.HitukeIndex = strconv.Itoa(tradingDay)
-	req.P_no = b.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
-
-	// 3. HTTPリクエストの作成 (GET)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetZanKaiSinyouSinkidateSyousai failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResZanKaiSinyouSinkidateSyousai](respMap)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousaiWithPost(ctx context.Context, tradingDay int) (*response.ResZanKaiSinyouSinkidateSyousai, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -766,7 +397,7 @@ func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousaiWithPost(ctx context.
 
 	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetZanKaiSinyouSinkidateSyousaiWithPost failed")
+		return nil, errors.Wrap(err, "GetZanKaiSinyouSinkidateSyousai failed")
 	}
 
 	res, err := ConvertResponse[response.ResZanKaiSinyouSinkidateSyousai](respMap)
@@ -776,59 +407,7 @@ func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousaiWithPost(ctx context.
 	return res, nil
 }
 
-// internal/infrastructure/client/balance_client_impl.go
-
 func (b *balanceClientImpl) GetZanRealHosyoukinRitu(ctx context.Context, req request.ReqZanRealHosyoukinRitu) (*response.ResZanRealHosyoukinRitu, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	// 1. リクエストURLの作成
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
-	}
-
-	// 2. リクエストパラメータの作成
-	req.CLMID = "CLMZanRealHosyoukinRitu" // CLMID を設定
-	req.P_no = b.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
-
-	// 3. HTTPリクエストの作成 (GET)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetZanRealHosyoukinRitu failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResZanRealHosyoukinRitu](respMap)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (b *balanceClientImpl) GetZanRealHosyoukinRituWithPost(ctx context.Context, req request.ReqZanRealHosyoukinRitu) (*response.ResZanRealHosyoukinRitu, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -872,7 +451,7 @@ func (b *balanceClientImpl) GetZanRealHosyoukinRituWithPost(ctx context.Context,
 
 	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetZanRealHosyoukinRituWithPost failed")
+		return nil, errors.Wrap(err, "GetZanRealHosyoukinRitu failed")
 	}
 
 	res, err := ConvertResponse[response.ResZanRealHosyoukinRitu](respMap)
@@ -883,49 +462,6 @@ func (b *balanceClientImpl) GetZanRealHosyoukinRituWithPost(ctx context.Context,
 }
 
 func (b *balanceClientImpl) GetZanShinkiKanoIjiritu(ctx context.Context, req request.ReqZanShinkiKanoIjiritu) (*response.ResZanShinkiKanoIjiritu, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
-	}
-
-	req.CLMID = "CLMZanShinkiKanoIjiritu" // CLMID を設定
-	req.P_no = b.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetZanShinkiKanoIjiritu failed")
-	}
-
-	res, err := ConvertResponse[response.ResZanShinkiKanoIjiritu](respMap)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (b *balanceClientImpl) GetZanShinkiKanoIjirituWithPost(ctx context.Context, req request.ReqZanShinkiKanoIjiritu) (*response.ResZanShinkiKanoIjiritu, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -969,7 +505,7 @@ func (b *balanceClientImpl) GetZanShinkiKanoIjirituWithPost(ctx context.Context,
 
 	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetZanShinkiKanoIjirituWithPost failed")
+		return nil, errors.Wrap(err, "GetZanShinkiKanoIjiritu failed")
 	}
 
 	res, err := ConvertResponse[response.ResZanShinkiKanoIjiritu](respMap)
@@ -980,50 +516,6 @@ func (b *balanceClientImpl) GetZanShinkiKanoIjirituWithPost(ctx context.Context,
 }
 
 func (b *balanceClientImpl) GetZanUriKanousuu(ctx context.Context, req request.ReqZanUriKanousuu) (*response.ResZanUriKanousuu, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
-	}
-
-	req.CLMID = "CLMZanUriKanousuu" // CLMID を設定
-	req.P_no = b.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "GetZanUriKanousuu failed")
-	}
-
-	res, err := ConvertResponse[response.ResZanUriKanousuu](respMap)
-	if err != nil {
-		return nil, err
-	}
-	return res, nil
-}
-
-func (b *balanceClientImpl) GetZanUriKanousuuWithPost(ctx context.Context, req request.ReqZanUriKanousuu) (*response.ResZanUriKanousuu, error) {
 	if !b.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -1067,7 +559,7 @@ func (b *balanceClientImpl) GetZanUriKanousuuWithPost(ctx context.Context, req r
 
 	respMap, err := SendRequest(httpReq, 3)
 	if err != nil {
-		return nil, errors.Wrap(err, "GetZanUriKanousuuWithPost failed")
+		return nil, errors.Wrap(err, "GetZanUriKanousuu failed")
 	}
 
 	res, err := ConvertResponse[response.ResZanUriKanousuu](respMap)

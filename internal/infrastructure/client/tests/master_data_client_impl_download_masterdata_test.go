@@ -14,7 +14,7 @@ import (
 	"testing"
 )
 
-func TestMasterDataClientImpl_DownloadMasterData(t *testing.T) {
+func TestMasterDataClientImpl_DownloadMasterDataWithPost(t *testing.T) {
 	// テスト用の TachibanaClient を作成
 	c := client.CreateTestClient(t)
 
@@ -23,7 +23,7 @@ func TestMasterDataClientImpl_DownloadMasterData(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.Login(context.Background(), loginReq)
+	_, err := c.LoginWithPost(context.Background(), loginReq)
 	assert.NoError(t, err)
 
 	// 正常系: システムステータスのダウンロードが成功すること

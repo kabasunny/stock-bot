@@ -306,7 +306,7 @@ func TestMasterDataClientImpl_GetMasterDataQueryWithPost(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetMasterDataQueryWithPost(context.Background(), req)
+	res, err := c.GetMasterDataQuery(context.Background(), req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -347,7 +347,7 @@ func TestMasterDataClientImpl_GetNewsHeaderWithPost(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetNewsHeaderWithPost(context.Background(), req)
+	res, err := c.GetNewsHeader(context.Background(), req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -384,7 +384,7 @@ func TestMasterDataClientImpl_GetNewsBodyWithPost(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetNewsBodyWithPost(context.Background(), req)
+	res, err := c.GetNewsBody(context.Background(), req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -421,7 +421,7 @@ func TestMasterDataClientImpl_GetIssueDetailWithPost(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetIssueDetailWithPost(context.Background(), req)
+	res, err := c.GetIssueDetail(context.Background(), req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -458,7 +458,7 @@ func TestMasterDataClientImpl_GetMarginInfoWithPost(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetMarginInfoWithPost(context.Background(), req)
+	res, err := c.GetMarginInfo(context.Background(), req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -495,7 +495,7 @@ func TestMasterDataClientImpl_GetCreditInfoWithPost(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetCreditInfoWithPost(context.Background(), req)
+	res, err := c.GetCreditInfo(context.Background(), req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -532,7 +532,7 @@ func TestMasterDataClientImpl_GetMarginPremiumInfoWithPost(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetMarginPremiumInfoWithPost(context.Background(), req)
+	res, err := c.GetMarginPremiumInfo(context.Background(), req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}

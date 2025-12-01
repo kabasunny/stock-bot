@@ -123,7 +123,7 @@ func TestOrderClientImpl_CancelOrderAllWithPost(t *testing.T) {
 			TategyokuZyoutoekiKazeiC: "*",
 			SecondPassword:           c.GetPasswordForTest(),
 		}
-		_, err := c.NewOrderWithPost(context.Background(), orderReq1)
+		_, err := c.NewOrder(context.Background(), orderReq1)
 		assert.NoError(t, err)
 
 		orderReq2 := request.ReqNewOrder{
@@ -143,7 +143,7 @@ func TestOrderClientImpl_CancelOrderAllWithPost(t *testing.T) {
 			TategyokuZyoutoekiKazeiC: "*",
 			SecondPassword:           c.GetPasswordForTest(),
 		}
-		_, err = c.NewOrderWithPost(context.Background(), orderReq2)
+		_, err = c.NewOrder(context.Background(), orderReq2)
 		assert.NoError(t, err)
 
 		// CancelOrderAllWithPost リクエストを作成
@@ -152,7 +152,7 @@ func TestOrderClientImpl_CancelOrderAllWithPost(t *testing.T) {
 		}
 
 		// CancelOrderAllWithPost 実行
-		res, err := c.CancelOrderAllWithPost(context.Background(), cancelAllReq)
+		res, err := c.CancelOrderAll(context.Background(), cancelAllReq)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		if res != nil {
@@ -175,7 +175,7 @@ func TestOrderClientImpl_CancelOrderAllWithPost(t *testing.T) {
 		}
 
 		// CancelOrderAllWithPost 実行
-		_, err = c.CancelOrderAllWithPost(context.Background(), cancelAllReq)
+		_, err = c.CancelOrderAll(context.Background(), cancelAllReq)
 		assert.Error(t, err)
 		assert.Equal(t, "not logged in", err.Error()) // エラーメッセージを検証
 

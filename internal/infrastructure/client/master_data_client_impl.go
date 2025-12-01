@@ -273,53 +273,6 @@ func (m *masterDataClientImpl) GetMasterDataQuery(ctx context.Context, req reque
 		return nil, errors.New("not logged in")
 	}
 
-	// 1. リクエストURLの作成
-	u := m.client.loginInfo.MasterURL
-
-	// 2. リクエストパラメータの作成
-	req.CLMID = "CLMMfdsGetMasterData"
-	req.P_no = m.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	requestURL := u + "?" + encodedPayload
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil) // GET に変更
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "get master data query failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResGetMasterData](respMap)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (m *masterDataClientImpl) GetMasterDataQueryWithPost(ctx context.Context, req request.ReqGetMasterData) (*response.ResGetMasterData, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
 	u, err := url.Parse(m.client.loginInfo.MasterURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse master URL")
@@ -371,53 +324,6 @@ func (m *masterDataClientImpl) GetMasterDataQueryWithPost(ctx context.Context, r
 }
 
 func (m *masterDataClientImpl) GetNewsHeader(ctx context.Context, req request.ReqGetNewsHead) (*response.ResGetNewsHeader, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	// 1. リクエストURLの作成
-	u := m.client.loginInfo.MasterURL
-
-	// 2. リクエストパラメータの作成
-	req.CLMID = "CLMMfdsGetNewsHead"
-	req.P_no = m.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	requestURL := u + "?" + encodedPayload
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil) // GET に変更
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "get news header failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResGetNewsHeader](respMap)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (m *masterDataClientImpl) GetNewsHeaderWithPost(ctx context.Context, req request.ReqGetNewsHead) (*response.ResGetNewsHeader, error) {
 	if !m.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -477,53 +383,6 @@ func (m *masterDataClientImpl) GetNewsBody(ctx context.Context, req request.ReqG
 		return nil, errors.New("not logged in")
 	}
 
-	// 1. リクエストURLの作成
-	u := m.client.loginInfo.MasterURL
-
-	// 2. リクエストパラメータの作成
-	req.CLMID = "CLMMfdsGetNewsBody"
-	req.P_no = m.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	requestURL := u + "?" + encodedPayload
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil) // GET に変更
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "get news body failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResGetNewsBody](respMap)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (m *masterDataClientImpl) GetNewsBodyWithPost(ctx context.Context, req request.ReqGetNewsBody) (*response.ResGetNewsBody, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
 	u, err := url.Parse(m.client.loginInfo.MasterURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse master URL")
@@ -575,53 +434,6 @@ func (m *masterDataClientImpl) GetNewsBodyWithPost(ctx context.Context, req requ
 }
 
 func (m *masterDataClientImpl) GetIssueDetail(ctx context.Context, req request.ReqGetIssueDetail) (*response.ResGetIssueDetail, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	// 1. リクエストURLの作成
-	u := m.client.loginInfo.MasterURL
-
-	// 2. リクエストパラメータの作成
-	req.CLMID = "CLMMfdsGetIssueDetail"
-	req.P_no = m.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	requestURL := u + "?" + encodedPayload
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil) // GET に変更
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "get issue detail failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResGetIssueDetail](respMap)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (m *masterDataClientImpl) GetIssueDetailWithPost(ctx context.Context, req request.ReqGetIssueDetail) (*response.ResGetIssueDetail, error) {
 	if !m.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -681,53 +493,6 @@ func (m *masterDataClientImpl) GetMarginInfo(ctx context.Context, req request.Re
 		return nil, errors.New("not logged in")
 	}
 
-	// 1. リクエストURLの作成
-	u := m.client.loginInfo.MasterURL
-
-	// 2. リクエストパラメータの作成
-	req.CLMID = "CLMMfdsGetSyoukinZan"
-	req.P_no = m.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	requestURL := u + "?" + encodedPayload
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil) // GET に変更
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "get margin info failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResGetMarginInfo](respMap)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (m *masterDataClientImpl) GetMarginInfoWithPost(ctx context.Context, req request.ReqGetMarginInfo) (*response.ResGetMarginInfo, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
 	u, err := url.Parse(m.client.loginInfo.MasterURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse master URL")
@@ -783,53 +548,6 @@ func (m *masterDataClientImpl) GetCreditInfo(ctx context.Context, req request.Re
 		return nil, errors.New("not logged in")
 	}
 
-	// 1. リクエストURLの作成
-	u := m.client.loginInfo.MasterURL
-
-	// 2. リクエストパラメータの作成
-	req.CLMID = "CLMMfdsGetShinyouZan"
-	req.P_no = m.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	requestURL := u + "?" + encodedPayload
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil) // GET に変更
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "get credit info failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResGetCreditInfo](respMap)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (m *masterDataClientImpl) GetCreditInfoWithPost(ctx context.Context, req request.ReqGetCreditInfo) (*response.ResGetCreditInfo, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
 	u, err := url.Parse(m.client.loginInfo.MasterURL)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to parse master URL")
@@ -881,53 +599,6 @@ func (m *masterDataClientImpl) GetCreditInfoWithPost(ctx context.Context, req re
 }
 
 func (m *masterDataClientImpl) GetMarginPremiumInfo(ctx context.Context, req request.ReqGetMarginPremiumInfo) (*response.ResGetMarginPremiumInfo, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
-	}
-
-	// 1. リクエストURLの作成
-	u := m.client.loginInfo.MasterURL
-
-	// 2. リクエストパラメータの作成
-	req.CLMID = "CLMMfdsGetHibuInfo"
-	req.P_no = m.client.getPNo()
-	req.P_sd_date = formatSDDate(time.Now())
-	req.JsonOfmt = "4"
-
-	params, err := structToMapString(req)
-	if err != nil {
-		return nil, err
-	}
-
-	// URLクエリパラメータに設定
-	payloadJSON, err := json.Marshal(params)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to marshal request payload")
-	}
-	encodedPayload := url.QueryEscape(string(payloadJSON))
-	requestURL := u + "?" + encodedPayload
-
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, requestURL, nil) // GET に変更
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to create http request")
-	}
-
-	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
-	if err != nil {
-		return nil, errors.Wrap(err, "get margin premium info failed")
-	}
-
-	// 5. レスポンスの処理
-	res, err := ConvertResponse[response.ResGetMarginPremiumInfo](respMap)
-	if err != nil {
-		return nil, err
-	}
-
-	return res, nil
-}
-
-func (m *masterDataClientImpl) GetMarginPremiumInfoWithPost(ctx context.Context, req request.ReqGetMarginPremiumInfo) (*response.ResGetMarginPremiumInfo, error) {
 	if !m.client.loggined {
 		return nil, errors.New("not logged in")
 	}

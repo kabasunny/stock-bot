@@ -125,13 +125,12 @@ func TestOrderClientImpl_CorrectOrderWithPost_Cases(t *testing.T) {
 			TategyokuZyoutoekiKazeiC: "*",                    // 指定なし
 			SecondPassword:           c.GetPasswordForTest(), // 第二パスワード (発注パスワード)
 		}
-		resNewOrder, err := c.NewOrderWithPost(context.Background(), orderReq)
+		resNewOrder, err := c.NewOrder(context.Background(), orderReq)
 		assert.NoError(t, err)
 		// resNewOrderがnilの場合、後続のテストは無意味なので早期リターン
 		if !assert.NotNil(t, resNewOrder) {
 			t.FailNow()
 		}
-
 
 		time.Sleep(5 * time.Second) // 1秒のタイムラグ
 
@@ -147,7 +146,7 @@ func TestOrderClientImpl_CorrectOrderWithPost_Cases(t *testing.T) {
 			SecondPassword:   c.GetPasswordForTest(),
 		}
 
-		res, err := c.CorrectOrderWithPost(context.Background(), correctReq)
+		res, err := c.CorrectOrder(context.Background(), correctReq)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		if res != nil {
@@ -163,7 +162,7 @@ func TestOrderClientImpl_CorrectOrderWithPost_Cases(t *testing.T) {
 			SecondPassword: c.GetPasswordForTest(), // 第二パスワードを設定
 		}
 
-		_, err := c.CorrectOrderWithPost(context.Background(), badCorrectReq)
+		_, err := c.CorrectOrder(context.Background(), badCorrectReq)
 		assert.Error(t, err)
 	})
 }

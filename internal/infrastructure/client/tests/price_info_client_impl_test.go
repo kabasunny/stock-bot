@@ -11,7 +11,7 @@ import (
 	"github.com/stretchr/testify/assert"
 )
 
-func TestPriceInfoClientImpl_GetPriceInfoWithPost(t *testing.T) {
+func TestPriceInfoClientImpl_GetPriceInfo(t *testing.T) {
 	// テスト用の TachibanaClient を作成
 	c := client.CreateTestClient(t)
 
@@ -20,7 +20,7 @@ func TestPriceInfoClientImpl_GetPriceInfoWithPost(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.LoginWithPost(context.Background(), loginReq)
+	_, err := c.Login(context.Background(), loginReq)
 	assert.NoError(t, err)
 
 	t.Run("正常系 (POST): 株価情報取得が成功すること", func(t *testing.T) {
@@ -30,7 +30,7 @@ func TestPriceInfoClientImpl_GetPriceInfoWithPost(t *testing.T) {
 		}
 
 		// API呼び出し
-		res, err := c.GetPriceInfoWithPost(context.Background(), req)
+		res, err := c.GetPriceInfo(context.Background(), req)
 		if err != nil {
 			t.Fatalf("API呼び出しエラー: %v", err)
 		}
@@ -47,7 +47,7 @@ func TestPriceInfoClientImpl_GetPriceInfoWithPost(t *testing.T) {
 	})
 }
 
-func TestPriceInfoClientImpl_GetPriceInfoHistoryWithPost(t *testing.T) {
+func TestPriceInfoClientImpl_GetPriceInfoHistory(t *testing.T) {
 	// テスト用の TachibanaClient を作成
 	c := client.CreateTestClient(t)
 
@@ -56,7 +56,7 @@ func TestPriceInfoClientImpl_GetPriceInfoHistoryWithPost(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.LoginWithPost(context.Background(), loginReq)
+	_, err := c.Login(context.Background(), loginReq)
 	assert.NoError(t, err)
 
 	t.Run("正常系 (POST): 株価履歴情報取得が成功すること", func(t *testing.T) {
@@ -66,7 +66,7 @@ func TestPriceInfoClientImpl_GetPriceInfoHistoryWithPost(t *testing.T) {
 		}
 
 		// API呼び出し
-		res, err := c.GetPriceInfoHistoryWithPost(context.Background(), req)
+		res, err := c.GetPriceInfoHistory(context.Background(), req)
 		if err != nil {
 			t.Fatalf("API呼び出しエラー: %v", err)
 		}

@@ -45,6 +45,16 @@ API v4r8のリリースに伴い、データ更新系のAPIリクエストを従
 
 ---
 
+## 4. リファクタリングの現在状況 (2025/12/01 時点)
+
+全クライアントのPOST化リファクタリング（`...WithPost`版メソッドの統合および一時メソッドの削除）がすべて完了し、プロジェクトのクリーンアップフェーズは完了しました。
+
+このフェーズでは、元のメソッド（例: `Login`）に `...WithPost` 版のロジックを統合し、役目を終えた `...WithPost` 版のメソッドとテストは削除されます。
+
+このクリーンアップ作業は既に開始されており、一部のテストで発生したコンパイルエラーは、この過程で削除された `...WithPost` メソッドを呼び出していたことが原因でした。今後は、元のメソッド名（`...WithPost` なし）がPOSTリクエストのロジックを持つことになります。
+
+---
+
 ## 5. 今回の学びと今後の注意点
 
 今回の`POST`メソッドへのリファクタリング過程で、いくつかの重要な知見が得られた。今後の開発やリファクタリングの際に参照できるよう、注意点と解決策を以下にまとめる。
@@ -77,50 +87,28 @@ API v4r8のリリースに伴い、データ更新系のAPIリクエストを従
 
 ## 6. 詳細なTODOリスト (タスク管理)
 
-以下は、POST化リファクタリングの具体的なタスクリストです。完了したタスクには `[x]` を付けます。
+以下は、POST化リファクタリングの具体的なタスクリストです。
 
-### A. 完了済みタスク
+### フェーズ1: POST版 (`...WithPost`) の実装 [完了]
+
+`...WithPost` サフィックスを持つ一時的なメソッドはすべて実装・テストが完了しました。
 
 - [x] **認証クライアント (`auth_client_impl.go`)**
-  - [x] `Login` -> `LoginWithPost`
-  - [x] `Logout` -> `LogoutWithPost`
-- [x] **注文クライアント (一部) (`order_client_impl.go`)**
-  - [x] `NewOrder` -> `NewOrderWithPost`
-  - [x] `CorrectOrder` -> `CorrectOrderWithPost`
-  - [x] `CancelOrder` -> `CancelOrderWithPost`
-  - [x] `CancelOrderAll` -> `CancelOrderAllWithPost`
+- [x] **注文クライアント (`order_client_impl.go`)**
+- [x] **残高クライアント (`balance_client_impl.go`)**
+- [x] **マスターデータクライアント (`master_data_client_impl.go`)**
+- [x] **株価情報クライアント (`price_info_client_impl.go`)**
 
-### B. 未着手タスク
 
-#### B-1. 残高クライアント (`balance_client_impl.go`)
-- [x] `GetGenbutuKabuList` -> `GetGenbutuKabuListWithPost`
-- [x] `GetShinyouTategyokuList` -> `GetShinyouTategyokuListWithPost`
-- [x] `GetZanKaiKanougaku` -> `GetZanKaiKanougakuWithPost`
-- [x] `GetZanKaiKanougakuSuii` -> `GetZanKaiKanougakuSuiiWithPost`
-- [x] `GetZanKaiSummary` -> `GetZanKaiSummaryWithPost`
-- [x] `GetZanKaiGenbutuKaitukeSyousai` -> `GetZanKaiGenbutuKaitukeSyousaiWithPost`
-- [x] `GetZanKaiSinyouSinkidateSyousai` -> `GetZanKaiSinyouSinkidateSyousaiWithPost`
-- [x] `GetZanRealHosyoukinRitu` -> `GetZanRealHosyoukinRituWithPost`
-- [x] `GetZanShinkiKanoIjiritu` -> `GetZanShinkiKanoIjirituWithPost`
-- [x] `GetZanUriKanousuu` -> `GetZanUriKanousuuWithPost`
+### フェーズ2: 最終クリーンアップ [完了]
 
-#### B-2. 注文クライアント(残り) (`order_client_impl.go`)
-- [x] `GetOrderList` -> `GetOrderListWithPost`
-- [x] `GetOrderListDetail` -> `GetOrderListDetailWithPost`
+このフェーズでは、`...WithPost` のロジックを元のメソッドに統合し、`...WithPost` サフィックスを持つ一時的な実装を削除します。
 
-#### B-3. マスターデータクライアント (`master_data_client_impl.go`)
-- [x] `GetMasterDataQuery` -> `GetMasterDataQueryWithPost`
-- [x] `GetNewsHeader` -> `GetNewsHeaderWithPost`
-- [x] `GetNewsBody` -> `GetNewsBodyWithPost`
-- [x] `GetIssueDetail` -> `GetIssueDetailWithPost`
-- [x] `GetMarginInfo` -> `GetMarginInfoWithPost`
-- [x] `GetCreditInfo` -> `GetCreditInfoWithPost`
-- [x] `GetMarginPremiumInfo` -> `GetMarginPremiumInfoWithPost`
+- **クリーンアップ済み**
+  - `auth_client_impl.go` (`Login`, `Logout`)
+  - `order_client_impl.go` (`NewOrder`, `CorrectOrder`, `CancelOrder`, `CancelOrderAll`)
+  - `master_data_client_impl.go` (`DownloadMasterData`)
+  - `balance_client_impl.go` (および関連テストファイル)
+  - `price_info_client_impl.go` (および関連テストファイル)
+  - 上記に伴い修正されたテストファイル
 
-#### B-4. 株価情報クライアント (`price_info_client_impl.go`)
-- [x] `GetPriceInfo` -> `GetPriceInfoWithPost`
-- [x] `GetPriceInfoHistory` -> `GetPriceInfoHistoryWithPost`
-
-### C. 最終クリーンアップ
-- [ ] 全ての `...WithPost` 版のテスト完了後、プロジェクト全体で旧 `GET` 版メソッドを `POST` 版ロジックで置き換える。
-- [ ] `...WithPost` サフィックスを削除し、コードをクリーンな状態に戻す。

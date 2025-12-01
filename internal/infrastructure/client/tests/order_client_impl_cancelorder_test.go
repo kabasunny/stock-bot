@@ -126,7 +126,7 @@ func TestOrderClientImpl_CancelOrderWithPost_Cases(t *testing.T) {
 			TategyokuZyoutoekiKazeiC: "*",                    // 指定なし
 			SecondPassword:           c.GetPasswordForTest(), // 第二パスワード (発注パスワード)
 		}
-		newOrderRes, err := c.NewOrderWithPost(context.Background(), orderReq) // NewOrderWithPost を使用
+		newOrderRes, err := c.NewOrder(context.Background(), orderReq) // NewOrderWithPost を使用
 		assert.NoError(t, err)
 		assert.NotNil(t, newOrderRes)
 		if newOrderRes != nil {
@@ -142,7 +142,7 @@ func TestOrderClientImpl_CancelOrderWithPost_Cases(t *testing.T) {
 		}
 
 		// CancelOrderWithPost 実行
-		res, err := c.CancelOrderWithPost(context.Background(), cancelReq) // CancelOrderWithPost を使用
+		res, err := c.CancelOrder(context.Background(), cancelReq) // CancelOrderWithPost を使用
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		if res != nil {
@@ -164,7 +164,7 @@ func TestOrderClientImpl_CancelOrderWithPost_Cases(t *testing.T) {
 		}
 
 		// CancelOrderWithPost 実行
-		_, err = c.CancelOrderWithPost(context.Background(), cancelReq) // CancelOrderWithPost を使用
+		_, err = c.CancelOrder(context.Background(), cancelReq) // CancelOrderWithPost を使用
 		assert.Error(t, err)
 		assert.Equal(t, "not logged in", err.Error()) // エラーメッセージを検証
 
