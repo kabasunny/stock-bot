@@ -64,7 +64,7 @@ func (p *priceInfoClientImpl) GetPriceInfo(ctx context.Context, req request.ReqG
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(p.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get price info with post failed")
 	}
@@ -119,7 +119,7 @@ func (p *priceInfoClientImpl) GetPriceInfoHistory(ctx context.Context, req reque
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(p.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get price info history with post failed")
 	}
@@ -174,7 +174,7 @@ func (p *priceInfoClientImpl) GetPriceInfoHistoryWithPost(ctx context.Context, r
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(p.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get price info history with post failed")
 	}

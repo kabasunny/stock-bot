@@ -64,8 +64,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 	slog.Debug("Decoded URL", slog.String("decodedUrl", decodedURL))
 
 	// 4. リクエストの送信 (SendRequestを直接使わず、専用の処理を行う)
-	httpClient := &http.Client{}
-	resp, err := httpClient.Do(httpReq)
+	resp, err := m.client.httpClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "download master data failed")
 	}
@@ -310,7 +309,7 @@ func (m *masterDataClientImpl) GetMasterDataQuery(ctx context.Context, req reque
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get master data query with post failed")
 	}
@@ -365,7 +364,7 @@ func (m *masterDataClientImpl) GetNewsHeader(ctx context.Context, req request.Re
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get news header with post failed")
 	}
@@ -420,7 +419,7 @@ func (m *masterDataClientImpl) GetNewsBody(ctx context.Context, req request.ReqG
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get news body with post failed")
 	}
@@ -475,7 +474,7 @@ func (m *masterDataClientImpl) GetIssueDetail(ctx context.Context, req request.R
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get issue detail with post failed")
 	}
@@ -530,7 +529,7 @@ func (m *masterDataClientImpl) GetMarginInfo(ctx context.Context, req request.Re
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get margin info with post failed")
 	}
@@ -585,7 +584,7 @@ func (m *masterDataClientImpl) GetCreditInfo(ctx context.Context, req request.Re
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get credit info with post failed")
 	}
@@ -640,7 +639,7 @@ func (m *masterDataClientImpl) GetMarginPremiumInfo(ctx context.Context, req req
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get margin premium info with post failed")
 	}

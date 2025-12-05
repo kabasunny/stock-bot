@@ -53,7 +53,7 @@ func (a *authClientImpl) Login(ctx context.Context, req request.ReqLogin) (*resp
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(a.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "login failed")
 	}
@@ -109,7 +109,7 @@ func (a *authClientImpl) LoginWithPost(ctx context.Context, req request.ReqLogin
 	req.JsonOfmt = "4"
 
 	// SendPostRequest を使用してリクエストを送信
-	respMap, err := SendPostRequest(ctx, u.String(), req, 3)
+	respMap, err := SendPostRequest(ctx, a.client.httpClient, u.String(), req, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "login failed")
 	}
@@ -185,7 +185,7 @@ func (a *authClientImpl) Logout(ctx context.Context, req request.ReqLogout) (*re
 	}
 
 	// 4. リクエストの送信
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(a.client.httpClient, httpReq, 3)
 	if err != nil {
 		//ログアウト失敗時も、ログイン状態はfalseにする
 		a.client.loggined = false
@@ -226,7 +226,7 @@ func (a *authClientImpl) LogoutWithPost(ctx context.Context, req request.ReqLogo
 	req.JsonOfmt = "4"
 
 	// 3. SendPostRequest を使用してリクエストを送信
-	respMap, err := SendPostRequest(ctx, u.String(), req, 3)
+	respMap, err := SendPostRequest(ctx, a.client.httpClient, u.String(), req, 3)
 	if err != nil {
 		//ログアウト失敗時も、ログイン状態はfalseにする
 		a.client.loggined = false

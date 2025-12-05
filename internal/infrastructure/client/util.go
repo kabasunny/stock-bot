@@ -26,6 +26,7 @@ import (
 // SendPostRequest は、HTTP POSTリクエストを送信し、レスポンスをデコードする
 func SendPostRequest(
 	ctx context.Context,
+	client *http.Client, // Add http.Client parameter
 	urlStr string,
 	reqData interface{},
 	maxRetries int,
@@ -51,11 +52,12 @@ func SendPostRequest(
 	req.Header.Set("Content-Type", "application/json")
 
 	// 既存のSendRequestを呼び出してリクエストを送信
-	return SendRequest(req, maxRetries)
+	return SendRequest(client, req, maxRetries) // Pass client
 }
 
 // SendRequest は、HTTPリクエストを送信し、レスポンスをデコードする (リトライ処理付き)
 func SendRequest(
+	client *http.Client, // Add http.Client parameter
 	req *http.Request,
 	maxRetries int,
 ) (map[string]interface{}, error) { // logger引数を削除
@@ -107,7 +109,7 @@ func SendRequest(
 	}
 
 	// retryDo を呼び出す際に、retryFunc と decodeFunc を渡す (変更なし)
-	resp, err := retryDo(retryFunc, maxRetries, 2*time.Second, &http.Client{}, decodeFunc)
+	resp, err := retryDo(retryFunc, maxRetries, 2*time.Second, client, decodeFunc) // Use passed client
 	if err != nil {
 		return nil, err
 	}

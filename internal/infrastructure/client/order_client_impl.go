@@ -84,7 +84,7 @@ func (o *orderClientImpl) NewOrder(ctx context.Context, req request.ReqNewOrder)
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "new order failed")
 	}
@@ -138,7 +138,7 @@ func (o *orderClientImpl) CorrectOrder(ctx context.Context, req request.ReqCorre
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "correct order failed")
 	}
@@ -196,7 +196,7 @@ func (o *orderClientImpl) CancelOrder(ctx context.Context, req request.ReqCancel
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "cancel order failed")
 	}
@@ -251,7 +251,7 @@ func (o *orderClientImpl) CancelOrderAll(ctx context.Context, req request.ReqCan
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "cancel all order failed")
 	}
@@ -306,7 +306,7 @@ func (o *orderClientImpl) GetOrderList(ctx context.Context, req request.ReqOrder
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get order list failed")
 	}
@@ -360,7 +360,7 @@ func (o *orderClientImpl) GetOrderListDetail(ctx context.Context, req request.Re
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "get order list detail failed")
 	}

@@ -56,3 +56,74 @@ Python側での判断結果に基づき、Goを通じて実際に注文を執行
 ## 5. 次のステップ
 
 まずは、上記の **Issue 1** と **Issue 2** の方針を決定することが、具体的な実装に着手するための最優先事項となります。APIの仕様を確認し、システム全体のパフォーマンス要件を考慮しながら、最適な連携方式を選択しましょう。
+
+## 6. 調査と決定事項 (2025-12-02)
+
+### Issue 1: リアルタイムイベントの受信方式の特定
+-   **調査**: 立花証券APIのドキュメントおよび公式GitHubリポジトリ(`e-shiten-jp/e_api_websocket_receive_tel.py`)のサンプルコードを調査・解析した。
+-   **結論**: APIはリアルタイム配信用に **WebSocket (`EVENT I/F`)** を提供している。リアルタイム性と効率性を考慮し、本システムではこのWebSocket方式を採用する。
+
+#### WebSocket (`EVENT I/F`) の仕様
+-   **接続URL**:
+    1.  通常のログインAPI(`auth_client`)を呼び出し、認証を行う。
+    2.  レスポンスに含まれるWebSocket専用の **仮想URL (`sUrlEventWebSocket`)** を取得する。
+    3.  この仮想URLに対し、購読したい銘柄コードや情報種別(`p_evt_cmd=FD`等)をクエリパラメータとして付加し、接続する。
+-   **データ形式**:
+    -   一般的なJSONではなく、**特殊な制御文字で区切られた独自のテキスト形式**である。
+    -   `\x01` (`^A`): 項目全体の区切り
+    -   `\x02` (`^B`): 項目名と値の区切り
+    -   `\x03` (`^C`): 項目内で複数の値を区切る
+    -   この仕様に基づき、Go側で専用のパーサーを実装する必要がある。
+
+### Issue 2: Go-Python間の連携インターフェース設計
+-   **方針**: 上記WebSocketの採用に伴い、シグナル系統の連携方式を具体化する。
+-   **Go -> Python**: GoのWebSocketクライアントがリアルタイムデータを受信する都度、パース処理を行い、案2の通りPython側のWeb APIエンドポイント (例: `POST /api/signal`) へHTTP POSTでプッシュ通知する。
+-   **Python -> Go**: 従来の方針通り、Go側で注文受付用のHTTP API (例: `POST /api/order`) を用意する。
+
+### 次のアクション: GoによるWebSocketクライアントの実装
+上記方針に基づき、Go側で `EVENT I/F` をハンドリングするクライアントの実装に着手する。
+
+1.  **ファイル作成**:
+    *   `internal/infrastructure/client/event_client.go` (インターフェース)
+    *   `internal/infrastructure/client/event_client_impl.go` (実装)
+2.  **接続処理の実装**: ログイン機能と連携し、取得した仮想URLを使ってWebSocketサーバーに接続する処理を実装する。
+3.  **パーサーの実装**: 受信した独自形式のメッセージを制御文字で分割・解析し、Goのデータ構造（`map`や`struct`）に変換するパーサーを実装する。
+4.  **イベントループの実装**: サーバーから継続的にメッセージを受信し、パーサーを通して処理するイベントループを実装する。
+5.  **アプリケーションへの統合**: 実装したクライアントをアプリケーション全体に組み込み、受信データを後続処理（Pythonへの通知など）へ連携させる。
+
+### 開発進捗 (2025-12-02)
+
+#### Issue 1: リアルタイムイベントの受信方式の特定 (進捗)
+-   GoによるWebSocketクライアント (`EventClient`) の実装に着手し、`event_client.go` および `event_client_impl.go` を作成した。
+-   WebSocketメッセージの独自形式を解析するパーサー (`ParseMessage`) の単体テストは**PASS**した。
+-   デモAPIへのWebSocket接続テスト (`TestEventClient_ConnectReadMessagesWithDemoAPI`) を実装したが、依然として `websocket: bad handshake` エラーで**FAIL**している。
+-   これまでに `Origin` ヘッダーと `User-Agent` ヘッダーの追加を試みたが、エラーは解消されていない。
+
+#### 次のステップ (2025-12-03 以降)
+-   引き続き `websocket: bad handshake` エラーの原因を詳細に調査する。APIドキュメントの再確認、Pythonサンプルコードのより深い分析、または`gorilla/websocket`とAPIサーバー間の通信プロトコルの詳細な比較が必要となる可能性がある。
+
+### 開発進捗 (2025-12-03)
+
+#### `websocket: bad handshake` エラーの深掘り調査
+
+-   **問題**: `Subprotocol`ヘッダーを追加後も、依然として `websocket: bad handshake` エラーが解消しない。
+-   **仮説1: 認証Cookieの欠落**:
+    -   **調査**: 公式PythonサンプルおよびGoの参考実装(`tsuchinaga/go-tachibana-e-api`)を再度調査。ログイン時に取得した認証情報(`Cookie`)が、後続のWebSocketハンドシェイクリクエストに含まれていないことが原因である可能性が高いと判断。
+    -   **修正**: `TachibanaClientImpl`が`CookieJar`を持つ共有の`http.Client`インスタンスを一元管理するよう、大規模なリファクタリングを実施。
+        1.  `tachibana_client.go`: `TachibanaClientImpl`に`httpClient *http.Client`フィールドを追加し、`NewTachibanaClient`で`CookieJar`と共に初期化するよう修正。
+        2.  `util.go`: `SendRequest`, `SendPostRequest`が、引数で渡された共有`http.Client`インスタンスを使用するよう修正。
+        3.  `auth_client_impl.go`, `balance_client_impl.go`, `master_data_client_impl.go`, `order_client_impl.go`, `price_info_client_impl.go`: `SendRequest`等の呼び出し時に、共有`httpClient`を渡すよう全ファイルを修正。
+        4.  `event_client_impl.go`: WebSocket接続時に`CookieJar`を`websocket.Dialer`に設定するよう修正。
+-   **仮説2: `Origin`ヘッダーの形式不備**:
+    -   **調査**: 上記修正後もエラーが解消せず。公式Pythonサンプルの`Origin`ヘッダーがパス情報を含まない (`https://<hostname>`) のに対し、こちらの実装ではパス情報まで含めてしまっている (`https://<hostname>/<path>`) ことを発見。これが原因である可能性を特定。
+    -   **修正**: `event_client_impl.go`を修正し、`Origin`ヘッダーが`scheme`と`host`のみで構成されるよう修正。
+-   **結果**: 上記2つの仮説に基づき大規模な修正を行ったが、テスト結果は変わらず `websocket: bad handshake` エラーが継続。
+
+#### 新たな可能性と今後のアクション
+
+-   **新たな可能性（API稼働時間）**: ユーザーからの指摘により、エラーの根本原因が技術的な問題ではなく、**APIの稼働時間（取引時間外）**である可能性が浮上した。リアルタイムAPIは、市場が閉まっている時間帯には接続を拒否する仕様であることが多い。
+-   **次のアクションプラン**:
+    1.  **最優先事項**: 平日の取引時間中（例: 9:00〜15:00 JST）に、現在のコードのまま再度テスト(`TestEventClient_ConnectReadMessagesWithDemoAPI`)を実行し、接続が成功するかどうかを確認する。
+    2.  **次善手（取引時間中でも失敗した場合）**: もし取引時間中でも`bad handshake`エラーが解消されない場合は、原因の切り分けのため、「Cookieが本当に必要か」を再検証する。具体的には、`eventClient.Connect`に`nil`の`CookieJar`を渡してテストを実行し、挙動の変化を確認する。
+
+

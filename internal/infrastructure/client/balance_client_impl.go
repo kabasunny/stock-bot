@@ -65,7 +65,7 @@ func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context) (*response.R
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetGenbutuKabuList failed")
 	}
@@ -120,7 +120,7 @@ func (b *balanceClientImpl) GetShinyouTategyokuList(ctx context.Context) (*respo
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetShinyouTategyokuList failed")
 	}
@@ -174,7 +174,7 @@ func (b *balanceClientImpl) GetZanKaiKanougaku(ctx context.Context, req request.
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiKanougaku failed")
 	}
@@ -228,7 +228,7 @@ func (b *balanceClientImpl) GetZanKaiKanougakuSuii(ctx context.Context, req requ
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiKanougakuSuii failed")
 	}
@@ -283,7 +283,7 @@ func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context) (*response.Res
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiSummary failed")
 	}
@@ -339,7 +339,7 @@ func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, 
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiGenbutuKaitukeSyousai failed")
 	}
@@ -395,7 +395,7 @@ func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousai(ctx context.Context,
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiSinyouSinkidateSyousai failed")
 	}
@@ -449,7 +449,7 @@ func (b *balanceClientImpl) GetZanRealHosyoukinRitu(ctx context.Context, req req
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanRealHosyoukinRitu failed")
 	}
@@ -503,7 +503,7 @@ func (b *balanceClientImpl) GetZanShinkiKanoIjiritu(ctx context.Context, req req
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanShinkiKanoIjiritu failed")
 	}
@@ -557,7 +557,7 @@ func (b *balanceClientImpl) GetZanUriKanousuu(ctx context.Context, req request.R
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(httpReq, 3)
+	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanUriKanousuu failed")
 	}
