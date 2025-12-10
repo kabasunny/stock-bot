@@ -2,6 +2,8 @@
 package client
 
 import (
+	"net/http"
+	"net/http/httptest"
 	"net/url"
 	"path/filepath"
 	"runtime"
@@ -11,6 +13,38 @@ import (
 
 	"stock-bot/internal/config"
 )
+
+const DummyNewOrderResponse = `{
+    "ResultCode": "0",
+    "OrderNumber": "123456789",
+    "EigyouDay": "2025/12/09"
+}`
+
+// CreateTestClientWithServer はテスト用のTachibanaClientとテストサーバーを作成します
+func CreateTestClientWithServer(t *testing.T, handler http.HandlerFunc) (*TachibanaClientImpl, *httptest.Server) {
+	t.Helper()
+
+	// テストサーバーを起動
+	server := httptest.NewServer(handler)
+
+	// .env ファイルのパスを修正
+	_, filename, _, ok := runtime.Caller(0)
+	if !ok {
+		t.Fatal("Failed to get caller information")
+	}
+	envPath := filepath.Join(filepath.Dir(filename), "../../../.env")
+
+	cfg, err := config.LoadConfig(envPath)
+	if err != nil {
+		t.Fatalf("Error loading config: %v", err)
+	}
+	// baseURLをテストサーバーのURLに上書き
+	cfg.TachibanaBaseURL = server.URL
+
+	tachibanaClient := NewTachibanaClient(cfg)
+
+	return tachibanaClient, server
+}
 
 // CreateTestClient はテスト用の TachibanaClient インスタンスを作成
 func CreateTestClient(t *testing.T) *TachibanaClientImpl {

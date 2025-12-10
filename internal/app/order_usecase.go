@@ -13,5 +13,8 @@ type OrderUseCase interface {
 type OrderParams struct {
 	Symbol    string
 	TradeType model.TradeType
-	// 他の注文に必要なパラメータ
+	OrderType model.OrderType
+	Quantity  uint64
+	Price     float64
+	IsMargin  bool
 }
