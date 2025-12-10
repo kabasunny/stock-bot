@@ -1,16 +1,34 @@
-// internal/infrastructure/client/order_client.go
 package client
 
 import (
 	"context"
+
 	"stock-bot/internal/infrastructure/client/dto/order/request"
 	"stock-bot/internal/infrastructure/client/dto/order/response"
 )
 
+type NewOrderParams struct {
+	ZyoutoekiKazeiC          string
+	IssueCode                string
+	SizyouC                  string
+	BaibaiKubun              string
+	Condition                string
+	OrderPrice               string
+	OrderSuryou              string
+	GenkinShinyouKubun       string
+	OrderExpireDay           string
+	GyakusasiOrderType       string
+	GyakusasiZyouken         string
+	GyakusasiPrice           string
+	TatebiType               string
+	TategyokuZyoutoekiKazeiC string
+	CLMKabuHensaiData        []request.ReqHensaiData
+}
+
 // OrderClient は、注文関連の API を扱うインターフェース
 type OrderClient interface {
 	// NewOrder は、新規の株式注文を行う
-	NewOrder(ctx context.Context, req request.ReqNewOrder) (*response.ResNewOrder, error)
+	NewOrder(ctx context.Context, params NewOrderParams) (*response.ResNewOrder, error)
 	// CorrectOrder は、既存の株式注文を訂正する
 	CorrectOrder(ctx context.Context, req request.ReqCorrectOrder) (*response.ResCorrectOrder, error)
 	// CancelOrder は、既存の株式注文を取り消す
