@@ -115,7 +115,7 @@ func (o *orderClientImpl) NewOrder(ctx context.Context, params NewOrderParams) (
 	return res, nil
 }
 
-func (o *orderClientImpl) CorrectOrder(ctx context.Context, req request.ReqCorrectOrder) (*response.ResCorrectOrder, error) {
+func (o *orderClientImpl) CorrectOrder(ctx context.Context, params CorrectOrderParams) (*response.ResCorrectOrder, error) {
 	if !o.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -125,12 +125,25 @@ func (o *orderClientImpl) CorrectOrder(ctx context.Context, req request.ReqCorre
 		return nil, errors.Wrap(err, "failed to parse request URL")
 	}
 
-	req.CLMID = "CLMKabuCorrectOrder"
-	req.RequestBase.P_no = o.client.getPNo()
-	req.RequestBase.P_sd_date = formatSDDate(time.Now())
-	req.RequestBase.JsonOfmt = "4"
+	req := request.ReqCorrectOrder{
+		RequestBase: dto.RequestBase{
+			P_no:      o.client.getPNo(),
+			P_sd_date: formatSDDate(time.Now()),
+			JsonOfmt:  "4",
+		},
+		CLMID:            "CLMKabuCorrectOrder",
+		OrderNumber:      params.OrderNumber,
+		EigyouDay:        params.EigyouDay,
+		Condition:        params.Condition,
+		OrderPrice:       params.OrderPrice,
+		OrderSuryou:      params.OrderSuryou,
+		OrderExpireDay:   params.OrderExpireDay,
+		GyakusasiZyouken: params.GyakusasiZyouken,
+		GyakusasiPrice:   params.GyakusasiPrice,
+		SecondPassword:   o.client.sSecondPassword,
+	}
 
-	params, err := structToMapString(req)
+	reqMap, err := structToMapString(req)
 	if err != nil {
 		return nil, err
 	}
@@ -138,7 +151,7 @@ func (o *orderClientImpl) CorrectOrder(ctx context.Context, req request.ReqCorre
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
-	for k, v := range params {
+	for k, v := range reqMap {
 		if !first {
 			buf.WriteString(",")
 		}
@@ -173,7 +186,7 @@ func (o *orderClientImpl) CorrectOrder(ctx context.Context, req request.ReqCorre
 	return res, nil
 }
 
-func (o *orderClientImpl) CancelOrder(ctx context.Context, req request.ReqCancelOrder) (*response.ResCancelOrder, error) {
+func (o *orderClientImpl) CancelOrder(ctx context.Context, params CancelOrderParams) (*response.ResCancelOrder, error) {
 	if !o.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -183,12 +196,19 @@ func (o *orderClientImpl) CancelOrder(ctx context.Context, req request.ReqCancel
 		return nil, errors.Wrap(err, "failed to parse request URL")
 	}
 
-	req.CLMID = "CLMKabuCancelOrder"
-	req.RequestBase.P_no = o.client.getPNo()
-	req.RequestBase.P_sd_date = formatSDDate(time.Now())
-	req.RequestBase.JsonOfmt = "4"
+	req := request.ReqCancelOrder{
+		RequestBase: dto.RequestBase{
+			P_no:      o.client.getPNo(),
+			P_sd_date: formatSDDate(time.Now()),
+			JsonOfmt:  "4",
+		},
+		CLMID:          "CLMKabuCancelOrder",
+		OrderNumber:    params.OrderNumber,
+		EigyouDay:      params.EigyouDay,
+		SecondPassword: o.client.sSecondPassword,
+	}
 
-	params, err := structToMapString(req)
+	reqMap, err := structToMapString(req)
 	if err != nil {
 		return nil, err
 	}
@@ -196,7 +216,7 @@ func (o *orderClientImpl) CancelOrder(ctx context.Context, req request.ReqCancel
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
-	for k, v := range params {
+	for k, v := range reqMap {
 		if !first {
 			buf.WriteString(",")
 		}
@@ -228,7 +248,7 @@ func (o *orderClientImpl) CancelOrder(ctx context.Context, req request.ReqCancel
 	return res, nil
 }
 
-func (o *orderClientImpl) CancelOrderAll(ctx context.Context, req request.ReqCancelOrderAll) (*response.ResCancelOrderAll, error) {
+func (o *orderClientImpl) CancelOrderAll(ctx context.Context, params CancelOrderAllParams) (*response.ResCancelOrderAll, error) {
 	if !o.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -238,12 +258,17 @@ func (o *orderClientImpl) CancelOrderAll(ctx context.Context, req request.ReqCan
 		return nil, errors.Wrap(err, "failed to parse request URL")
 	}
 
-	req.CLMID = "CLMKabuCancelOrderAll"
-	req.RequestBase.P_no = o.client.getPNo()
-	req.RequestBase.P_sd_date = formatSDDate(time.Now())
-	req.RequestBase.JsonOfmt = "4"
+	req := request.ReqCancelOrderAll{
+		RequestBase: dto.RequestBase{
+			P_no:      o.client.getPNo(),
+			P_sd_date: formatSDDate(time.Now()),
+			JsonOfmt:  "4",
+		},
+		CLMID:          "CLMKabuCancelOrderAll",
+		SecondPassword: o.client.sSecondPassword,
+	}
 
-	params, err := structToMapString(req)
+	reqMap, err := structToMapString(req)
 	if err != nil {
 		return nil, err
 	}
@@ -251,7 +276,7 @@ func (o *orderClientImpl) CancelOrderAll(ctx context.Context, req request.ReqCan
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
-	for k, v := range params {
+	for k, v := range reqMap {
 		if !first {
 			buf.WriteString(",")
 		}

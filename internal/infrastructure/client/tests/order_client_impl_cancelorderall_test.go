@@ -7,7 +7,6 @@ import (
 
 	"stock-bot/internal/infrastructure/client"
 	request_auth "stock-bot/internal/infrastructure/client/dto/auth/request"
-	"stock-bot/internal/infrastructure/client/dto/order/request"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -69,12 +68,10 @@ func TestOrderClientImpl_CancelOrderAll(t *testing.T) {
 		assert.NoError(t, err)
 
 		// CancelOrderAll リクエストを作成
-		cancelAllReq := request.ReqCancelOrderAll{
-			SecondPassword: c.GetPasswordForTest(),
-		}
+		cancelAllParams := client.CancelOrderAllParams{}
 
 		// CancelOrderAll 実行
-		res, err := c.CancelOrderAll(context.Background(), cancelAllReq)
+		res, err := c.CancelOrderAll(context.Background(), cancelAllParams)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		if res != nil {
@@ -143,12 +140,10 @@ func TestOrderClientImpl_CancelOrderAllWithPost(t *testing.T) {
 		assert.NoError(t, err)
 
 		// CancelOrderAllWithPost リクエストを作成
-		cancelAllReq := request.ReqCancelOrderAll{
-			SecondPassword: c.GetPasswordForTest(),
-		}
+		cancelAllParams := client.CancelOrderAllParams{}
 
 		// CancelOrderAllWithPost 実行
-		res, err := c.CancelOrderAll(context.Background(), cancelAllReq)
+		res, err := c.CancelOrderAll(context.Background(), cancelAllParams)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		if res != nil {
@@ -166,12 +161,10 @@ func TestOrderClientImpl_CancelOrderAllWithPost(t *testing.T) {
 		assert.NoError(t, err)
 
 		// CancelOrderAllWithPost リクエストを作成
-		cancelAllReq := request.ReqCancelOrderAll{
-			SecondPassword: c.GetPasswordForTest(),
-		}
+		cancelAllParams := client.CancelOrderAllParams{}
 
 		// CancelOrderAllWithPost 実行
-		_, err = c.CancelOrderAll(context.Background(), cancelAllReq)
+		_, err = c.CancelOrderAll(context.Background(), cancelAllParams)
 		assert.Error(t, err)
 		assert.Equal(t, "not logged in", err.Error()) // エラーメッセージを検証
 

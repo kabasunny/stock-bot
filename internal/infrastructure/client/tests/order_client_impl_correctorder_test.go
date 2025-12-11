@@ -8,7 +8,6 @@ import (
 
 	"stock-bot/internal/infrastructure/client"
 	request_auth "stock-bot/internal/infrastructure/client/dto/auth/request"
-	"stock-bot/internal/infrastructure/client/dto/order/request"
 
 	"github.com/stretchr/testify/assert"
 )
@@ -55,7 +54,7 @@ func TestOrderClientImpl_CorrectOrder(t *testing.T) {
 
 		time.Sleep(5 * time.Second) // 1秒のタイムラグ
 
-		correctReq := request.ReqCorrectOrder{
+		correctParams := client.CorrectOrderParams{
 			OrderNumber:      resNewOrder.OrderNumber, // 発注した注文の番号
 			EigyouDay:        resNewOrder.EigyouDay,   // 発注した注文の営業日
 			Condition:        "*",                     // 変更なし
@@ -64,23 +63,21 @@ func TestOrderClientImpl_CorrectOrder(t *testing.T) {
 			OrderExpireDay:   "*",                     // 変更なし
 			GyakusasiZyouken: "*",                     // 変更なし
 			GyakusasiPrice:   "*",                     // 変更なし
-			SecondPassword:   c.GetPasswordForTest(),
 		}
 
-		res, err := c.CorrectOrder(context.Background(), correctReq)
+		res, err := c.CorrectOrder(context.Background(), correctParams)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		// ... レスポンスの検証 ...
 	})
 
 	t.Run("異常系: 存在しない注文番号で訂正が失敗すること", func(t *testing.T) {
-		badCorrectReq := request.ReqCorrectOrder{
-			OrderNumber:    "invalid_order_number", // 存在しない注文番号
-			EigyouDay:      "20250818",             // 営業日を適切に設定 (例)
-			SecondPassword: c.GetPasswordForTest(), // 第二パスワードを設定
+		badCorrectParams := client.CorrectOrderParams{
+			OrderNumber: "invalid_order_number", // 存在しない注文番号
+			EigyouDay:   "20250818",             // 営業日を適切に設定 (例)
 		}
 
-		_, err := c.CorrectOrder(context.Background(), badCorrectReq)
+		_, err := c.CorrectOrder(context.Background(), badCorrectParams)
 		assert.Error(t, err)
 	})
 
@@ -132,7 +129,7 @@ func TestOrderClientImpl_CorrectOrderWithPost_Cases(t *testing.T) {
 
 		time.Sleep(5 * time.Second) // 1秒のタイムラグ
 
-		correctReq := request.ReqCorrectOrder{
+		correctParams := client.CorrectOrderParams{
 			OrderNumber:      resNewOrder.OrderNumber, // 発注した注文の番号
 			EigyouDay:        resNewOrder.EigyouDay,   // 発注した注文の営業日
 			Condition:        "*",                     // 変更なし
@@ -141,10 +138,9 @@ func TestOrderClientImpl_CorrectOrderWithPost_Cases(t *testing.T) {
 			OrderExpireDay:   "*",                     // 変更なし
 			GyakusasiZyouken: "*",                     // 変更なし
 			GyakusasiPrice:   "*",                     // 変更なし
-			SecondPassword:   c.GetPasswordForTest(),
 		}
 
-		res, err := c.CorrectOrder(context.Background(), correctReq)
+		res, err := c.CorrectOrder(context.Background(), correctParams)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		if res != nil {
@@ -154,13 +150,12 @@ func TestOrderClientImpl_CorrectOrderWithPost_Cases(t *testing.T) {
 
 	// 異常系: 存在しない注文番号で訂正が失敗すること (POST版) - GET版のテストロジックを移植
 	t.Run("異常系 (POST): 存在しない注文番号で訂正が失敗すること", func(t *testing.T) {
-		badCorrectReq := request.ReqCorrectOrder{
-			OrderNumber:    "invalid_order_number", // 存在しない注文番号
-			EigyouDay:      "20250818",             // 営業日を適切に設定 (例)
-			SecondPassword: c.GetPasswordForTest(), // 第二パスワードを設定
+		badCorrectParams := client.CorrectOrderParams{
+			OrderNumber: "invalid_order_number", // 存在しない注文番号
+			EigyouDay:   "20250818",             // 営業日を適切に設定 (例)
 		}
 
-		_, err := c.CorrectOrder(context.Background(), badCorrectReq)
+		_, err := c.CorrectOrder(context.Background(), badCorrectParams)
 		assert.Error(t, err)
 	})
 }
