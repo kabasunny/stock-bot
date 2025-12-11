@@ -28,7 +28,7 @@ func TestOrderClientImpl_CancelOrder(t *testing.T) {
 		// 事前準備: 取り消し可能な注文を発注しておく (NewOrder を利用)
 		// ※ テスト実行ごとに一意の注文番号が採番されるため、
 		//    ここではダミーの値を使用し、後で実際の発注結果で置き換える
-		orderReq := request.ReqNewOrder{
+		orderParams := client.NewOrderParams{
 			ZyoutoekiKazeiC:          "1",                    // 特定口座
 			IssueCode:                "3632",                 // 例: グリー
 			SizyouC:                  "00",                   // 東証
@@ -43,9 +43,8 @@ func TestOrderClientImpl_CancelOrder(t *testing.T) {
 			GyakusasiPrice:           "530",                  // 逆指値値段 (455円)
 			TatebiType:               "*",                    // 指定なし
 			TategyokuZyoutoekiKazeiC: "*",                    // 指定なし
-			SecondPassword:           c.GetPasswordForTest(), // 第二パスワード (発注パスワード)
 		}
-		newOrderRes, err := c.NewOrder(context.Background(), orderReq)
+		newOrderRes, err := c.NewOrder(context.Background(), orderParams)
 		assert.NoError(t, err)
 		assert.NotNil(t, newOrderRes)
 
@@ -109,24 +108,23 @@ func TestOrderClientImpl_CancelOrderWithPost_Cases(t *testing.T) {
 
 	t.Run("正常系 (POST): 注文取消が成功すること", func(t *testing.T) {
 		// 事前準備: 取り消し可能な注文を発注しておく (NewOrderWithPost を利用)
-		orderReq := request.ReqNewOrder{
-			ZyoutoekiKazeiC:          "1",                    // 特定口座
-			IssueCode:                "3632",                 // 例: グリー
-			SizyouC:                  "00",                   // 東証
-			BaibaiKubun:              "3",                    // 買
-			Condition:                "0",                    // 指定なし
-			OrderPrice:               "*",                    // 指定なし (逆指値の場合)
-			OrderSuryou:              "100",                  // 100株
-			GenkinShinyouKubun:       "0",                    // 現物
-			OrderExpireDay:           "0",                    // 当日限り
-			GyakusasiOrderType:       "1",                    // 逆指値
-			GyakusasiZyouken:         "565",                  // 逆指値条件
-			GyakusasiPrice:           "530",                  // 逆指値値段
-			TatebiType:               "*",                    // 指定なし
-			TategyokuZyoutoekiKazeiC: "*",                    // 指定なし
-			SecondPassword:           c.GetPasswordForTest(), // 第二パスワード (発注パスワード)
+		orderParams := client.NewOrderParams{
+			ZyoutoekiKazeiC:          "1",    // 特定口座
+			IssueCode:                "3632", // 例: グリー
+			SizyouC:                  "00",   // 東証
+			BaibaiKubun:              "3",    // 買
+			Condition:                "0",    // 指定なし
+			OrderPrice:               "*",    // 指定なし (逆指値の場合)
+			OrderSuryou:              "100",  // 100株
+			GenkinShinyouKubun:       "0",    // 現物
+			OrderExpireDay:           "0",    // 当日限り
+			GyakusasiOrderType:       "1",    // 逆指値
+			GyakusasiZyouken:         "565",  // 逆指値条件
+			GyakusasiPrice:           "530",  // 逆指値値段
+			TatebiType:               "*",    // 指定なし
+			TategyokuZyoutoekiKazeiC: "*",    // 指定なし
 		}
-		newOrderRes, err := c.NewOrder(context.Background(), orderReq) // NewOrderWithPost を使用
+		newOrderRes, err := c.NewOrder(context.Background(), orderParams) // NewOrderWithPost を使用
 		assert.NoError(t, err)
 		assert.NotNil(t, newOrderRes)
 		if newOrderRes != nil {

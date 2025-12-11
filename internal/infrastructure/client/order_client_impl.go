@@ -9,11 +9,10 @@ import (
 	"io"
 	"net/http"
 	"net/url"
-	"time"
-
+	"stock-bot/internal/infrastructure/client/dto"
 	"stock-bot/internal/infrastructure/client/dto/order/request"
 	"stock-bot/internal/infrastructure/client/dto/order/response"
-	_ "stock-bot/internal/logger"
+	"time"
 
 	"github.com/cockroachdb/errors"
 )
@@ -22,7 +21,7 @@ type orderClientImpl struct {
 	client *TachibanaClientImpl
 }
 
-func (o *orderClientImpl) NewOrder(ctx context.Context, req request.ReqNewOrder) (*response.ResNewOrder, error) {
+func (o *orderClientImpl) NewOrder(ctx context.Context, params NewOrderParams) (*response.ResNewOrder, error) {
 	if !o.client.loggined {
 		return nil, errors.New("not logged in")
 	}
@@ -32,10 +31,30 @@ func (o *orderClientImpl) NewOrder(ctx context.Context, req request.ReqNewOrder)
 		return nil, errors.Wrap(err, "failed to parse request URL")
 	}
 
-	req.CLMID = "CLMKabuNewOrder"
-	req.RequestBase.P_no = o.client.getPNo()
-	req.RequestBase.P_sd_date = formatSDDate(time.Now())
-	req.RequestBase.JsonOfmt = "4"
+	req := request.ReqNewOrder{
+		RequestBase: dto.RequestBase{
+			P_no:      o.client.getPNo(),
+			P_sd_date: formatSDDate(time.Now()),
+			JsonOfmt:  "4",
+		},
+		CLMID:                    "CLMKabuNewOrder",
+		ZyoutoekiKazeiC:          params.ZyoutoekiKazeiC,
+		IssueCode:                params.IssueCode,
+		SizyouC:                  params.SizyouC,
+		BaibaiKubun:              params.BaibaiKubun,
+		Condition:                params.Condition,
+		OrderPrice:               params.OrderPrice,
+		OrderSuryou:              params.OrderSuryou,
+		GenkinShinyouKubun:       params.GenkinShinyouKubun,
+		OrderExpireDay:           params.OrderExpireDay,
+		GyakusasiOrderType:       params.GyakusasiOrderType,
+		GyakusasiZyouken:         params.GyakusasiZyouken,
+		GyakusasiPrice:           params.GyakusasiPrice,
+		TatebiType:               params.TatebiType,
+		TategyokuZyoutoekiKazeiC: params.TategyokuZyoutoekiKazeiC,
+		CLMKabuHensaiData:        params.CLMKabuHensaiData,
+		SecondPassword:           o.client.sSecondPassword,
+	}
 
 	var hensaiDataJSON string
 	if len(req.CLMKabuHensaiData) > 0 {
@@ -49,19 +68,19 @@ func (o *orderClientImpl) NewOrder(ctx context.Context, req request.ReqNewOrder)
 	tempReq := req
 	tempReq.CLMKabuHensaiData = nil
 
-	params, err := structToMapString(tempReq)
+	reqMap, err := structToMapString(tempReq)
 	if err != nil {
 		return nil, err
 	}
 
 	if hensaiDataJSON != "" {
-		params["aCLMKabuHensaiData"] = hensaiDataJSON
+		reqMap["aCLMKabuHensaiData"] = hensaiDataJSON
 	}
 
 	var buf bytes.Buffer
 	buf.WriteString("{")
 	first := true
-	for k, v := range params {
+	for k, v := range reqMap {
 		if !first {
 			buf.WriteString(",")
 		}

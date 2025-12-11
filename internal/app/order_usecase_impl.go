@@ -6,22 +6,22 @@ import (
 	"stock-bot/domain/model"
 	"stock-bot/domain/repository"
 	"stock-bot/internal/infrastructure/client"
-	"stock-bot/internal/infrastructure/client/dto/order/request"
+	// "stock-bot/internal/infrastructure/client/dto/order/request" // Removed as request.ReqNewOrder is no longer directly used
 )
 
 // OrderUseCaseの実装
 type OrderUseCaseImpl struct {
-	orderClient    client.OrderClient
-	orderRepo      repository.OrderRepository
-	secondPassword string
+	orderClient client.OrderClient
+	orderRepo   repository.OrderRepository
+	// secondPassword string // Removed
 }
 
 // NewOrderUseCaseImpl はOrderUseCaseImplの新しいインスタンスを生成します
-func NewOrderUseCaseImpl(orderClient client.OrderClient, orderRepo repository.OrderRepository, secondPassword string) OrderUseCase {
+func NewOrderUseCaseImpl(orderClient client.OrderClient, orderRepo repository.OrderRepository) OrderUseCase {
 	return &OrderUseCaseImpl{
-		orderClient:    orderClient,
-		orderRepo:      orderRepo,
-		secondPassword: secondPassword,
+		orderClient: orderClient,
+		orderRepo:   orderRepo,
+		// secondPassword: secondPassword, // Removed
 	}
 }
 
@@ -53,8 +53,8 @@ func (uc *OrderUseCaseImpl) ExecuteOrder(ctx context.Context, params OrderParams
 		return nil, fmt.Errorf("invalid order type: %s", params.OrderType)
 	}
 
-	req := request.ReqNewOrder{
-		SecondPassword:           uc.secondPassword,
+	req := client.NewOrderParams{ // Changed to client.NewOrderParams
+		// SecondPassword:           uc.secondPassword, // Removed
 		ZyoutoekiKazeiC:          "1", // 特定口座
 		IssueCode:                params.Symbol,
 		SizyouC:                  "00", // 東証
@@ -72,7 +72,7 @@ func (uc *OrderUseCaseImpl) ExecuteOrder(ctx context.Context, params OrderParams
 	}
 
 	// 2. 外部API（証券会社）を呼び出す
-	res, err := uc.orderClient.NewOrder(ctx, req)
+	res, err := uc.orderClient.NewOrder(ctx, req) // No change in call, but req type changed
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute order via client: %w", err)
 	}

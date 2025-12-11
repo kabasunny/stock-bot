@@ -327,16 +327,22 @@ Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Con
 - **課題の特定**: `POST /order` APIのデバッグ過程で、`OrderUseCase` がインフラ層の詳細である `SecondPassword` を扱っている問題が明らかになった。これは「関心の分離」の原則に反しており、技術的負債となる。
 - **標準手順の策定**: このようなレイヤー間の責務移動を伴うリファクタリングを安全かつ一貫して行うため、新たに `planning/REFACTORING_PROCEDURE.md` を作成した。
 
-#### 次回のアクションプラン (2025-12-09 以降)
+### 開発進捗 (2025-12-11)
 
-1.  **セカンドパスワード責務のリファクタリング実施**
-    *   **内容**: `planning/REFACTORING_PROCEDURE.md` に従って、`SecondPassword` の管理責務を `OrderUseCase` から `OrderClient` (インフラ層) へと完全に移譲する。
-    *   **目的**: アーキテクチャをクリーンに保ち、将来のメンテナンス性を向上させる。
+#### `OrderClient` 関連テストの修正
+- **課題**: `SecondPassword` の責務を `UseCase` 層から `Infrastructure` 層へ移譲するリファクタリング (`2025-12-09` 実施) の影響で、`OrderClient` を利用している複数のテスト (`cancelorder`, `cancelorderall`, `correctorder`) でコンパイルエラーが発生していた。
+- **修正**:
+    1. `NewOrder` メソッドの呼び出し部分を、新しい `client.NewOrderParams` 構造体を使うように修正し、すべてのコンパイルエラーを解消。
+    2. `order_client_impl_cancelorder_test.go` で発生していた実行時エラー（APIエラーコード `13001`, `11121`）を調査。原因が逆指値注文のパラメータにあると特定。
+    3. ユーザーの指示に基づき、テストの意図（特定のリクエストを生成すること）を維持するため、`NewOrderParams` の値は元のテストコードの値を保持するように最終調整。これにより、テストはコンパイル可能だが、APIの仕様により実行時には失敗する可能性がある状態となった。
+- **結論**: `OrderClient` に関連するテストは、リファクタリング後のインターフェースに準拠した形に修正され、コンパイル可能な状態に復旧した。
 
-2.  **リポジトリ層の実装 (リファクタリング完了後)**
+#### 次回のアクションプラン (2025-12-12 以降)
+
+1.  **リポジトリ層の実装 (継続)**
     *   **対象:** `internal/infrastructure/repository`
     *   **内容:** `OrderRepository` をPostgreSQLで永続化する。
 
-3.  **WebSocket接続テストの再開 (リファクタリング完了後)**
+2.  **WebSocket接続テストの再開 (継続)**
     *   **対象:** `TestEventClient_ConnectReadMessagesWithDemoAPI`
     *   **内容:** 平日の取引時間中に `websocket: bad handshake` エラーのデバッグを再開する。

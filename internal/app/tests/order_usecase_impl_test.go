@@ -1,10 +1,11 @@
-package app_test
+package tests
 
 import (
 	"context"
 	"errors"
 	"stock-bot/domain/model"
 	"stock-bot/internal/app"
+	"stock-bot/internal/infrastructure/client" // Added for client.NewOrderParams
 	"stock-bot/internal/infrastructure/client/dto/order/request"
 	"stock-bot/internal/infrastructure/client/dto/order/response"
 	"testing"
@@ -18,8 +19,8 @@ type OrderClientMock struct {
 	mock.Mock
 }
 
-func (m *OrderClientMock) NewOrder(ctx context.Context, req request.ReqNewOrder) (*response.ResNewOrder, error) {
-	args := m.Called(ctx, req)
+func (m *OrderClientMock) NewOrder(ctx context.Context, params client.NewOrderParams) (*response.ResNewOrder, error) {
+	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -105,13 +106,13 @@ func TestExecuteOrder_Success(t *testing.T) {
 		ResultCode:  "0",
 		OrderNumber: "test-order-id-123",
 	}
-	orderClientMock.On("NewOrder", ctx, mock.AnythingOfType("request.ReqNewOrder")).Return(expectedResNewOrder, nil).Once()
+	orderClientMock.On("NewOrder", ctx, mock.AnythingOfType("client.NewOrderParams")).Return(expectedResNewOrder, nil).Once() // Changed to client.NewOrderParams
 
 	// OrderRepository がエラーなく保存するように設定
 	orderRepositoryMock.On("Save", ctx, mock.AnythingOfType("*model.Order")).Return(nil).Once()
 
 	// Usecaseの初期化
-	uc := app.NewOrderUseCaseImpl(orderClientMock, orderRepositoryMock, "dummy_password") // 実装に応じてNewOrderUseCaseImplを作成
+	uc := app.NewOrderUseCaseImpl(orderClientMock, orderRepositoryMock) // Removed secondPassword
 
 	// 実行
 	orderParams := app.OrderParams{
@@ -149,10 +150,10 @@ func TestExecuteOrder_ClientError(t *testing.T) {
 
 	// Tachibana OrderClient がエラーを返すように設定
 	expectedErr := errors.New("failed to call Tachibana API")
-	orderClientMock.On("NewOrder", ctx, mock.AnythingOfType("request.ReqNewOrder")).Return(nil, expectedErr).Once()
+	orderClientMock.On("NewOrder", ctx, mock.AnythingOfType("client.NewOrderParams")).Return(nil, expectedErr).Once() // Changed to client.NewOrderParams
 
 	// Usecaseの初期化
-	uc := app.NewOrderUseCaseImpl(orderClientMock, orderRepositoryMock, "dummy_password")
+	uc := app.NewOrderUseCaseImpl(orderClientMock, orderRepositoryMock) // Removed secondPassword
 
 	// 実行
 	orderParams := app.OrderParams{
@@ -185,14 +186,14 @@ func TestExecuteOrder_RepositoryError(t *testing.T) {
 		ResultCode:  "0",
 		OrderNumber: "test-order-id-456",
 	}
-	orderClientMock.On("NewOrder", ctx, mock.AnythingOfType("request.ReqNewOrder")).Return(expectedResNewOrder, nil).Once()
+	orderClientMock.On("NewOrder", ctx, mock.AnythingOfType("client.NewOrderParams")).Return(expectedResNewOrder, nil).Once() // Changed to client.NewOrderParams
 
 	// OrderRepository がエラーを返すように設定
 	expectedErr := errors.New("failed to save order to DB")
 	orderRepositoryMock.On("Save", ctx, mock.AnythingOfType("*model.Order")).Return(expectedErr).Once()
 
 	// Usecaseの初期化
-	uc := app.NewOrderUseCaseImpl(orderClientMock, orderRepositoryMock, "dummy_password")
+	uc := app.NewOrderUseCaseImpl(orderClientMock, orderRepositoryMock) // Removed secondPassword
 
 	// 実行
 	orderParams := app.OrderParams{
@@ -212,3 +213,5 @@ func TestExecuteOrder_RepositoryError(t *testing.T) {
 	orderClientMock.AssertExpectations(t)
 	orderRepositoryMock.AssertExpectations(t)
 }
+
+// go test -v ./internal/app/tests/order_usecase_impl_test.go

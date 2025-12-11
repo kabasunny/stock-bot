@@ -91,7 +91,7 @@ func main() {
 
 	// 3-3. ユースケースを初期化
 	// tachibanaClient は OrderClient インターフェースを満たしているので直接渡せる
-	orderUsecase := app.NewOrderUseCaseImpl(tachibanaClient, orderRepo, cfg.TachibanaPassword)
+	orderUsecase := app.NewOrderUseCaseImpl(tachibanaClient, orderRepo)
 
 	// 4. Goaサービスの実装を初期化
 	orderSvc := web.NewOrderService(orderUsecase, slog.Default())
