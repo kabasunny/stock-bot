@@ -337,12 +337,53 @@ Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Con
     3. ユーザーの指示に基づき、テストの意図（特定のリクエストを生成すること）を維持するため、`NewOrderParams` の値は元のテストコードの値を保持するように最終調整。これにより、テストはコンパイル可能だが、APIの仕様により実行時には失敗する可能性がある状態となった。
 - **結論**: `OrderClient` に関連するテストは、リファクタリング後のインターフェースに準拠した形に修正され、コンパイル可能な状態に復旧した。
 
-#### 次回のアクションプラン (2025-12-12 以降)
+#### `OrderClient` メソッドの SecondPassword 責務移譲の完了
+- **課題**: `NewOrder` メソッドに適用した `SecondPassword` の責務移譲が、`OrderClient` の他のメソッド (`CorrectOrder`, `CancelOrder`, `CancelOrderAll`) に対して未完了であった。
+- **修正**:
+    1. `internal/infrastructure/client/order_client.go` 内の `OrderClient` インターフェースを更新し、`CorrectOrderParams`, `CancelOrderParams`, `CancelOrderAllParams` の各構造体を定義し、対応するメソッドのシグネチャを変更。
+    2. `internal/infrastructure/client/order_client_impl.go` 内で、変更されたインターフェースに合わせて `CorrectOrder`, `CancelOrder`, `CancelOrderAll` の実装を修正し、`SecondPassword` の扱いを内部にカプセル化。
+    3. 関連するテストファイル (`order_client_impl_cancelorder_test.go`, `order_client_impl_correctorder_test.go`, `order_client_impl_cancelorderall_test.go`) を更新されたインターフェースに合わせるように修正。
+    4. `internal/app/order_usecase_impl.go` はこれらのメソッドを使用していないため、変更は不要であることを確認。
+- **結論**: `OrderClient` のすべての関連メソッドにおいて `SecondPassword` の管理責務が `Infrastructure` 層に完全に移譲され、リファクタリングが完了した。
 
-1.  **リポジトリ層の実装 (継続)**
-    *   **対象:** `internal/infrastructure/repository`
-    *   **内容:** `OrderRepository` をPostgreSQLで永続化する。
+#### リポジトリ層の静的コードレビュー完了
+- **課題**: リポジトリ層の実装が `gorm` を使用して適切に行われているか、静的に確認する必要があった。
+- **レビュー結果**:
+    1. `OrderRepository` (`domain/repository/order_repository.go`, `domain/model/order.go`, `internal/infrastructure/repository/order_repository_impl.go`) をレビューし、インターフェース、`gorm` タグ付きモデル、`gorm` ベースの実装が適切であることを確認。
+    2. `PositionRepository` (`domain/repository/position_repository.go`, `domain/model/position.go`, `internal/infrastructure/repository/position_repository_impl.go`) をレビューし、同様に適切であることを確認。
+    3. `SignalRepository` (`domain/repository/signal_repository.go`, `domain/model/signal.go`, `internal/infrastructure/repository/signal_repository_impl.go`) をレビューし、同様に適切であることを確認。
+    4. `MasterRepository` (`domain/repository/master_repository.go`, `domain/model/master_*.go`, `internal/infrastructure/repository/master_repository_impl.go`) をレビューし、同様に適切であることを確認。`FindByIssueCode` メソッドは `entityType` に基づいて適切なモデルを検索する汎用的な実装であり、既存コードに修正すべき論理的欠陥はなかった。
+- **結論**: すべてのリポジトリコンポーネント（インターフェース、`gorm` タグ付きモデル、`gorm` ベースの実装）は、静的コードの観点から完成していると判断される。
 
-2.  **WebSocket接続テストの再開 (継続)**
+### 開発進捗 (2025-12-12)
+
+#### リポジトリ層の統合と永続化の実現
+ダミー実装だったリポジトリ層を、実際のデータベース（PostgreSQL）に接続する実装に置き換え、アプリケーションの永続化基盤を構築した。
+
+1.  **開発用データベース環境の構築:**
+    *   `docker-compose.yml` を新規に作成し、PostgreSQLコンテナを定義。開発環境のデータベースをDockerで簡単に起動できるようにした。
+    *   `.env` ファイルにデータベース接続情報（`DB_HOST`, `DB_USER`等）を設定する方法を明確化し、接続問題を解決した。
+
+2.  **`main.go` へのGORM統合:**
+    *   アプリケーション起動時に、`gorm` を用いてPostgreSQLに接続する処理を `cmd/myapp/main.go` に実装。
+    *   `db.AutoMigrate` を使用し、`Order`, `Position`, `Signal`, `StockMaster` などのドメインモデルに基づいて、データベーススキーマが自動的に生成・更新されるようにした。
+    *   `OrderUseCase` に注入するリポジトリを、ダミーの `dummyOrderRepo` から `gorm` ベースの `repository_impl.NewOrderRepository` に置き換えた。
+
+3.  **コンパイルエラーと実行時エラーの修正:**
+    *   `main.go` で発生していた、モデル名 (`StockMaster` 等) やリポジトリのコンストラクタ名 (`NewOrderRepository`) の不一致によるコンパイルエラーを修正した。
+    *   `.env` の設定不備に起因するデータベース接続エラー (`lookup db: no such host`) を特定し、ユーザーが設定を修正することで解決に導いた。
+
+4.  **統合の最終確認:**
+    *   上記修正後、`go run ./cmd/myapp/main.go` を実行し、アプリケーションが正常に起動、データベース接続、スキーマのマイグレーション、APIへのログインを完了し、HTTPサーバーがリッスン状態になることを確認した。
+
+#### 次回のアクションプラン (2025-12-13 以降)
+
+1.  **WebSocket接続テストの再開 (最優先)**:
     *   **対象:** `TestEventClient_ConnectReadMessagesWithDemoAPI`
     *   **内容:** 平日の取引時間中に `websocket: bad handshake` エラーのデバッグを再開する。
+    *   **目的:** リアルタイムの株価・約定情報を受信する機能を確立する。
+
+2.  **Goaサービスの追加開発:**
+    *   **対象:** `Balance`, `Position`などの未実装サービス
+    *   **内容:** `SYSTEM_DESIGN_MEMO.md`に記載した「Goaサービス実装の標準手順」に従い、他のサービスの開発に着手する。
+    *   **目的:** アプリケーションのコア機能を拡充する。

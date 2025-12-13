@@ -99,6 +99,32 @@ HTTP_PORT="8080"
 go mod tidy
 ```
 
+## データベース (Database)
+
+### マイグレーション
+
+このプロジェクトは `golang-migrate/migrate` を使用してデータベースのスキーマを管理します。
+アプリケーションを起動する前に、データベースのスキーマをセットアップまたは更新する必要があります。
+
+1.  **`migrate` CLIのインストール (初回のみ)**
+    ```sh
+    go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
+    ```
+
+2.  **マイグレーションの適用**
+    以下のコマンドを実行して、最新のスキーマをデータベースに適用します。
+    コマンド内の `postgres://user:password@host:port/dbname` の部分は、ご自身の `.env` ファイルの内容に合わせて書き換えてください。
+
+    ```sh
+    # 例: migrate -database "postgres://user:password@localhost:5432/stockbot_db?sslmode=disable" -path ./migrations up
+    migrate -database "YOUR_DATABASE_CONNECTION_STRING" -path ./migrations up
+    ```
+
+    マイグレーションを1つ前のバージョンに戻す場合は `down 1` を使用します。
+    ```sh
+    migrate -database "YOUR_DATABASE_CONNECTION_STRING" -path ./migrations down 1
+    ```
+
 ## 実行
 
 ### アプリケーションの起動

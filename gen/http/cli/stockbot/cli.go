@@ -12,6 +12,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	balancec "stock-bot/gen/http/balance/client"
 	orderc "stock-bot/gen/http/order/client"
 
 	goahttp "goa.design/goa/v3/http"
@@ -24,12 +25,14 @@ import (
 func UsageCommands() []string {
 	return []string{
 		"order create",
+		"balance get",
 	}
 }
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "order create --body '{\n      \"is_margin\": false,\n      \"order_type\": \"STOP\",\n      \"price\": 0.645391665252649,\n      \"quantity\": 11891268417252880627,\n      \"symbol\": \"Libero vero alias commodi eius sit.\",\n      \"trade_type\": \"BUY\"\n   }'" + "\n" +
+	return os.Args[0] + " " + "order create --body '{\n      \"is_margin\": false,\n      \"order_type\": \"STOP_LIMIT\",\n      \"price\": 0.6823277361253774,\n      \"quantity\": 14045737829345687727,\n      \"symbol\": \"Sit perspiciatis sequi qui id.\",\n      \"trade_type\": \"SELL\"\n   }'" + "\n" +
+		os.Args[0] + " " + "balance get" + "\n" +
 		""
 }
 
@@ -47,9 +50,16 @@ func ParseEndpoint(
 
 		orderCreateFlags    = flag.NewFlagSet("create", flag.ExitOnError)
 		orderCreateBodyFlag = orderCreateFlags.String("body", "REQUIRED", "")
+
+		balanceFlags = flag.NewFlagSet("balance", flag.ContinueOnError)
+
+		balanceGetFlags = flag.NewFlagSet("get", flag.ExitOnError)
 	)
 	orderFlags.Usage = orderUsage
 	orderCreateFlags.Usage = orderCreateUsage
+
+	balanceFlags.Usage = balanceUsage
+	balanceGetFlags.Usage = balanceGetUsage
 
 	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
 		return nil, nil, err
@@ -68,6 +78,8 @@ func ParseEndpoint(
 		switch svcn {
 		case "order":
 			svcf = orderFlags
+		case "balance":
+			svcf = balanceFlags
 		default:
 			return nil, nil, fmt.Errorf("unknown service %q", svcn)
 		}
@@ -87,6 +99,13 @@ func ParseEndpoint(
 			switch epn {
 			case "create":
 				epf = orderCreateFlags
+
+			}
+
+		case "balance":
+			switch epn {
+			case "get":
+				epf = balanceGetFlags
 
 			}
 
@@ -116,6 +135,12 @@ func ParseEndpoint(
 			case "create":
 				endpoint = c.Create()
 				data, err = orderc.BuildCreatePayload(*orderCreateBodyFlag)
+			}
+		case "balance":
+			c := balancec.NewClient(scheme, host, doer, enc, dec, restore)
+			switch epn {
+			case "get":
+				endpoint = c.Get()
 			}
 		}
 	}
@@ -151,5 +176,31 @@ func orderCreateUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"is_margin\": false,\n      \"order_type\": \"STOP\",\n      \"price\": 0.645391665252649,\n      \"quantity\": 11891268417252880627,\n      \"symbol\": \"Libero vero alias commodi eius sit.\",\n      \"trade_type\": \"BUY\"\n   }'")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"is_margin\": false,\n      \"order_type\": \"STOP_LIMIT\",\n      \"price\": 0.6823277361253774,\n      \"quantity\": 14045737829345687727,\n      \"symbol\": \"Sit perspiciatis sequi qui id.\",\n      \"trade_type\": \"SELL\"\n   }'")
+}
+
+// balanceUsage displays the usage of the balance command and its subcommands.
+func balanceUsage() {
+	fmt.Fprintln(os.Stderr, `The balance service provides account balance information.`)
+	fmt.Fprintf(os.Stderr, "Usage:\n    %s [globalflags] balance COMMAND [flags]\n\n", os.Args[0])
+	fmt.Fprintln(os.Stderr, "COMMAND:")
+	fmt.Fprintln(os.Stderr, `    get: Get the account balance summary.`)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Additional help:")
+	fmt.Fprintf(os.Stderr, "    %s balance COMMAND --help\n", os.Args[0])
+}
+func balanceGetUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] balance get", os.Args[0])
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Get the account balance summary.`)
+
+	// Flags list
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "balance get")
 }

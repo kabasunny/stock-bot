@@ -8,12 +8,11 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"stock-bot/domain/model"
-	"stock-bot/domain/repository"
 	"stock-bot/internal/app"
 	"stock-bot/internal/config"
 	"stock-bot/internal/handler/web"
 	"stock-bot/internal/infrastructure/client"
+	repository_impl "stock-bot/internal/infrastructure/repository"
 	"sync"
 	"syscall"
 	"time"
@@ -22,9 +21,13 @@ import (
 
 	ordersvr "stock-bot/gen/http/order/server"
 	order "stock-bot/gen/order"
+	balancesvr "stock-bot/gen/http/balance/server" // New import
+	balance "stock-bot/gen/balance"                 // New import
 
 	goahttp "goa.design/goa/v3/http"
 	"goa.design/goa/v3/http/middleware"
+	"gorm.io/driver/postgres"
+	"gorm.io/gorm"
 
 	request_auth "stock-bot/internal/infrastructure/client/dto/auth/request"
 )
@@ -40,24 +43,6 @@ func (l *GoaSlogger) Log(keyvals ...interface{}) error {
 	return nil
 }
 
-// dummyOrderRepo は repository.OrderRepository のダミー実装です。
-// 将来的には infrastructure/repository の実装に置き換えます。
-type dummyOrderRepo struct{}
-
-func (r *dummyOrderRepo) Save(ctx context.Context, order *model.Order) error {
-	slog.Default().Info("dummyOrderRepo: Save called", slog.Any("order", order))
-	return nil // 常に成功
-}
-func (r *dummyOrderRepo) FindByID(ctx context.Context, orderID string) (*model.Order, error) {
-	return nil, nil
-}
-func (r *dummyOrderRepo) FindByStatus(ctx context.Context, status model.OrderStatus) ([]*model.Order, error) {
-	return nil, nil
-}
-func NewDummyOrderRepository() repository.OrderRepository {
-	return &dummyOrderRepo{}
-}
-
 func main() {
 	// 1. ロガーのセットアップ
 	goaLogger := &GoaSlogger{slog.Default()}
@@ -69,9 +54,19 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 3. Usecaseなどの依存関係を初期化
-	// 3-1. 証券会社APIクライアントを初期化
-	// NewTachibanaClient は OrderClient インターフェースなどを満たす実装を返す
+	// 3. データベース接続
+	dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable",
+		cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort)
+
+	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{})
+	if err != nil {
+		slog.Default().Error("failed to connect database", slog.Any("error", err))
+		os.Exit(1)
+	}
+	slog.Default().Info("database connection established")
+
+	// 4. Usecaseなどの依存関係を初期化
+	// 4-1. 証券会社APIクライアントを初期化
 	tachibanaClient := client.NewTachibanaClient(cfg)
 
 	slog.Default().Info("logging in to Tachibana API...")
@@ -86,33 +81,41 @@ func main() {
 	}
 	slog.Default().Info("login successful")
 
-	// 3-2. リポジトリを初期化 (今回はダミー)
-	orderRepo := NewDummyOrderRepository()
+	// 4-2. リポジトリを初期化
+	orderRepo := repository_impl.NewOrderRepository(db)
+	// NOTE: 他のリポジトリやユースケースも今後同様に初期化する
+	// positionRepo := repository_impl.NewPositionRepositoryImpl(db)
+	// signalRepo := repository_impl.NewSignalRepositoryImpl(db)
+	// masterRepo := repository_impl.NewMasterRepositoryImpl(db)
 
-	// 3-3. ユースケースを初期化
-	// tachibanaClient は OrderClient インターフェースを満たしているので直接渡せる
+	// 4-3. ユースケースを初期化
 	orderUsecase := app.NewOrderUseCaseImpl(tachibanaClient, orderRepo)
+	balanceUsecase := app.NewBalanceUseCaseImpl(tachibanaClient)
 
-	// 4. Goaサービスの実装を初期化
+	// 5. Goaサービスの実装を初期化
 	orderSvc := web.NewOrderService(orderUsecase, slog.Default())
+	balanceSvc := web.NewBalanceService(balanceUsecase, slog.Default())
 
-	// 5. GoaのエンドポイントとHTTPハンドラを構築
+	// 6. GoaのエンドポイントとHTTPハンドラを構築
 	wg := &sync.WaitGroup{}
 	ctx, cancel := context.WithCancel(context.Background())
 
 	orderEndpoints := order.NewEndpoints(orderSvc)
+	balanceEndpoints := balance.NewEndpoints(balanceSvc)
 
 	mux := goahttp.NewMuxer()
 
 	server := ordersvr.New(orderEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
+	balanceserver := balancesvr.New(balanceEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
 
 	ordersvr.Mount(mux, server)
+	balancesvr.Mount(mux, balanceserver)
 
 	// OpenAPI仕様配信用に静的ファイルサーバーをマウント
 	fs := http.FileServer(http.Dir("./gen/http/openapi"))
 	mux.Handle("GET", "/swagger/", http.HandlerFunc(http.StripPrefix("/swagger/", fs).ServeHTTP))
 
-	// 6. HTTPサーバーの起動
+	// 7. HTTPサーバーの起動
 	addr := fmt.Sprintf("http://localhost:%d", cfg.HTTPPort)
 	u, err := url.Parse(addr)
 	if err != nil {
@@ -135,7 +138,7 @@ func main() {
 		}
 	}()
 
-	// 7. Graceful Shutdownの設定
+	// 8. Graceful Shutdownの設定
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 

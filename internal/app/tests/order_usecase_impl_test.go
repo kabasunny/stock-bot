@@ -27,29 +27,30 @@ func (m *OrderClientMock) NewOrder(ctx context.Context, params client.NewOrderPa
 	return args.Get(0).(*response.ResNewOrder), args.Error(1)
 }
 
-func (m *OrderClientMock) CorrectOrder(ctx context.Context, req request.ReqCorrectOrder) (*response.ResCorrectOrder, error) {
-	args := m.Called(ctx, req)
+func (m *OrderClientMock) CorrectOrder(ctx context.Context, params client.CorrectOrderParams) (*response.ResCorrectOrder, error) {
+	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResCorrectOrder), args.Error(1)
 }
 
-func (m *OrderClientMock) CancelOrder(ctx context.Context, req request.ReqCancelOrder) (*response.ResCancelOrder, error) {
-	args := m.Called(ctx, req)
+func (m *OrderClientMock) CancelOrder(ctx context.Context, params client.CancelOrderParams) (*response.ResCancelOrder, error) {
+	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResCancelOrder), args.Error(1)
 }
 
-func (m *OrderClientMock) CancelOrderAll(ctx context.Context, req request.ReqCancelOrderAll) (*response.ResCancelOrderAll, error) {
-	args := m.Called(ctx, req)
+func (m *OrderClientMock) CancelOrderAll(ctx context.Context, params client.CancelOrderAllParams) (*response.ResCancelOrderAll, error) {
+	args := m.Called(ctx, params)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResCancelOrderAll), args.Error(1)
 }
+
 
 func (m *OrderClientMock) GetOrderList(ctx context.Context, req request.ReqOrderList) (*response.ResOrderList, error) {
 	args := m.Called(ctx, req)

@@ -57,3 +57,37 @@ var _ = Service("order", func() {
         })
     })
 })
+
+// Goa Type for Balance Summary
+var BalanceResult = ResultType("application/vnd.stockbot.balance", func() {
+    Description("A summary of the account balance.")
+    Attribute("available_cash_for_stock", Float64, "現物株式買付可能額")
+    Attribute("available_margin_for_new_position", Float64, "信用新規建可能額")
+    Attribute("margin_maintenance_rate", Float64, "委託保証金率(%)")
+    Attribute("withdrawable_cash", Float64, "出金可能額")
+    Attribute("has_margin_call", Boolean, "追証発生フラグ (1:発生, 0:未発生)")
+    Required(
+        "available_cash_for_stock",
+        "available_margin_for_new_position",
+        "margin_maintenance_rate",
+        "withdrawable_cash",
+        "has_margin_call",
+    )
+})
+
+// 残高サービス(Balance)の定義
+var _ = Service("balance", func() {
+    Description("The balance service provides account balance information.")
+
+    // GET /balance
+    Method("get", func() {
+        Description("Get the account balance summary.")
+        Payload(Empty) // No request body
+        Result(BalanceResult)
+
+        HTTP(func() {
+            GET("/balance")
+            Response(StatusOK)
+        })
+    })
+})
