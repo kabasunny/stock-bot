@@ -21,11 +21,42 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/StockbotBalance'
                             example:
-                                available_cash_for_stock: 0.897048344522705
-                                available_margin_for_new_position: 0.9847662144042676
-                                has_margin_call: false
-                                margin_maintenance_rate: 0.8049012647268458
-                                withdrawable_cash: 0.003252871500457864
+                                available_cash_for_stock: 0.5889158335579016
+                                available_margin_for_new_position: 0.19815970415992543
+                                has_margin_call: true
+                                margin_maintenance_rate: 0.5940544441921668
+                                withdrawable_cash: 0.2318345233600127
+    /master/stocks/{symbol}:
+        get:
+            tags:
+                - master
+            summary: get_stock master
+            description: Get basic master data for a single stock.
+            operationId: master#get_stock
+            parameters:
+                - name: symbol
+                  in: path
+                  description: Stock symbol to look up
+                  required: true
+                  schema:
+                    type: string
+                    description: Stock symbol to look up
+                    example: Aliquam alias ad omnis et fuga sequi.
+                  example: Doloribus sit aperiam.
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StockbotStockMaster'
+                            example:
+                                industry_code: Voluptatem officia vel blanditiis voluptas sit.
+                                industry_name: Voluptatem quo consectetur iusto nesciunt.
+                                market: Autem adipisci officia.
+                                name: Dolore cupiditate repudiandae perspiciatis quisquam fugiat.
+                                name_kana: Voluptatum tempora voluptatem porro nobis quisquam.
+                                symbol: Ut id repudiandae id sit.
     /order:
         post:
             tags:
@@ -41,10 +72,10 @@ paths:
                             $ref: '#/components/schemas/CreateRequestBody'
                         example:
                             is_margin: false
-                            order_type: STOP_LIMIT
-                            price: 0.6823277361253774
-                            quantity: 14045737829345687727
-                            symbol: Sit perspiciatis sequi qui id.
+                            order_type: STOP
+                            price: 0.6001029154831115
+                            quantity: 8413881200764235548
+                            symbol: Soluta perferendis nostrum.
                             trade_type: SELL
             responses:
                 "201":
@@ -54,7 +85,54 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/CreateResponseBody'
                             example:
-                                order_id: Cumque quod sint numquam.
+                                order_id: Velit tempore et nisi quam.
+    /positions:
+        get:
+            tags:
+                - position
+            summary: list position
+            description: List current positions.
+            operationId: position#list
+            parameters:
+                - name: type
+                  in: query
+                  description: 取得するポジション種別 (all, cash, margin)
+                  allowEmptyValue: true
+                  schema:
+                    type: string
+                    description: 取得するポジション種別 (all, cash, margin)
+                    default: all
+                    example: margin
+                    enum:
+                        - all
+                        - cash
+                        - margin
+                  example: all
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/StockbotPositionCollection'
+                            example:
+                                positions:
+                                    - average_cost: 0.30031297063048695
+                                      current_price: 0.43519422619906417
+                                      opened_date: Voluptatem pariatur.
+                                      position_type: MARGIN_LONG
+                                      quantity: 0.7337068483551654
+                                      symbol: Dolore at quasi tempore odio.
+                                      unrealized_pl: 0.30792511416078117
+                                      unrealized_pl_rate: 0.7158894831971462
+                                    - average_cost: 0.30031297063048695
+                                      current_price: 0.43519422619906417
+                                      opened_date: Voluptatem pariatur.
+                                      position_type: MARGIN_LONG
+                                      quantity: 0.7337068483551654
+                                      symbol: Dolore at quasi tempore odio.
+                                      unrealized_pl: 0.30792511416078117
+                                      unrealized_pl_rate: 0.7158894831971462
 components:
     schemas:
         CreateRequestBody:
@@ -78,31 +156,31 @@ components:
                     type: number
                     description: 発注価格 (LIMIT注文の場合)
                     default: 0
-                    example: 0.30031297063048695
+                    example: 0.10110136938308784
                     format: double
                 quantity:
                     type: integer
                     description: 発注数量
-                    example: 6767251228367880624
+                    example: 4101062845666100371
                     format: int64
                 symbol:
                     type: string
                     description: '銘柄コード (例: 7203)'
-                    example: Laudantium corrupti omnis dolore at quasi tempore.
+                    example: Non deserunt accusamus.
                 trade_type:
                     type: string
                     description: 売買区分 (BUY/SELL)
-                    example: SELL
+                    example: BUY
                     enum:
                         - BUY
                         - SELL
             example:
-                is_margin: false
+                is_margin: true
                 order_type: STOP_LIMIT
-                price: 0.1020377895840843
-                quantity: 12321529925262682652
-                symbol: Qui cumque voluptatem.
-                trade_type: BUY
+                price: 0.5101872627587505
+                quantity: 16242600502740760454
+                symbol: Quo non velit.
+                trade_type: SELL
             required:
                 - symbol
                 - trade_type
@@ -114,54 +192,210 @@ components:
                 order_id:
                     type: string
                     description: 受付済み注文ID
-                    example: Aliquam maiores aspernatur rerum sequi est.
+                    example: Quasi fugiat ut.
             description: ID of the created order
             example:
-                order_id: Blanditiis voluptatibus dolores quia facilis.
+                order_id: Et beatae.
             required:
                 - order_id
+        PositionResult:
+            type: object
+            properties:
+                average_cost:
+                    type: number
+                    description: 平均取得単価
+                    example: 0.9287026039081638
+                    format: double
+                current_price:
+                    type: number
+                    description: 現在値
+                    example: 0.5245594644834467
+                    format: double
+                opened_date:
+                    type: string
+                    description: 建日 (信用取引の場合 YYYYMMDD)
+                    example: Perspiciatis aut et iure et.
+                position_type:
+                    type: string
+                    description: ポジション種別 (CASH, MARGIN_LONG, MARGIN_SHORT)
+                    example: MARGIN_SHORT
+                    enum:
+                        - CASH
+                        - MARGIN_LONG
+                        - MARGIN_SHORT
+                quantity:
+                    type: number
+                    description: 保有数量
+                    example: 0.22022848948235493
+                    format: double
+                symbol:
+                    type: string
+                    description: 銘柄コード
+                    example: Ad quo reiciendis.
+                unrealized_pl:
+                    type: number
+                    description: 評価損益
+                    example: 0.6747681892595293
+                    format: double
+                unrealized_pl_rate:
+                    type: number
+                    description: 評価損益率(%)
+                    example: 0.6448335870324777
+                    format: double
+            description: A single trading position.
+            example:
+                average_cost: 0.13603139315736934
+                current_price: 0.12189339936508073
+                opened_date: Aut porro.
+                position_type: MARGIN_SHORT
+                quantity: 0.7224623819680988
+                symbol: Ad est reiciendis repudiandae ut.
+                unrealized_pl: 0.08618563272747072
+                unrealized_pl_rate: 0.8192192973445636
+            required:
+                - symbol
+                - position_type
+                - quantity
+                - average_cost
         StockbotBalance:
             type: object
             properties:
                 available_cash_for_stock:
                     type: number
                     description: 現物株式買付可能額
-                    example: 0.38514840397707384
+                    example: 0.9431881924507535
                     format: double
                 available_margin_for_new_position:
                     type: number
                     description: 信用新規建可能額
-                    example: 0.8237833116450515
+                    example: 0.7057405203790427
                     format: double
                 has_margin_call:
                     type: boolean
                     description: 追証発生フラグ (1:発生, 0:未発生)
-                    example: true
+                    example: false
                 margin_maintenance_rate:
                     type: number
                     description: 委託保証金率(%)
-                    example: 0.2253343121763319
+                    example: 0.6435102542703183
                     format: double
                 withdrawable_cash:
                     type: number
                     description: 出金可能額
-                    example: 0.01068050672083728
+                    example: 0.9019489210270862
                     format: double
             description: A summary of the account balance.
             example:
-                available_cash_for_stock: 0.8531512056629607
-                available_margin_for_new_position: 0.9362199561086998
+                available_cash_for_stock: 0.9741706734029318
+                available_margin_for_new_position: 0.5318733172867219
                 has_margin_call: false
-                margin_maintenance_rate: 0.5889158335579016
-                withdrawable_cash: 0.19815970415992543
+                margin_maintenance_rate: 0.616561261719344
+                withdrawable_cash: 0.4005497233745254
             required:
                 - available_cash_for_stock
                 - available_margin_for_new_position
                 - margin_maintenance_rate
                 - withdrawable_cash
                 - has_margin_call
+        StockbotPositionCollection:
+            type: object
+            properties:
+                positions:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/PositionResult'
+                    description: 保有ポジションのリスト
+                    example:
+                        - average_cost: 0.23326675699793373
+                          current_price: 0.17143734645419337
+                          opened_date: Numquam commodi qui molestiae nemo impedit id.
+                          position_type: MARGIN_LONG
+                          quantity: 0.6823277361253774
+                          symbol: Sequi qui id minima aut.
+                          unrealized_pl: 0.6103172365297209
+                          unrealized_pl_rate: 0.3750888892919033
+                        - average_cost: 0.23326675699793373
+                          current_price: 0.17143734645419337
+                          opened_date: Numquam commodi qui molestiae nemo impedit id.
+                          position_type: MARGIN_LONG
+                          quantity: 0.6823277361253774
+                          symbol: Sequi qui id minima aut.
+                          unrealized_pl: 0.6103172365297209
+                          unrealized_pl_rate: 0.3750888892919033
+            description: A collection of trading positions.
+            example:
+                positions:
+                    - average_cost: 0.23326675699793373
+                      current_price: 0.17143734645419337
+                      opened_date: Numquam commodi qui molestiae nemo impedit id.
+                      position_type: MARGIN_LONG
+                      quantity: 0.6823277361253774
+                      symbol: Sequi qui id minima aut.
+                      unrealized_pl: 0.6103172365297209
+                      unrealized_pl_rate: 0.3750888892919033
+                    - average_cost: 0.23326675699793373
+                      current_price: 0.17143734645419337
+                      opened_date: Numquam commodi qui molestiae nemo impedit id.
+                      position_type: MARGIN_LONG
+                      quantity: 0.6823277361253774
+                      symbol: Sequi qui id minima aut.
+                      unrealized_pl: 0.6103172365297209
+                      unrealized_pl_rate: 0.3750888892919033
+                    - average_cost: 0.23326675699793373
+                      current_price: 0.17143734645419337
+                      opened_date: Numquam commodi qui molestiae nemo impedit id.
+                      position_type: MARGIN_LONG
+                      quantity: 0.6823277361253774
+                      symbol: Sequi qui id minima aut.
+                      unrealized_pl: 0.6103172365297209
+                      unrealized_pl_rate: 0.3750888892919033
+            required:
+                - positions
+        StockbotStockMaster:
+            type: object
+            properties:
+                industry_code:
+                    type: string
+                    description: 業種コード
+                    example: Qui quibusdam aut rerum corrupti vel inventore.
+                industry_name:
+                    type: string
+                    description: 業種コード名
+                    example: Quibusdam impedit nemo accusamus.
+                market:
+                    type: string
+                    description: 優先市場
+                    example: Tempore quis est voluptate corrupti.
+                name:
+                    type: string
+                    description: 銘柄名
+                    example: Amet iusto dolore.
+                name_kana:
+                    type: string
+                    description: 銘柄名（カナ）
+                    example: Voluptatem laudantium quia eligendi error.
+                symbol:
+                    type: string
+                    description: 銘柄コード
+                    example: Et dolore sunt enim ut velit dolorem.
+            description: Basic master data for a single stock.
+            example:
+                industry_code: Odit ducimus.
+                industry_name: Omnis earum unde aut.
+                market: In eum ut.
+                name: Tenetur rerum dignissimos.
+                name_kana: Quod sed non doloremque rerum et.
+                symbol: Commodi dolores qui molestiae necessitatibus similique quod.
+            required:
+                - symbol
+                - name
+                - market
 tags:
     - name: order
       description: The order service handles placing stock orders.
     - name: balance
       description: The balance service provides account balance information.
+    - name: position
+      description: The position service provides information about current holdings.
+    - name: master
+      description: The master service provides master data.

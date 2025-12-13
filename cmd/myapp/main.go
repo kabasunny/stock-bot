@@ -20,9 +20,13 @@ import (
 	_ "stock-bot/internal/logger" // loggerパッケージをインポートし、slog.Default()を初期化
 
 	ordersvr "stock-bot/gen/http/order/server"
+	balance "stock-bot/gen/balance"
+	balancesvr "stock-bot/gen/http/balance/server"
+	positionsvr "stock-bot/gen/http/position/server" // New import
 	order "stock-bot/gen/order"
-	balancesvr "stock-bot/gen/http/balance/server" // New import
-	balance "stock-bot/gen/balance"                 // New import
+	positiongen "stock-bot/gen/position" // New import
+	mastersvr "stock-bot/gen/http/master/server" // New import
+	mastergen "stock-bot/gen/master"               // New import
 
 	goahttp "goa.design/goa/v3/http"
 	"goa.design/goa/v3/http/middleware"
@@ -91,10 +95,14 @@ func main() {
 	// 4-3. ユースケースを初期化
 	orderUsecase := app.NewOrderUseCaseImpl(tachibanaClient, orderRepo)
 	balanceUsecase := app.NewBalanceUseCaseImpl(tachibanaClient)
+	positionUsecase := app.NewPositionUseCaseImpl(tachibanaClient)
+	masterUsecase := app.NewMasterUseCaseImpl(tachibanaClient) // New line
 
 	// 5. Goaサービスの実装を初期化
 	orderSvc := web.NewOrderService(orderUsecase, slog.Default())
 	balanceSvc := web.NewBalanceService(balanceUsecase, slog.Default())
+	positionSvc := web.NewPositionService(positionUsecase, slog.Default())
+	masterSvc := web.NewMasterService(masterUsecase, slog.Default()) // New line
 
 	// 6. GoaのエンドポイントとHTTPハンドラを構築
 	wg := &sync.WaitGroup{}
@@ -102,14 +110,20 @@ func main() {
 
 	orderEndpoints := order.NewEndpoints(orderSvc)
 	balanceEndpoints := balance.NewEndpoints(balanceSvc)
+	positionEndpoints := positiongen.NewEndpoints(positionSvc)
+	masterEndpoints := mastergen.NewEndpoints(masterSvc) // New line
 
 	mux := goahttp.NewMuxer()
 
 	server := ordersvr.New(orderEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
 	balanceserver := balancesvr.New(balanceEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
+	positionserver := positionsvr.New(positionEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
+	masterserver := mastersvr.New(masterEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil) // New line
 
 	ordersvr.Mount(mux, server)
 	balancesvr.Mount(mux, balanceserver)
+	positionsvr.Mount(mux, positionserver)
+	mastersvr.Mount(mux, masterserver) // New line
 
 	// OpenAPI仕様配信用に静的ファイルサーバーをマウント
 	fs := http.FileServer(http.Dir("./gen/http/openapi"))

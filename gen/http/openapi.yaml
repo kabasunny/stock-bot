@@ -27,6 +27,26 @@ paths:
                         $ref: '#/definitions/StockbotBalance'
             schemes:
                 - http
+    /master/stocks/{symbol}:
+        get:
+            tags:
+                - master
+            summary: get_stock master
+            description: Get basic master data for a single stock.
+            operationId: master#get_stock
+            parameters:
+                - name: symbol
+                  in: path
+                  description: Stock symbol to look up
+                  required: true
+                  type: string
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        $ref: '#/definitions/StockbotStockMaster'
+            schemes:
+                - http
     /order:
         post:
             tags:
@@ -54,6 +74,31 @@ paths:
                             - order_id
             schemes:
                 - http
+    /positions:
+        get:
+            tags:
+                - position
+            summary: list position
+            description: List current positions.
+            operationId: position#list
+            parameters:
+                - name: type
+                  in: query
+                  description: 取得するポジション種別 (all, cash, margin)
+                  required: false
+                  type: string
+                  default: all
+                  enum:
+                    - all
+                    - cash
+                    - margin
+            responses:
+                "200":
+                    description: OK response.
+                    schema:
+                        $ref: '#/definitions/StockbotPositionCollection'
+            schemes:
+                - http
 definitions:
     OrderCreateRequestBody:
         title: OrderCreateRequestBody
@@ -63,11 +108,11 @@ definitions:
                 type: boolean
                 description: 信用取引かどうか
                 default: false
-                example: false
+                example: true
             order_type:
                 type: string
                 description: 注文種別 (MARKET/LIMITなど)
-                example: STOP
+                example: STOP_LIMIT
                 enum:
                     - MARKET
                     - LIMIT
@@ -77,17 +122,17 @@ definitions:
                 type: number
                 description: 発注価格 (LIMIT注文の場合)
                 default: 0
-                example: 0.1347582874179467
+                example: 0.8222687742177984
                 format: double
             quantity:
                 type: integer
                 description: 発注数量
-                example: 2270718033551387091
+                example: 10768461267398400549
                 format: int64
             symbol:
                 type: string
                 description: '銘柄コード (例: 7203)'
-                example: Assumenda ipsa hic.
+                example: Et fugiat nam nobis qui.
             trade_type:
                 type: string
                 description: 売買区分 (BUY/SELL)
@@ -98,10 +143,10 @@ definitions:
         example:
             is_margin: false
             order_type: STOP_LIMIT
-            price: 0.843209432081459
-            quantity: 803274372156565567
-            symbol: Pariatur pariatur animi porro voluptas.
-            trade_type: BUY
+            price: 0.538007214151295
+            quantity: 9018386650614693378
+            symbol: Aliquam magni eum omnis.
+            trade_type: SELL
         required:
             - symbol
             - trade_type
@@ -114,12 +159,72 @@ definitions:
             order_id:
                 type: string
                 description: 受付済み注文ID
-                example: Placeat non.
+                example: Ratione non repudiandae quibusdam accusantium ut.
         description: ID of the created order
         example:
-            order_id: Non consequatur facilis id pariatur recusandae.
+            order_id: Dolorum repellat facilis distinctio autem.
         required:
             - order_id
+    PositionResult:
+        title: PositionResult
+        type: object
+        properties:
+            average_cost:
+                type: number
+                description: 平均取得単価
+                example: 0.9072600383635819
+                format: double
+            current_price:
+                type: number
+                description: 現在値
+                example: 0.868196972880344
+                format: double
+            opened_date:
+                type: string
+                description: 建日 (信用取引の場合 YYYYMMDD)
+                example: Aut sit est aperiam minus quia sunt.
+            position_type:
+                type: string
+                description: ポジション種別 (CASH, MARGIN_LONG, MARGIN_SHORT)
+                example: MARGIN_LONG
+                enum:
+                    - CASH
+                    - MARGIN_LONG
+                    - MARGIN_SHORT
+            quantity:
+                type: number
+                description: 保有数量
+                example: 0.10997712919660992
+                format: double
+            symbol:
+                type: string
+                description: 銘柄コード
+                example: Voluptatibus sed delectus et aut accusamus.
+            unrealized_pl:
+                type: number
+                description: 評価損益
+                example: 0.7156682760184558
+                format: double
+            unrealized_pl_rate:
+                type: number
+                description: 評価損益率(%)
+                example: 0.08281484536016209
+                format: double
+        description: A single trading position.
+        example:
+            average_cost: 0.13519314773396515
+            current_price: 0.02151845411595506
+            opened_date: Natus vel aut repudiandae veniam non.
+            position_type: MARGIN_LONG
+            quantity: 0.7748741291598161
+            symbol: Fuga sit placeat magni.
+            unrealized_pl: 0.46713331406267644
+            unrealized_pl_rate: 0.022056089018759956
+        required:
+            - symbol
+            - position_type
+            - quantity
+            - average_cost
     StockbotBalance:
         title: 'Mediatype identifier: application/vnd.stockbot.balance; view=default'
         type: object
@@ -127,12 +232,12 @@ definitions:
             available_cash_for_stock:
                 type: number
                 description: 現物株式買付可能額
-                example: 0.8173181758295754
+                example: 0.6621056743497284
                 format: double
             available_margin_for_new_position:
                 type: number
                 description: 信用新規建可能額
-                example: 0.7696922923213877
+                example: 0.07469073423109131
                 format: double
             has_margin_call:
                 type: boolean
@@ -141,23 +246,110 @@ definitions:
             margin_maintenance_rate:
                 type: number
                 description: 委託保証金率(%)
-                example: 0.9674332956073177
+                example: 0.3663596780501805
                 format: double
             withdrawable_cash:
                 type: number
                 description: 出金可能額
-                example: 0.9122348276903529
+                example: 0.35872211035911955
                 format: double
         description: GetResponseBody result type (default view)
         example:
-            available_cash_for_stock: 0.8026494646868956
-            available_margin_for_new_position: 0.6526836415105997
+            available_cash_for_stock: 0.5190300316544106
+            available_margin_for_new_position: 0.6645791409873505
             has_margin_call: true
-            margin_maintenance_rate: 0.9088583349006569
-            withdrawable_cash: 0.7808435872712735
+            margin_maintenance_rate: 0.7487887991108492
+            withdrawable_cash: 0.19084728109418947
         required:
             - available_cash_for_stock
             - available_margin_for_new_position
             - margin_maintenance_rate
             - withdrawable_cash
             - has_margin_call
+    StockbotPositionCollection:
+        title: 'Mediatype identifier: application/vnd.stockbot.position-collection; view=default'
+        type: object
+        properties:
+            positions:
+                type: array
+                items:
+                    $ref: '#/definitions/PositionResult'
+                description: 保有ポジションのリスト
+                example:
+                    - average_cost: 0.30031297063048695
+                      current_price: 0.43519422619906417
+                      opened_date: Voluptatem pariatur.
+                      position_type: MARGIN_LONG
+                      quantity: 0.7337068483551654
+                      symbol: Dolore at quasi tempore odio.
+                      unrealized_pl: 0.30792511416078117
+                      unrealized_pl_rate: 0.7158894831971462
+                    - average_cost: 0.30031297063048695
+                      current_price: 0.43519422619906417
+                      opened_date: Voluptatem pariatur.
+                      position_type: MARGIN_LONG
+                      quantity: 0.7337068483551654
+                      symbol: Dolore at quasi tempore odio.
+                      unrealized_pl: 0.30792511416078117
+                      unrealized_pl_rate: 0.7158894831971462
+        description: ListResponseBody result type (default view)
+        example:
+            positions:
+                - average_cost: 0.30031297063048695
+                  current_price: 0.43519422619906417
+                  opened_date: Voluptatem pariatur.
+                  position_type: MARGIN_LONG
+                  quantity: 0.7337068483551654
+                  symbol: Dolore at quasi tempore odio.
+                  unrealized_pl: 0.30792511416078117
+                  unrealized_pl_rate: 0.7158894831971462
+                - average_cost: 0.30031297063048695
+                  current_price: 0.43519422619906417
+                  opened_date: Voluptatem pariatur.
+                  position_type: MARGIN_LONG
+                  quantity: 0.7337068483551654
+                  symbol: Dolore at quasi tempore odio.
+                  unrealized_pl: 0.30792511416078117
+                  unrealized_pl_rate: 0.7158894831971462
+        required:
+            - positions
+    StockbotStockMaster:
+        title: 'Mediatype identifier: application/vnd.stockbot.stock-master; view=default'
+        type: object
+        properties:
+            industry_code:
+                type: string
+                description: 業種コード
+                example: Eligendi et consequatur maxime maxime porro nam.
+            industry_name:
+                type: string
+                description: 業種コード名
+                example: Aliquid provident dolores laboriosam eaque quas aut.
+            market:
+                type: string
+                description: 優先市場
+                example: Pariatur suscipit corrupti.
+            name:
+                type: string
+                description: 銘柄名
+                example: Voluptatem quas sunt magnam et.
+            name_kana:
+                type: string
+                description: 銘柄名（カナ）
+                example: In perferendis quia.
+            symbol:
+                type: string
+                description: 銘柄コード
+                example: Illo vel nemo.
+        description: get_stock_response_body result type (default view)
+        example:
+            industry_code: Earum perspiciatis et non.
+            industry_name: Rem vitae numquam blanditiis.
+            market: Qui molestiae.
+            name: Eos quisquam.
+            name_kana: Aut commodi sunt nobis maiores veritatis.
+            symbol: Repudiandae ab laudantium itaque.
+        required:
+            - symbol
+            - name
+            - market

@@ -91,3 +91,84 @@ var _ = Service("balance", func() {
         })
     })
 })
+
+// Goa Type for a single Position
+var PositionResult = Type("PositionResult", func() {
+    Description("A single trading position.")
+    Attribute("symbol", String, "銘柄コード")
+    Attribute("position_type", String, "ポジション種別 (CASH, MARGIN_LONG, MARGIN_SHORT)", func() {
+        Enum("CASH", "MARGIN_LONG", "MARGIN_SHORT")
+    })
+    Attribute("quantity", Float64, "保有数量")
+    Attribute("average_cost", Float64, "平均取得単価")
+    Attribute("current_price", Float64, "現在値")
+    Attribute("unrealized_pl", Float64, "評価損益")
+    Attribute("unrealized_pl_rate", Float64, "評価損益率(%)")
+    Attribute("opened_date", String, "建日 (信用取引の場合 YYYYMMDD)")
+
+    Required("symbol", "position_type", "quantity", "average_cost")
+})
+
+// Goa Type for a collection of Positions
+var PositionCollection = ResultType("application/vnd.stockbot.position-collection", func() {
+    Description("A collection of trading positions.")
+    Attribute("positions", ArrayOf(PositionResult), "保有ポジションのリスト")
+    Required("positions")
+})
+
+
+// 保有ポジションサービス(Position)の定義
+var _ = Service("position", func() {
+    Description("The position service provides information about current holdings.")
+
+    // GET /positions
+    Method("list", func() {
+        Description("List current positions.")
+        Payload(func() {
+            Attribute("type", String, "取得するポジション種別 (all, cash, margin)", func() {
+                Enum("all", "cash", "margin")
+                Default("all")
+            })
+        })
+        Result(PositionCollection)
+
+        HTTP(func() {
+            GET("/positions")
+            Param("type") // Map the 'type' attribute to a query parameter
+            Response(StatusOK)
+        })
+    })
+})
+
+// Goa Type for Stock Master Data (simplified)
+var StockMasterResult = ResultType("application/vnd.stockbot.stock-master", func() {
+    Description("Basic master data for a single stock.")
+    Attribute("symbol", String, "銘柄コード")
+    Attribute("name", String, "銘柄名")
+    Attribute("name_kana", String, "銘柄名（カナ）")
+    Attribute("market", String, "優先市場")
+    Attribute("industry_code", String, "業種コード")
+    Attribute("industry_name", String, "業種コード名")
+
+    Required("symbol", "name", "market") // Minimal required fields
+})
+
+// マスタデータサービス(Master)の定義
+var _ = Service("master", func() {
+    Description("The master service provides master data.")
+
+    // GET /master/stocks/{symbol}
+    Method("get_stock", func() { // Renamed method
+        Description("Get basic master data for a single stock.")
+        Payload(func() {
+            Attribute("symbol", String, "Stock symbol to look up")
+            Required("symbol")
+        })
+        Result(StockMasterResult) // New result type
+
+        HTTP(func() {
+            GET("/master/stocks/{symbol}")
+            Response(StatusOK)
+        })
+    })
+})

@@ -56,3 +56,39 @@ Places a market buy order using margin.
 # Create a new MARKET BUY order for 100 shares of symbol 9984 (SoftBank) using margin
 curl -i -X POST -H "Content-Type: application/json" -d "{\"symbol\":\"9984\",\"trade_type\":\"BUY\",\"order_type\":\"MARKET\",\"quantity\":100,\"is_margin\":true}" http://localhost:8080/order
 ```
+
+---
+
+## Position Service
+
+### List Current Positions
+
+Retrieves a list of all currently held positions (cash and margin).
+
+```sh
+# Get all positions
+curl -i -X GET http://localhost:8080/positions
+
+# Get only cash positions
+curl -i -X GET "http://localhost:8080/positions?type=cash"
+
+# Get only margin positions
+curl -i -X GET "http://localhost:8080/positions?type=margin"
+```
+
+---
+
+## Master Service
+
+### Get Stock Detail
+
+Retrieves detailed master data for a specific stock symbol.
+
+```sh
+# Get details for Toyota (symbol 7203)
+curl -i -X GET http://localhost:8080/master/stocks/7203
+
+# Get details for Sony (symbol 6758)
+curl -i -X GET http://localhost:8080/master/stocks/6758
+```
+

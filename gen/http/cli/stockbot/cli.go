@@ -13,7 +13,9 @@ import (
 	"net/http"
 	"os"
 	balancec "stock-bot/gen/http/balance/client"
+	masterc "stock-bot/gen/http/master/client"
 	orderc "stock-bot/gen/http/order/client"
+	positionc "stock-bot/gen/http/position/client"
 
 	goahttp "goa.design/goa/v3/http"
 	goa "goa.design/goa/v3/pkg"
@@ -26,13 +28,17 @@ func UsageCommands() []string {
 	return []string{
 		"order create",
 		"balance get",
+		"position list",
+		"master get-stock",
 	}
 }
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "order create --body '{\n      \"is_margin\": false,\n      \"order_type\": \"STOP_LIMIT\",\n      \"price\": 0.6823277361253774,\n      \"quantity\": 14045737829345687727,\n      \"symbol\": \"Sit perspiciatis sequi qui id.\",\n      \"trade_type\": \"SELL\"\n   }'" + "\n" +
+	return os.Args[0] + " " + "order create --body '{\n      \"is_margin\": false,\n      \"order_type\": \"STOP\",\n      \"price\": 0.6001029154831115,\n      \"quantity\": 8413881200764235548,\n      \"symbol\": \"Soluta perferendis nostrum.\",\n      \"trade_type\": \"SELL\"\n   }'" + "\n" +
 		os.Args[0] + " " + "balance get" + "\n" +
+		os.Args[0] + " " + "position list --type \"all\"" + "\n" +
+		os.Args[0] + " " + "master get-stock --symbol \"Rerum sequi.\"" + "\n" +
 		""
 }
 
@@ -54,12 +60,28 @@ func ParseEndpoint(
 		balanceFlags = flag.NewFlagSet("balance", flag.ContinueOnError)
 
 		balanceGetFlags = flag.NewFlagSet("get", flag.ExitOnError)
+
+		positionFlags = flag.NewFlagSet("position", flag.ContinueOnError)
+
+		positionListFlags    = flag.NewFlagSet("list", flag.ExitOnError)
+		positionListTypeFlag = positionListFlags.String("type", "all", "")
+
+		masterFlags = flag.NewFlagSet("master", flag.ContinueOnError)
+
+		masterGetStockFlags      = flag.NewFlagSet("get-stock", flag.ExitOnError)
+		masterGetStockSymbolFlag = masterGetStockFlags.String("symbol", "REQUIRED", "Stock symbol to look up")
 	)
 	orderFlags.Usage = orderUsage
 	orderCreateFlags.Usage = orderCreateUsage
 
 	balanceFlags.Usage = balanceUsage
 	balanceGetFlags.Usage = balanceGetUsage
+
+	positionFlags.Usage = positionUsage
+	positionListFlags.Usage = positionListUsage
+
+	masterFlags.Usage = masterUsage
+	masterGetStockFlags.Usage = masterGetStockUsage
 
 	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
 		return nil, nil, err
@@ -80,6 +102,10 @@ func ParseEndpoint(
 			svcf = orderFlags
 		case "balance":
 			svcf = balanceFlags
+		case "position":
+			svcf = positionFlags
+		case "master":
+			svcf = masterFlags
 		default:
 			return nil, nil, fmt.Errorf("unknown service %q", svcn)
 		}
@@ -106,6 +132,20 @@ func ParseEndpoint(
 			switch epn {
 			case "get":
 				epf = balanceGetFlags
+
+			}
+
+		case "position":
+			switch epn {
+			case "list":
+				epf = positionListFlags
+
+			}
+
+		case "master":
+			switch epn {
+			case "get-stock":
+				epf = masterGetStockFlags
 
 			}
 
@@ -142,6 +182,20 @@ func ParseEndpoint(
 			case "get":
 				endpoint = c.Get()
 			}
+		case "position":
+			c := positionc.NewClient(scheme, host, doer, enc, dec, restore)
+			switch epn {
+			case "list":
+				endpoint = c.List()
+				data, err = positionc.BuildListPayload(*positionListTypeFlag)
+			}
+		case "master":
+			c := masterc.NewClient(scheme, host, doer, enc, dec, restore)
+			switch epn {
+			case "get-stock":
+				endpoint = c.GetStock()
+				data, err = masterc.BuildGetStockPayload(*masterGetStockSymbolFlag)
+			}
 		}
 	}
 	if err != nil {
@@ -176,7 +230,7 @@ func orderCreateUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"is_margin\": false,\n      \"order_type\": \"STOP_LIMIT\",\n      \"price\": 0.6823277361253774,\n      \"quantity\": 14045737829345687727,\n      \"symbol\": \"Sit perspiciatis sequi qui id.\",\n      \"trade_type\": \"SELL\"\n   }'")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"is_margin\": false,\n      \"order_type\": \"STOP\",\n      \"price\": 0.6001029154831115,\n      \"quantity\": 8413881200764235548,\n      \"symbol\": \"Soluta perferendis nostrum.\",\n      \"trade_type\": \"SELL\"\n   }'")
 }
 
 // balanceUsage displays the usage of the balance command and its subcommands.
@@ -203,4 +257,60 @@ func balanceGetUsage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
 	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "balance get")
+}
+
+// positionUsage displays the usage of the position command and its subcommands.
+func positionUsage() {
+	fmt.Fprintln(os.Stderr, `The position service provides information about current holdings.`)
+	fmt.Fprintf(os.Stderr, "Usage:\n    %s [globalflags] position COMMAND [flags]\n\n", os.Args[0])
+	fmt.Fprintln(os.Stderr, "COMMAND:")
+	fmt.Fprintln(os.Stderr, `    list: List current positions.`)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Additional help:")
+	fmt.Fprintf(os.Stderr, "    %s position COMMAND --help\n", os.Args[0])
+}
+func positionListUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] position list", os.Args[0])
+	fmt.Fprint(os.Stderr, " -type STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `List current positions.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -type STRING: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "position list --type \"all\"")
+}
+
+// masterUsage displays the usage of the master command and its subcommands.
+func masterUsage() {
+	fmt.Fprintln(os.Stderr, `The master service provides master data.`)
+	fmt.Fprintf(os.Stderr, "Usage:\n    %s [globalflags] master COMMAND [flags]\n\n", os.Args[0])
+	fmt.Fprintln(os.Stderr, "COMMAND:")
+	fmt.Fprintln(os.Stderr, `    get-stock: Get basic master data for a single stock.`)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Additional help:")
+	fmt.Fprintf(os.Stderr, "    %s master COMMAND --help\n", os.Args[0])
+}
+func masterGetStockUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] master get-stock", os.Args[0])
+	fmt.Fprint(os.Stderr, " -symbol STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Get basic master data for a single stock.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -symbol STRING: Stock symbol to look up`)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master get-stock --symbol \"Rerum sequi.\"")
 }

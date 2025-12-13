@@ -387,3 +387,81 @@ Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Con
     *   **対象:** `Balance`, `Position`などの未実装サービス
     *   **内容:** `SYSTEM_DESIGN_MEMO.md`に記載した「Goaサービス実装の標準手順」に従い、他のサービスの開発に着手する。
     *   **目的:** アプリケーションのコア機能を拡充する。
+
+### 開発進捗 (2025-12-13)
+
+#### データベースマイグレーションの導入
+-   **課題**: 既存の `gorm.AutoMigrate` は開発初期には便利だが、本番環境での運用には不向きであった。
+-   **解決策**: `golang-migrate/migrate` ツールを導入し、バージョン管理されたSQLファイルによるマイグレーションシステムを構築した。
+-   **具体的な変更**:
+    1.  `golang-migrate/migrate` CLIツールをインストール。
+    2.  プロジェクトルートに `migrations` ディレクトリを作成し、初期スキーマ (`000001_create_initial_tables.up.sql`, `.down.sql`) を生成。
+    3.  既存の `domain/model` 定義から、PostgreSQL用の `CREATE TABLE` および `DROP TABLE` SQLを生成し、マイグレーションファイルに記述。
+    4.  `cmd/myapp/main.go` から `db.AutoMigrate(...)` の呼び出しを削除。
+    5.  `README.md` を更新し、マイグレーションの実行方法に関する説明を追加。
+    6.  `migrations/README.md` を作成し、ディレクトリの目的と利用方法を解説。
+
+#### Goaサービス「Order」のテスト修正
+-   **課題**: `OrderUseCase` のモック（`OrderClientMock`）が、`SecondPassword` の責務移譲に伴う `client.OrderClient` インターフェースの変更に追従できておらず、コンパイルエラーが発生していた。
+-   **解決策**: `internal/app/tests/order_usecase_impl_test.go` 内の `OrderClientMock` のメソッドシグネチャを、新しい `client....Params` 型に合わせて修正。
+
+#### Goaサービス「Balance」の追加
+-   **目的**: 口座の残高サマリーを取得する `GET /balance` エンドポイントを実装。
+-   **実装詳細**:
+    1.  `design/design.go` に `balance` サービスを定義。主要な残高情報（買付可能額、保証金率など）を `BalanceResult` として抽出。
+    2.  `goa gen` でコードを生成。
+    3.  `internal/app/tests/balance_usecase_impl_test.go` で `BalanceUseCase` のテスト（成功、クライアントエラー、パースエラー）を定義。
+    4.  `internal/app/balance_usecase.go` と `internal/app/balance_usecase_impl.go` でユースケースを実装。`client.BalanceClient.GetZanKaiSummary` を呼び出し、API応答文字列を適切な型にパース。
+    5.  `internal/handler/web/balance_service.go` でGoaハンドラを実装。
+    6.  `cmd/myapp/main.go` に `BalanceUseCase` と `BalanceService` をDIし、エンドポイントをマウント。
+    7.  **デバッグと修正**: `balance.BalanceResult` が `balance.StockbotBalance` という名前で生成されていたため、ハンドラコードを修正。
+    8.  `curl` コマンドによる統合テストで動作を確認。
+
+#### Goaサービス「Position」の追加
+-   **目的**: 現在保有しているポジション（建玉）の一覧を取得する `GET /positions` エンドポイントを実装。
+-   **実装詳細**:
+    1.  `design/design.go` に `position` サービスを定義。現物と信用のポジションを統合した `PositionResult` および `PositionCollection` を定義。`type` パラメータによるフィルタリングをサポート。
+    2.  `goa gen` でコードを生成。
+    3.  `internal/app/tests/position_usecase_impl_test.go` で `PositionUseCase` のテスト（`all`, `cash`, `margin` フィルタリング、クライアントエラー）を定義。
+    4.  `internal/app/position_usecase.go` と `internal/app/position_usecase_impl.go` でユースケースを実装。`client.BalanceClient.GetGenbutuKabuList` と `GetShinyouTategyokuList` を呼び出し、統一された `Position` 構造体に変換。
+    5.  `internal/handler/web/position_service.go` でGoaハンドラを実装。
+    6.  `cmd/myapp/main.go` に `PositionUseCase` と `PositionService` をDIし、エンドポイントをマウント。
+    7.  **デバッグと修正**: `PositionUseCaseBalanceClientMock` が `client.BalanceClient` インターフェースの全メソッドを実装していなかった点を修正。
+    8.  **デバッグと修正**: `position.PositionCollection` が `position.StockbotPositionCollection` という名前で生成されていたため、ハンドラコードを修正。
+    9.  `curl` コマンドによる統合テストで動作を確認。
+
+#### Goaサービス「Master」の追加 (途中)
+-   **目的**: 個別銘柄のマスタデータ（PER, PBR等の詳細情報）を取得する `GET /master/stocks/{symbol}` エンドポイントを実装。
+-   **実装詳細**:
+    1.  `design/design.go` に `master` サービスを定義。`get_stock_detail` メソッドと `StockDetailResult`（PER, PBR等の財務指標を含む）を定義。
+    2.  `goa gen` でコードを生成。
+    3.  `MasterUseCase` とハンドラの開発を進めたが、統合テストで `Stock detail not found` エラーが発生。
+    4.  **原因調査**: 立花証券APIのPythonサンプルコードを分析した結果、`GetIssueDetail` はデモ環境で期待通りの詳細データを返却しない可能性が高いと判明。代わりに `GetMasterDataQuery` を使用し、基本的な銘柄情報のみを取得する方針に転換。
+    5.  **再設計と実装（現在デバッグ中）**:
+        -   `design/design.design.go` を修正し、`get_stock` メソッドと `StockMasterResult`（銘柄コード、名称、市場、業種コード名など基本的な情報のみを含む）を定義。
+        -   `goa gen` を再実行。
+        -   `internal/app/tests/master_usecase_impl_test.go` を、`GetMasterDataQuery` をモックし、新しい `StockMasterResult` のフィールドをアサートするように全面修正。
+        -   `internal/app/master_usecase.go` および `internal/app/master_usecase_impl.go` を修正し、`GetMasterDataQuery` を呼び出してレスポンスから銘柄情報を抽出し、`StockMasterResult` を返すように変更。
+        -   `internal/handler/web/master_service.go` を修正し、新しい `get_stock` メソッドと `master.StockbotStockMaster` 型を使用するように変更。
+        -   **現在デバッグ中**: `ResStockMaster` 内のフィールド名 (`YusenSizyou` -> `PreferredMarket`, `GyousyuCode` -> `IndustryCode`, `GyousyuName` -> `IndustryName`) の不一致や、Goa生成型名（`StockbotStockMaster`）のミスマッチ、テストのモック引数不一致、構文エラーなど、複数のコンパイル／実行時エラーを修正中。
+
+---
+
+#### 次回のアクションプラン (2025-12-14 以降)
+
+1.  **Goaサービス「Master」のデバッグ完了**:
+    *   **対象**: `internal/app/tests/master_usecase_impl_test.go`
+    *   **内容**: `GetStock` メソッドの単体テストがすべてパスするように、残っているコンパイルエラーおよびロジックエラーを修正する。
+    *   **目的**: `MasterUseCase` の基本的な動作を保証する。
+2.  **MasterサービスのDIとハンドラ接続**:
+    *   **対象**: `cmd/myapp/main.go`, `internal/handler/web/master_service.go`
+    *   **内容**: 上記テストパス後、`master` サービスをアプリケーションに統合する。
+    *   **目的**: `GET /master/stocks/{symbol}` エンドポイントを有効にする。
+3.  **Masterサービスの統合テスト**:
+    *   **対象**: アプリケーション全体
+    *   **内容**: `curl` コマンドで `/master/stocks/{symbol}` エンドポイントを叩き、動作を確認する。
+    *   **目的**: アプリケーション全体での `master` サービスの動作を検証する。
+4.  **WebSocket接続テストの再開**:
+    *   **対象**: `TestEventClient_ConnectReadMessagesWithDemoAPI`
+    *   **内容**: 平日の取引時間中に `websocket: bad handshake` エラーのデバッグを、再度実施する。
+    *   **目的**: リアルタイムの株価・約定情報を受信する機能を確立する。
