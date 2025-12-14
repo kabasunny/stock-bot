@@ -70,36 +70,73 @@ func (r *masterRepositoryImpl) FindByIssueCode(ctx context.Context, issueCode st
 	return entity, nil
 }
 
+// dbStockMaster is a DTO for database operations, excluding relational fields.
+type dbStockMaster struct {
+	IssueCode               string
+	IssueName               string
+	IssueNameShort          string
+	IssueNameKana           string
+	IssueNameEnglish        string
+	MarketCode              string
+	IndustryCode            string
+	IndustryName            string
+	TradingUnit             int
+	ListedSharesOutstanding int64
+	UpperLimit              float64
+	LowerLimit              float64
+}
+
+// TableName explicitly sets the table name for the DTO to match the domain model's table.
+func (dbStockMaster) TableName() string {
+	return "stock_masters"
+}
+
 func (r *masterRepositoryImpl) UpsertStockMasters(ctx context.Context, stocks []*model.StockMaster) error {
 	if len(stocks) == 0 {
 		return nil
 	}
 
-	// GORMのリレーション処理を避けるため、マップのスライスに変換して処理する
-	var stockMaps []map[string]interface{}
+	// Convert domain models to DB DTOs, excluding relational fields.
+	dbStocks := make([]dbStockMaster, 0, len(stocks))
 	for _, s := range stocks {
-		stockMaps = append(stockMaps, map[string]interface{}{
-			"issue_code":   s.IssueCode,
-			"issue_name":   s.IssueName,
-			"trading_unit": s.TradingUnit,
-			"market_code":  s.MarketCode,
-			"upper_limit":  s.UpperLimit,
-			"lower_limit":  s.LowerLimit,
+		dbStocks = append(dbStocks, dbStockMaster{
+			// Copy fields from MasterBase if necessary for updates, but GORM handles them.
+			IssueCode:               s.IssueCode,
+			IssueName:               s.IssueName,
+			IssueNameShort:          s.IssueNameShort,
+			IssueNameKana:           s.IssueNameKana,
+			IssueNameEnglish:        s.IssueNameEnglish,
+			MarketCode:              s.MarketCode,
+			IndustryCode:            s.IndustryCode,
+			IndustryName:            s.IndustryName,
+			TradingUnit:             s.TradingUnit,
+			ListedSharesOutstanding: s.ListedSharesOutstanding,
+			UpperLimit:              s.UpperLimit,
+			LowerLimit:              s.LowerLimit,
 		})
 	}
 
-	// .Model()でテーブル名を指定し、.Create()にはマップのスライスを渡す
-	result := r.db.WithContext(ctx).Model(&model.StockMaster{}).Clauses(clause.OnConflict{
+	// Define columns to be updated on conflict.
+	updateColumns := []string{
+		"issue_name",
+		"issue_name_short",
+		"issue_name_kana",
+		"issue_name_english",
+		"market_code",
+		"industry_code",
+		"industry_name",
+		"trading_unit",
+		"listed_shares_outstanding",
+		"upper_limit",
+		"lower_limit",
+		"updated_at", // Explicitly update timestamp
+	}
+
+	// Use the DTO slice for the Create operation. GORM will not see the relational field.
+	result := r.db.WithContext(ctx).Clauses(clause.OnConflict{
 		Columns:   []clause.Column{{Name: "issue_code"}},
-		DoUpdates: clause.AssignmentColumns([]string{
-			"issue_name",
-			"trading_unit",
-			"market_code",
-			"upper_limit",
-			"lower_limit",
-			"updated_at",
-		}),
-	}).Create(&stockMaps)
+		DoUpdates: clause.AssignmentColumns(updateColumns),
+	}).Create(&dbStocks)
 
 	if result.Error != nil {
 		return errors.Wrap(result.Error, "failed to upsert stock masters")

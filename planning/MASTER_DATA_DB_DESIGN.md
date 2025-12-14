@@ -1,139 +1,106 @@
-# マスターデータにおけるデータベース設計
+# マスターデータDB設計と管理方針
 
-## 1. 目的
-本ドキュメントは、APIからダウンロードしたマスターデータを、アプリケーションで効率的に利用するためのデータベース設計と、データ更新フローを定義することを目的とする。
+## 1. はじめに
 
-## 2. 背景・課題
-- `DownloadMasterData` APIは、利用可能な全銘柄（約4000）のマスターデータを一括で返す。ダウンロード時に銘柄を絞り込むことはできない。
-- 一方、アプリケーションが実際に監視・取引対象とする銘柄は、そのうちの一部（例: 200銘柄）である。
-- 毎回全銘柄のデータをDBに保存・更新するのは非効率であり、ストレージと処理時間の無駄につながる。
+本ドキュメントは、`SYSTEM_DESIGN_MEMO.md`で提起された「マスターデータ管理の非効率性」という課題に対応するため、DB設計とデータ管理フローを定義することを目的とする。
 
-## 3. 設計要件
-- 監視対象となる銘柄のマスターデータのみをデータベースに永続化する。
-- 監視対象の銘柄リストは、柔軟に変更可能であること。
-- 日々のマスターデータ更新を、差分更新によって効率的に行うこと。
+**課題**: `DownloadMasterData` APIは全市場の全銘柄（数千件）のデータを一括で返す。これを効率的にデータベースに保存・更新する仕組みが必要となる。
 
-## 4. 設計上の論点（検討事項）
+**方針**: `DownloadMasterData` APIから返される**全銘柄のマスターデータを、日次バッチ等で効率的にデータベースへ保存・更新する**仕組みを構築する。
 
-### 4.1. 監視対象銘柄リストの管理方法
-アプリケーションが「どの銘柄を監視すべきか」を知るための方法を定義する必要がある。
+## 2. DBスキーマ設計案
 
-- **案1: 設定ファイルで管理**
-  - `config.yaml` や `.env` のようなファイルに、監視対象の銘柄コードのリストを記載する。
-  - **メリット**: 実装が容易。起動時にリストを読み込むだけ。
-  - **デメリット**: 監視対象の変更にアプリケーションの再起動が必要になる場合がある。
-- **案2: データベースの専用テーブルで管理**
-  - `watched_stocks` のようなテーブルを作成し、そこに銘柄コードを保存する。
-  - **メリット**: アプリケーションを停止せずに、API経由や直接DBを編集することで動的に監視対象を変更できる。将来的な拡張性が高い。
-  - **デメリット**: 初期実装のコストがやや高い。
+### `stock_masters` テーブル
+`domain/model/master_stock.go` のモデルに対応する、株式のマスターデータを格納するテーブル。
 
-### 4.2. データ取得・更新フロー
-監視対象リストと、APIからダウンロードした全件データをどのように突き合わせ、DBを更新するかのフロー。
+- **役割**: 全銘柄の最新マスターデータを保持する。
+- **カラム**: `domain/model/master_stock.go` の `StockMaster` 構造体フィールドに対応するカラムを定義する。
+    - `issue_code` (VARCHAR(255) PRIMARY KEY): 銘柄コードを主キーとする。
+    - `stock_name` (VARCHAR(255)): 銘柄名称
+    - `issue_name_short` (VARCHAR(255)): 銘柄名略称
+    - `issue_name_kana` (VARCHAR(255)): 銘柄名（カナ）
+    - `issue_name_english` (VARCHAR(255)): 銘柄名（英語表記）
+    - `market_code` (VARCHAR(255)): 優先市場コード
+    - `industry_code` (VARCHAR(255)): 業種コード
+    - `industry_name` (VARCHAR(255)): 業種コード名
+    - `trading_unit` (INTEGER): 売買単位
+    - `listed_shares_outstanding` (BIGINT): 上場発行株数
+    - `upper_limit` (DOUBLE PRECISION): 値幅上限
+    - `lower_limit` (DOUBLE PRECISION): 値幅下限
+    - `created_at` (TIMESTAMPTZ): レコード作成日時 (GORM管理)
+    - `updated_at` (TIMESTAMPTZ): レコード更新日時 (GORM管理)
 
-1. **(毎日定時実行)** APIから全件マスターデータをダウンロードする。
-2. DBまたは設定ファイルから「監視対象銘柄リスト」を取得する。
-3. ダウンロードした全件データの中から、「監視対象銘柄リスト」に含まれる銘柄のデータのみを抽出する。
-4. 抽出したデータセットを使い、対象のマスターデータテーブル（`stock_masters` など）に対して **UPSERT** 処理を実行する。
-   - 既にDBに存在する銘柄は、情報が更新される。
-   - DBに存在しない銘柄（監視対象に新たに追加された銘柄）は、新規に挿入される。
-5. (オプション) 監視対象から外された銘柄のデータをDBから削除 (`DELETE`)、または無効化 (`is_active = false` のようにフラグを立てる) する処理を検討する。
+*(注: `TickRules`は関連テーブルとして別に管理される。他のマスタデータ（市場マスタ、呼値マスタ等）も同様に、それぞれ専用のテーブルを作成して管理することを想定する)*
 
-### 4.3. データベース スキーマ
-マスターデータを格納するためのテーブル設計。`DownloadMasterData` で取得できるデータ種別ごとにテーブルを分けるのが基本。
+## 3. データ更新・管理フロー
 
-- `stock_masters` (株式銘柄マスタ)
-- `stock_market_masters` (株式市場マスタ)
-- `tick_rules` (呼値マスタ)
-- ...など。
+### 3.1. `DownloadMasterData` 関数の役割
+`DownloadMasterData` 関数は、APIからの全マスターデータを安定して取得する責務を持つ。
 
-**例: `stock_masters` テーブル**
-```sql
-CREATE TABLE stock_masters (
-    issue_code VARCHAR(10) PRIMARY KEY, -- 銘柄コード (主キー)
-    issue_name VARCHAR(255) NOT NULL,
-    issue_name_kana VARCHAR(255),
-    market VARCHAR(50),
-    industry_code VARCHAR(10),
-    industry_name VARCHAR(255),
-    -- その他、必要なフィールドを追加
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
-);
-```
-- 主キー (`issue_code`) を設定することが、UPSERT処理の前提となる。
+1.  **ストリーミング処理**: `DownloadMasterData` は、APIからのレスポンスをストリーミングで処理し、タイムアウトやメモリ枯渇を防ぐ。Goプログラムでは、`bytes.Buffer` を使用してチャンクデータを蓄積し、JSONオブジェクトの終端を示す`}`を検出することで、手動で各JSONオブジェクトをデコードする。
+2.  **全件返却**: APIから返された全てのマスターデータ（株式、市場、呼値など）を `*response.ResDownloadMaster` 構造体に格納して呼び出し元に返却する。
 
-**例: `tick_rules` 及び `tick_levels` テーブル (正規化案)**
-APIから返される呼値マスタ(`CLMYobine`)は、1つのJSONオブジェクト内に複数の価格帯と呼値が横持ちで含まれる非正規化な形式となっている。
-```json
-{
-  "sCLMID": "CLMYobine",
-  "sYobineTaniNumber": "101",
-  "sTekiyouDay": "20140101",
-  "sKizunPrice_1": "3000.000000",
-  "sYobineTanka_1": "1.000000",
-  "sKizunPrice_2": "5000.000000",
-  "sYobineTanka_2": "5.000000",
-  ...
-}
-```
-これをこのままDBに保存すると冗長なため、ドメインモデルでは`TickRule`(親)と`TickLevel`(子)の正規化された親子関係に変換して永続化する。
+### 3.2. データ更新バッチ（`UseCase`）の実装
+マスターデータを定期的に更新するためのバッチ処理（または`UseCase`）を実装する。
 
-```sql
-CREATE TABLE tick_rules (
-    tick_unit_number VARCHAR(10) PRIMARY KEY, -- 呼値の単位番号 (主キー)
-    applicable_date VARCHAR(8),
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
-);
+**処理フロー**:
+1.  **全マスターデータ取得**: `MasterDataClient.DownloadMasterData()` を呼び出し、最新の全マスターデータを取得する。
+2.  **ドメインモデルへの変換**: `*response.ResDownloadMaster` の中から`ResStockMaster`のスライスを取り出し、`model.StockMaster`のスライスに変換する。この際、APIレスポンスの文字列をGoの適切な型（`int`, `float64`, `int64`など）に`strconv`パッケージを用いて変換する。`ResStockMarketMaster`から取得する`UpperLimit`, `LowerLimit`もここでマッピングする。変換エラーはログ出力に留め、処理は続行する。
+3.  **データベース更新**: 変換された `[]*model.StockMaster` を `MasterRepository.UpsertStockMasters()` を通じて`stock_masters`テーブルに一括で更新（Insert or Update）する。
 
-CREATE TABLE tick_levels (
-    id BIGSERIAL PRIMARY KEY,
-    tick_rule_unit_number VARCHAR(10) NOT NULL REFERENCES tick_rules(tick_unit_number), -- 外部キー
-    lower_price NUMERIC NOT NULL, -- 基準値段の下限
-    upper_price NUMERIC NOT NULL, -- 基準値段の上限
-    tick_value NUMERIC NOT NULL,  -- 呼値
-    created_at TIMESTAMP WITH TIME ZONE NOT NULL,
-    updated_at TIMESTAMP WITH TIME ZONE NOT NULL
-);
-```
+このバッチ処理は、アプリケーション起動時や、1日1回などのスケジュールで実行することを想定する。
 
-## 5. 次のステップ
+## 4. `MasterRepository` に追加が必要なメソッド
+上記フローを実現するため、`MasterRepository` インターフェースに以下のメソッドを実装する。
 
-### 完了済み
+- `UpsertStockMasters(ctx context.Context, masters []*model.StockMaster) error`: 複数の株式マスターデータを一括でUpsertする。（`internal/infrastructure/repository/master_repository_impl.go` にDTOパターンを適用して実装済み）
+- `UpsertTickRules(ctx context.Context, tickRules []*model.TickRule) error`: 複数の呼値データを一括でUpsertする。（`TickRules`は`stock_masters`とは別のテーブルに保存）
 
-- [x] **監視対象銘柄リストの管理方法**を決定する。（**CSVファイルで管理**する方針に決定）
-  - `watched_stocks.csv` ファイルをプロジェクトルートに配置。
-  - `internal/config/config.go` で `watched_stocks.csv` を読み込むロジックを実装済み。
-- [x] `MasterRepository` に、UPSERT処理を行うメソッド（例: `UpsertStockMasters(models []*model.StockMaster) error`）を定義し、実装。（`StockMaster` モデルのUPSERTロジックを実装済み）
-  - **課題解決**: `gorm` が `model.StockMaster` 内のリレーションフィールド (`TickRules`) を参照し、外部キーがないために発生していた500エラーを解消するため、`UpsertStockMasters` メソッドにおいて、`model.StockMaster` オブジェクトを直接GORMに渡すのではなく、**リレーションフィールドを含まない `map[string]interface{}` の形式に変換してからUPSERT処理を実行**するように修正した。これにより、GORMは`stock_masters`テーブルの主要なデータのみを安全に処理できるようになった。
-- [x] `MasterUseCase` に、全体の更新フロー（`DownloadAndStoreMasterData`）を実装。
-  - `masterClient.DownloadMasterData` を呼び出し、全件データを取得。
-  - `config.WatchedStocks` に基づきデータをフィルタリング。
-  - `response.ResStockMaster` と `response.ResStockMarketMaster` から `model.StockMaster` への変換。
-  - `masterRepo.UpsertStockMasters` を呼び出し、DBに保存。
-- [x] **マスターデータ更新のトリガー**を決定。（**APIエンドポイント `POST /master/update`** で手動トリガーする方針に決定）
-  - `design/design.go` に `master` サービス `update` メソッドの定義を追加済み。
-  - Goaコード生成とハンドラ実装、統合テストで以下の結果となるため、原因特定と修正が必要
-    >curl -i -X POST http://localhost:8080/master/update
-     HTTP/1.1 500 Internal Server Error
-     Content-Type: application/json
-     Date: Sun, 14 Dec 2025 04:09:54 GMT
-     Content-Length: 324
+## 5. 次のアクションプラン (完了済み)
+1.  本ファイル (`planning/MASTER_DATA_DB_DESIGN.md`) の内容を最新化。（完了）
+2.  `DownloadMasterData` のリファクタリングとテスト成功。（完了）
+3.  マスターデータ更新用の `UseCase` (`DownloadAndStoreMasterData`) および、それを呼び出すバッチ処理を実装。（完了）
+4.  `MasterRepository` に `UpsertStockMasters` メソッドを実装。（完了）
+5.  `cmd/migrator/main.go` を作成し、Goプログラムからマイグレーションを実行する仕組みを導入。（完了）
+6.  `main.go` に `MasterUseCase.DownloadAndStoreMasterData` の呼び出しを追加。（完了）
 
-    {"name":"fault","id":"bgC_7fLg","message":"failed to upsert stock masters: failed to upsert stock masters: invalid field found for struct stock-bot/domain/model.StockMaster's field TickRules: define a valid foreign key for relations or implement the Valuer/Scanner interface","temporary":false,"timeout":false,"fault":true}
+---
 
+## 実装から得られた知見（データベース永続化編）
 
-### 残りのタスク
+本セクションでは、開発過程で遭遇したGORMの挙動やマイグレーションに関する特殊なノウハウを記録する。
 
-- [ ] **`TickRule` モデルの再設計**:
-  - `domain/model/master_tick_rule.go` を修正し、`TickRule`と`TickLevel`の新しいスキーマに合わせた構造に変更する。主キーは`TickUnitNumber`とする。
-- [ ] **テーブルスキーマの定義**:
-  - `migrations` に `tick_rules` と `tick_levels` テーブルを作成するSQLを追加する。
-- [ ] **`MasterRepository` の拡張**:
-  - `UpsertTickRulesAndLevels` のような、親子関係をトランザクション内で処理するメソッドを実装する。
-- [ ] **`MasterUseCase` の拡張**:
-  - `DownloadAndStoreMasterData` 内で、`CLMYobine` データを新しいモデルに変換し、リポジトリのメソッドを呼び出すロジックを追加する。
-- [ ] 他のマスターデータ（`StockIssueRegulation`など）についても、同様に永続化の設計と実装を行う。
-- [ ] **平日実施タスク**:
-  - `Master` サービス (`GetMasterDataQuery`) の再検証。
-  - `WebSocket` 接続テストの再開。
+### 1. GORMでの一括Upsert (`Create` + `OnConflict`) とリレーションフィールドの問題
+
+- **課題**: GORMのドメインモデル (`model.StockMaster`) がリレーションフィールド (`TickRules []model.TickRule`) を持つ場合、`.Clauses(clause.OnConflict{...}).Create(&models)` の形式で一括Upsertしようとすると、GORMが`TickRules`を物理テーブルのカラムとして扱おうとし、`invalid field found for struct ... TickRules`エラーが発生した。`.Omit("TickRules")`や`.Select(...)`もこの一括Upsertの文脈では期待通りに機能しなかった。
+- **原因**: GORMは、モデル内にリレーションを示すフィールドが存在すると、デフォルトでそれらをDB操作の対象として含めようとする。しかし、一括Upsert (`Create` + `OnConflict`) の文脈では、子テーブルへの挿入/更新を自動で行う機能が限定的である、またはモデル定義のタグと内部挙動の間にミスマッチが生じたため、エラーが発生した。
+- **解決策 (DTOパターン)**:
+    - リポジトリ層の内部に、リレーションフィールドを持たない「データベース保存専用の構造体（DTO: `dbStockMaster`）」を定義した。
+    - `UpsertStockMasters`メソッド内で、引数で受け取ったドメインモデル (`[]*model.StockMaster`) を、このDTOのリスト (`[]dbStockMaster`) に変換。この変換時にリレーションフィールド (`TickRules`) は物理的にコピーの対象から除外し、単純に無視した。
+    - GORMの`Create`メソッドには、このリレーションを持たない`[]dbStockMaster`のリストを渡すことで、GORMが単純な構造体としてデータを扱い、`invalid field`エラーを確実に回避できた。
+- **ノウハウ**: GORMの一括Upsertとリレーションフィールドの組み合わせは複雑な挙動を示す場合がある。その際は、DTOを導入して永続化層とドメインモデルを切り離し、永続化層の関心事を明確にすることで、問題を構造的に解決でき、かつGORMの一括Upsertのパフォーマンスを維持できる。
+
+### 2. GORMのモデル定義と主キーの規約
+
+- **課題**: GORMによるUpsertで`ERROR: column "id" does not exist`エラーが発生した。GORMはデフォルトで`RETURNING "id"`というSQLを生成しようとした。
+- **原因**: `domain/model/master_base.go`に`ID uint gorm:"primarykey"`というフィールドが定義されており、これが`stock_masters`テーブルにも`id`という名前のオートインクリメント主キーカラムが存在することをGORMに期待させてしまっていた。しかし、`stock_masters`テーブルの実際の主キーは`issue_code`であった。
+- **解決策**:
+    - `domain/model/master_base.go`から`ID`フィールドを削除し、`MasterBase`は`CreatedAt`, `UpdatedAt`, `DeletedAt`といったGORMが自動管理するタイムスタンプフィールドのみを持つようにした。
+    - 各ドメインモデル（例: `model.StockMaster`）は自身の主キーを`gorm:"primaryKey"`タグで明示的に定義する形となる。`stock_masters`テーブルの主キーは`issue_code`として正しく機能するようになった。
+- **ノウハウ**: GORMは`ID`という名前の`primarykey`フィールドを特別扱いする傾向がある。カスタム主キーを持つテーブルのモデルを定義する場合、共通の基底構造体で`ID`を`primarykey`として定義せず、各モデルで明示的に主キーを指定する必要がある。
+
+### 3. データベーススキーマの不整合とマイグレーションの重要性
+
+- **課題**: Goの`model.StockMaster`に`issue_name_short`などの新しいカラムを追加した後、アプリケーション実行時に`ERROR: column "issue_name_short" of relation "stock_masters" does not exist`エラーが発生した。
+- **原因**: Goのモデル（コード）は更新されたにもかかわらず、データベースのテーブルスキーマ（実際のDB構造）を更新していなかったため。GoのコードとDBのテーブル構造が一致していなかった。
+- **解決策**:
+    - `golang-migrate/migrate`ツールを使用し、`ALTER TABLE`文を含む新しいマイグレーションファイルを生成した。
+    - `ALTER TABLE stock_masters ADD COLUMN ...`形式で、不足しているカラムをデータベースに追加するSQLを記述し、適用した。
+- **ノウハウ**: Goのコードでドメインモデル（特にDBに永続化されるモデル）に構造的な変更（カラムの追加、型の変更など）を加える場合、必ずそれに対応するデータベースマイグレーションファイルを生成・適用し、**コードとDBのスキーマを常に一致させる**必要がある。このプロセスを怠ると、`column does not exist`のような予期せぬ実行時エラーの原因となる。
+
+### 4. マイグレーション実行の自動化
+
+- **課題**: `migrate`CLIツールのコマンドは長く、データベース接続文字列を直接記述する必要があるため、手動での実行は煩雑でエラーを起こしやすい。また、`migrate`CLIツールがインストールされていない環境では実行できない。
+- **原因**: マイグレーションの実行がシェルコマンドと手動設定に依存していたため、ポータビリティと使いやすさが低かった。
+- **解決策**: `.env`ファイルを読み込み、`golang-migrate/migrate`ライブラリをGoプログラム (`cmd/migrator/main.go`) で直接実行する仕組みを導入した。
+- **ノウハウ**: `go run ./cmd/migrator/main.go`コマンド一つで、`.env`ファイルの設定に基づき、Goプログラム自身が環境に依存せず簡単にマイグレーションを実行できるようになった。これにより、デプロイや開発環境のセットアップが大幅に簡素化され、「他の環境ですぐに立ち上げたい」というニーズに応えられるようになった。

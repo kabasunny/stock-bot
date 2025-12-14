@@ -96,7 +96,15 @@ func main() {
 	orderUsecase := app.NewOrderUseCaseImpl(tachibanaClient, orderRepo)
 	balanceUsecase := app.NewBalanceUseCaseImpl(tachibanaClient)
 	positionUsecase := app.NewPositionUseCaseImpl(tachibanaClient)
-	masterUsecase := app.NewMasterUseCaseImpl(tachibanaClient, masterRepo, cfg) // New line
+	masterUsecase := app.NewMasterUseCaseImpl(tachibanaClient, masterRepo)
+
+	slog.Default().Info("Starting initial master data synchronization...")
+	err = masterUsecase.DownloadAndStoreMasterData(context.Background())
+	if err != nil {
+		slog.Default().Error("failed to download and store master data on startup", slog.Any("error", err))
+		os.Exit(1)
+	}
+	slog.Default().Info("Initial master data synchronization completed successfully.")
 
 	// 5. Goaサービスの実装を初期化
 	orderSvc := web.NewOrderService(orderUsecase, slog.Default())

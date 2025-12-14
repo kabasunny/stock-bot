@@ -21,11 +21,8 @@ type authClientImpl struct {
 
 func (a *authClientImpl) Login(ctx context.Context, req request.ReqLogin) (*response.ResLogin, error) {
 	// 1. リクエストURLの作成
-	u, err := url.Parse(a.client.baseURL.String())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse base URL")
-	}
-	u.Path += "auth/"
+	authPath, _ := url.Parse("auth/")
+	fullURL := a.client.baseURL.ResolveReference(authPath)
 
 	// 2. リクエストパラメータの作成
 	req.CLMID = "CLMAuthLoginRequest"
@@ -44,10 +41,10 @@ func (a *authClientImpl) Login(ctx context.Context, req request.ReqLogin) (*resp
 		return nil, errors.Wrap(err, "failed to marshal request payload")
 	}
 	encodedPayload := url.QueryEscape(string(payloadJSON))
-	u.RawQuery = encodedPayload
+	fullURL.RawQuery = encodedPayload
 
 	// 3. HTTPリクエストの作成 (GET)
-	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, u.String(), nil)
+	httpReq, err := http.NewRequestWithContext(ctx, http.MethodGet, fullURL.String(), nil)
 	if err != nil {
 		return nil, errors.Wrap(err, "failed to create http request")
 	}
@@ -96,11 +93,8 @@ func (a *authClientImpl) Login(ctx context.Context, req request.ReqLogin) (*resp
 // LoginWithPost は、POSTメソッドを使用してログインを行う
 func (a *authClientImpl) LoginWithPost(ctx context.Context, req request.ReqLogin) (*response.ResLogin, error) {
 	// 1. リクエストURLの作成
-	u, err := url.Parse(a.client.baseURL.String())
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse base URL")
-	}
-	u.Path += "auth/"
+	authPath, _ := url.Parse("auth/")
+	fullURL := a.client.baseURL.ResolveReference(authPath).String()
 
 	// 2. リクエストパラメータの作成
 	req.CLMID = "CLMAuthLoginRequest"
@@ -109,7 +103,7 @@ func (a *authClientImpl) LoginWithPost(ctx context.Context, req request.ReqLogin
 	req.JsonOfmt = "4"
 
 	// SendPostRequest を使用してリクエストを送信
-	respMap, err := SendPostRequest(ctx, a.client.httpClient, u.String(), req, 3)
+	respMap, err := SendPostRequest(ctx, a.client.httpClient, fullURL, req, 3)
 	if err != nil {
 		return nil, errors.Wrap(err, "login failed")
 	}

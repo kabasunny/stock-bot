@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"stock-bot/domain/model"
 	"stock-bot/domain/repository"
-	"stock-bot/internal/config"
 	"stock-bot/internal/infrastructure/client"
 	"stock-bot/internal/infrastructure/client/dto/master/request"
 	"stock-bot/internal/infrastructure/client/dto/master/response"
@@ -17,15 +16,13 @@ import (
 type masterUseCaseImpl struct {
 	masterClient client.MasterDataClient
 	masterRepo   repository.MasterRepository
-	cfg          *config.Config
 }
 
 // NewMasterUseCaseImpl creates a new MasterUseCase.
-func NewMasterUseCaseImpl(masterClient client.MasterDataClient, masterRepo repository.MasterRepository, cfg *config.Config) MasterUseCase {
+func NewMasterUseCaseImpl(masterClient client.MasterDataClient, masterRepo repository.MasterRepository) MasterUseCase {
 	return &masterUseCaseImpl{
 		masterClient: masterClient,
 		masterRepo:   masterRepo,
-		cfg:          cfg,
 	}
 }
 
@@ -39,13 +36,6 @@ func (uc *masterUseCaseImpl) DownloadAndStoreMasterData(ctx context.Context) err
 	}
 	slog.Info("Master data download completed.", "system_status", res.SystemStatus.SystemStatus)
 
-	// 2. Filter by uc.cfg.WatchedStocks
-	watchedSet := make(map[string]struct{}, len(uc.cfg.WatchedStocks))
-	for _, stock := range uc.cfg.WatchedStocks {
-		watchedSet[stock] = struct{}{}
-	}
-	slog.Info("Filtering watched stocks...", "count", len(watchedSet))
-
 	// MarketMasterを銘柄コードで検索できるようにマップに変換
 	marketMasterMap := make(map[string]response.ResStockMarketMaster)
 	for _, mm := range res.StockMarketMaster {
@@ -53,39 +43,49 @@ func (uc *masterUseCaseImpl) DownloadAndStoreMasterData(ctx context.Context) err
 	}
 
 	var modelsToUpsert []*model.StockMaster
+	slog.Info("Converting stock master data to domain models...", "count", len(res.StockMaster))
 	for _, sm := range res.StockMaster {
-		if _, ok := watchedSet[sm.IssueCode]; ok {
-			// 3. Convert to domain models
-			tradingUnit, err := strconv.Atoi(sm.TradingUnit)
-			if err != nil {
-				slog.Warn("Failed to parse TradingUnit", "value", sm.TradingUnit, "error", err)
-				tradingUnit = 0 // or some default
-			}
-
-			var upperLimit, lowerLimit float64
-			if mm, ok := marketMasterMap[sm.IssueCode]; ok {
-				upperLimit, err = strconv.ParseFloat(mm.UpperLimit, 64)
-				if err != nil {
-					slog.Warn("Failed to parse UpperLimit", "value", mm.UpperLimit, "error", err)
-				}
-				lowerLimit, err = strconv.ParseFloat(mm.LowerLimit, 64)
-				if err != nil {
-					slog.Warn("Failed to parse LowerLimit", "value", mm.LowerLimit, "error", err)
-				}
-			}
-
-			m := &model.StockMaster{
-				IssueCode:   sm.IssueCode,
-				IssueName:   sm.IssueName,
-				TradingUnit: tradingUnit,
-				MarketCode:  sm.PreferredMarket,
-				UpperLimit:  upperLimit,
-				LowerLimit:  lowerLimit,
-			}
-			modelsToUpsert = append(modelsToUpsert, m)
+		// string to int/float conversions with error handling
+		tradingUnit, err := strconv.Atoi(sm.TradingUnit)
+		if err != nil {
+			slog.Warn("Failed to parse TradingUnit, setting 0", "value", sm.TradingUnit, "error", err)
+			tradingUnit = 0
 		}
+		listedShares, err := strconv.ParseInt(sm.ListedSharesOutstanding, 10, 64)
+		if err != nil {
+			slog.Warn("Failed to parse ListedSharesOutstanding, setting 0", "value", sm.ListedSharesOutstanding, "error", err)
+			listedShares = 0
+		}
+
+		var upperLimit, lowerLimit float64
+		if mm, ok := marketMasterMap[sm.IssueCode]; ok {
+			upperLimit, err = strconv.ParseFloat(mm.UpperLimit, 64)
+			if err != nil {
+				slog.Warn("Failed to parse UpperLimit", "value", mm.UpperLimit, "error", err)
+			}
+			lowerLimit, err = strconv.ParseFloat(mm.LowerLimit, 64)
+			if err != nil {
+				slog.Warn("Failed to parse LowerLimit", "value", mm.LowerLimit, "error", err)
+			}
+		}
+
+		m := &model.StockMaster{
+			IssueCode:               sm.IssueCode,
+			IssueName:               sm.IssueName,
+			IssueNameShort:          sm.IssueNameShort,
+			IssueNameKana:           sm.IssueNameKana,
+			IssueNameEnglish:        sm.IssueNameEnglish,
+			MarketCode:              sm.PreferredMarket,
+			IndustryCode:            sm.IndustryCode,
+			IndustryName:            sm.IndustryName,
+			TradingUnit:             tradingUnit,
+			ListedSharesOutstanding: listedShares,
+			UpperLimit:              upperLimit,
+			LowerLimit:              lowerLimit,
+		}
+		modelsToUpsert = append(modelsToUpsert, m)
 	}
-	slog.Info("Finished filtering stocks.", "upsert_count", len(modelsToUpsert))
+	slog.Info("Finished converting stocks.", "upsert_count", len(modelsToUpsert))
 
 	// 4. Call uc.masterRepo.UpsertStockMasters
 	if len(modelsToUpsert) > 0 {

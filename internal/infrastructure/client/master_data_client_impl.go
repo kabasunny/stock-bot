@@ -10,7 +10,6 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
-	"os"
 	"time"
 
 	"stock-bot/internal/infrastructure/client/dto/master/request"
@@ -76,183 +75,204 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 	// 5. 配信されるマスタデータを受信する
 	res := &response.ResDownloadMaster{}
 
-	// ファイルを作成 (デバッグ用)
-	file, err := os.Create("raw_response.txt")
-	if err != nil {
-		slog.Warn("ファイル作成エラー", slog.Any("error", err))
-	} else {
-		defer file.Close()
-	}
-
-	// 7. レスポンスボディをストリーミングで処理する
-	// Shift-JISからUTF-8への変換リーダーを作成
-	utf8Reader := transform.NewReader(resp.Body, japanese.ShiftJIS.NewDecoder())
-	// JSONデコーダーを作成
-	decoder := json.NewDecoder(utf8Reader)
-
-	for {
-		var item map[string]interface{}
-		if err := decoder.Decode(&item); err != nil {
+		// Shift-JISからUTF-8への変換リーダーを作成
+		utf8Reader := transform.NewReader(resp.Body, japanese.ShiftJIS.NewDecoder())
+	
+		var buf bytes.Buffer
+		chunk := make([]byte, 4096) // チャンクサイズ
+	
+		for {
+			n, err := utf8Reader.Read(chunk)
+			if n > 0 {
+				buf.Write(chunk[:n]) // バッファに書き込む
+			}
+	
+			// buf の内容から完全な JSON オブジェクトを抽出して処理
+			// Pythonのサンプルに倣い、`}` を区切りとしてデコードを試みる
+			for {
+				jsonBytes := buf.Bytes()
+				// JSONオブジェクトの終端 '}' を探す
+				// ただし、ネストしたJSONオブジェクトの `}` が誤検知されないよう、
+				// 最も外側の `}` を探す必要があるが、簡易的に最後の `}` を探す。
+				// APIからのデータはトップレベルのJSONオブジェクトが連続して送られてくると仮定。
+				idx := bytes.LastIndexByte(jsonBytes, '}')
+				if idx == -1 {
+					// 完全なJSONオブジェクトの終端が見つからない場合は、次のチャンクを待つ
+					break
+				}
+	
+				// 見つかった '}' の位置までのバイト列を取得し、デコードを試みる
+				potentialJSON := jsonBytes[:idx+1]
+				var item map[string]interface{}
+				if unmarshalErr := json.Unmarshal(potentialJSON, &item); unmarshalErr == nil {
+					// デコード成功。バッファから処理済みの部分を削除
+					buf.Next(idx + 1)
+	
+					// sCLMID の値に応じて処理 (既存のswitch文)
+					sCLMID, ok := item["sCLMID"].(string)
+					if !ok {
+						// slog.Warn("sCLMID not found in response item", slog.Any("item", item)) // デバッグ用
+						continue
+					}
+					switch sCLMID {
+					case "CLMSystemStatus":
+						var systemStatus response.ResSystemStatus
+						if err := convertMapToStruct(item, &systemStatus, ""); err != nil {
+							slog.Error("failed to map SystemStatus", slog.Any("error", err))
+							continue
+						}
+						res.SystemStatus = systemStatus
+	
+					case "CLMDateZyouhou":
+						var dateInfo response.ResDateInfo
+						if err := convertMapToStruct(item, &dateInfo, ""); err != nil {
+							slog.Error("failed to map DateInfo", slog.Any("error", err))
+							continue
+						}
+						res.DateInfo = append(res.DateInfo, dateInfo)
+	
+					case "CLMYobine":
+						var tickRule response.ResTickRule
+						if err := convertMapToStruct(item, &tickRule, ""); err != nil {
+							slog.Error("failed to map TickRule", slog.Any("error", err))
+							continue
+						}
+						res.TickRule = append(res.TickRule, tickRule)
+	
+					case "CLMUnyouStatus":
+						var operationStatus response.ResOperationStatus
+						if err := convertMapToStruct(item, &operationStatus, ""); err != nil {
+							slog.Error("failed to map OperationStatus", slog.Any("error", err))
+							continue
+						}
+						res.OperationStatus = append(res.OperationStatus, operationStatus)
+	
+					case "CLMUnyouStatusKabu":
+						var operationStatusStock response.ResOperationStatus
+						if err := convertMapToStruct(item, &operationStatusStock, ""); err != nil {
+							slog.Error("failed to map OperationStatusKabu", slog.Any("error", err))
+							continue
+						}
+						res.OperationStatusStock = append(res.OperationStatusStock, operationStatusStock)
+	
+					case "CLMUnyouStatusHasei":
+						var operationStatusDerivative response.ResOperationStatus
+						if err := convertMapToStruct(item, &operationStatusDerivative, ""); err != nil {
+							slog.Error("failed to map OperationStatusHasei", slog.Any("error", err))
+							continue
+						}
+						res.OperationStatusDerivative = append(res.OperationStatusDerivative, operationStatusDerivative)
+	
+					case "CLMIssueMstKabu":
+						var stockMaster response.ResStockMaster
+						if err := convertMapToStruct(item, &stockMaster, ""); err != nil {
+							slog.Error("failed to map StockMaster", slog.Any("error", err))
+							continue
+						}
+						res.StockMaster = append(res.StockMaster, stockMaster)
+	
+					case "CLMIssueSizyouMstKabu":
+						var stockMarketMaster response.ResStockMarketMaster
+						if err := convertMapToStruct(item, &stockMarketMaster, ""); err != nil {
+							slog.Error("failed to map StockMarketMaster", slog.Any("error", err))
+							continue
+						}
+						res.StockMarketMaster = append(res.StockMarketMaster, stockMarketMaster)
+	
+					case "CLMIssueSizyouKiseiKabu":
+						var stockIssueRegulation response.ResStockIssueRegulation
+						if err := convertMapToStruct(item, &stockIssueRegulation, ""); err != nil {
+							slog.Error("failed to map StockIssueRegulation", slog.Any("error", err))
+							continue
+						}
+						res.StockIssueRegulation = append(res.StockIssueRegulation, stockIssueRegulation)
+	
+					case "CLMIssueMstSak":
+						var futureMaster response.ResFutureMaster
+						if err := convertMapToStruct(item, &futureMaster, ""); err != nil {
+							slog.Error("failed to map FutureMaster", slog.Any("error", err))
+							continue
+						}
+						res.FutureMaster = append(res.FutureMaster, futureMaster)
+	
+					case "CLMIssueMstOp":
+						var optionMaster response.ResOptionMaster
+						if err := convertMapToStruct(item, &optionMaster, ""); err != nil {
+							slog.Error("failed to map OptionMaster", slog.Any("error", err))
+							continue
+						}
+						res.OptionMaster = append(res.OptionMaster, optionMaster)
+	
+					case "CLMIssueSizyouKiseiHasei":
+						var futureOptionRegulation response.ResFutureOptionRegulation
+						if err := convertMapToStruct(item, &futureOptionRegulation, ""); err != nil {
+							slog.Error("failed to map FutureOptionRegulation", slog.Any("error", err))
+							continue
+						}
+						res.FutureOptionRegulation = append(res.FutureOptionRegulation, futureOptionRegulation)
+	
+					case "CLMDaiyouKakeme":
+						var marginRate response.ResMarginRate
+						if err := convertMapToStruct(item, &marginRate, ""); err != nil {
+							slog.Error("failed to map MarginRate", slog.Any("error", err))
+							continue
+						}
+						res.MarginRate = append(res.MarginRate, marginRate)
+	
+					case "CLMHosyoukinMst":
+						var marginMaster response.ResMarginMaster
+						if err := convertMapToStruct(item, &marginMaster, ""); err != nil {
+							slog.Error("failed to map MarginMaster", slog.Any("error", err))
+							continue
+						}
+						res.MarginMaster = append(res.MarginMaster, marginMaster)
+	
+					case "CLMOrderErrReason":
+						var errorReason response.ResErrorReason
+						if err := convertMapToStruct(item, &errorReason, ""); err != nil {
+							slog.Error("failed to map ErrorReason", slog.Any("error", err))
+							continue
+						}
+						res.ErrorReason = append(res.ErrorReason, errorReason)
+	
+					case "CLMEventDownloadComplete":
+						slog.Info("CLMEventDownloadComplete received, download finished.")
+						return res, nil // 正常終了
+	
+					default:
+						slog.Warn("Unknown master data type", slog.String("sCLMID", sCLMID))
+					}
+				} else {
+					// デコード失敗（不完全なJSONか、他のエラー）。この `}` はJSONオブジェクトの終端ではない可能性があるため、
+					// バッファをクリアせず、次のチャンクの読み込みを待つ
+					// 複数行のJSONオブジェクトの場合に対応するため、ここでは break しない
+					// ただし、このエラーログは非常に重要。
+					slog.Debug("Failed to unmarshal potential JSON segment", slog.Any("error", unmarshalErr), slog.String("segment", string(potentialJSON)))
+					// このJSONセグメントが解析できなかったので、次の可能性を探すか、さらにデータを読み込むためにループを抜ける
+					break
+				}
+			}
+	
 			if err == io.EOF {
-				// ストリームの終端に達したが、完了通知がなかった
-				break
+				break // EOF ならループ終了
 			}
-			slog.Warn("Failed to decode json stream object", slog.Any("error", err))
-			// エラーが発生した場合、ストリームの次のオブジェクトまで進むことを試みる
-			// (不正な形式のJSONが混入している可能性)
-			continue
-		}
-
-		// デバッグ用にファイルに書き込む
-		if file != nil {
-			jsonBytes, _ := json.Marshal(item)
-			if _, writeErr := file.Write(append(jsonBytes, '\n')); writeErr != nil {
-				slog.Warn("failed to write to raw_response.txt", slog.Any("error", writeErr))
+			if err != nil {
+				slog.Error("Error reading response body", slog.Any("error", err))
+				return nil, errors.Wrap(err, "error reading response body")
 			}
 		}
-
-		// sCLMID キーの存在確認
-		sCLMID, ok := item["sCLMID"].(string)
-		if !ok {
-			slog.Warn("sCLMID not found in response item", slog.Any("item", item))
-			continue
+	
+		// EOF に達したが、CLMEventDownloadComplete が受信されていない場合
+		// 残りのバッファにも完了通知がないか確認し、あれば処理する
+		finalBufContent := buf.Bytes()
+		if bytes.Contains(finalBufContent, []byte("CLMEventDownloadComplete")) {
+			slog.Info("CLMEventDownloadComplete found in final buffer, download finished.")
+			return res, nil
 		}
+	
+		slog.Error("DownloadMasterData stream finished without CLMEventDownloadComplete signal")
+		return nil, errors.New("download master data stream finished without complete signal")}
 
-		// sCLMID の値に応じて処理
-		switch sCLMID {
-		case "CLMSystemStatus":
-			var systemStatus response.ResSystemStatus
-			if err := convertMapToStruct(item, &systemStatus, ""); err != nil {
-				slog.Error("failed to map SystemStatus", slog.Any("error", err))
-				continue
-			}
-			res.SystemStatus = systemStatus
-
-		case "CLMDateZyouhou":
-			var dateInfo response.ResDateInfo
-			if err := convertMapToStruct(item, &dateInfo, ""); err != nil {
-				slog.Error("failed to map DateInfo", slog.Any("error", err))
-				continue
-			}
-			res.DateInfo = append(res.DateInfo, dateInfo)
-
-		case "CLMYobine":
-			var tickRule response.ResTickRule
-			if err := convertMapToStruct(item, &tickRule, ""); err != nil {
-				slog.Error("failed to map TickRule", slog.Any("error", err))
-				continue
-			}
-			res.TickRule = append(res.TickRule, tickRule)
-
-		case "CLMUnyouStatus":
-			var operationStatus response.ResOperationStatus
-			if err := convertMapToStruct(item, &operationStatus, ""); err != nil {
-				slog.Error("failed to map OperationStatus", slog.Any("error", err))
-				continue
-			}
-			res.OperationStatus = append(res.OperationStatus, operationStatus)
-
-		case "CLMUnyouStatusKabu":
-			var operationStatusStock response.ResOperationStatus
-			if err := convertMapToStruct(item, &operationStatusStock, ""); err != nil {
-				slog.Error("failed to map OperationStatusKabu", slog.Any("error", err))
-				continue
-			}
-			res.OperationStatusStock = append(res.OperationStatusStock, operationStatusStock)
-
-		case "CLMUnyouStatusHasei":
-			var operationStatusDerivative response.ResOperationStatus
-			if err := convertMapToStruct(item, &operationStatusDerivative, ""); err != nil {
-				slog.Error("failed to map OperationStatusHasei", slog.Any("error", err))
-				continue
-			}
-			res.OperationStatusDerivative = append(res.OperationStatusDerivative, operationStatusDerivative)
-
-		case "CLMIssueMstKabu":
-			var stockMaster response.ResStockMaster
-			if err := convertMapToStruct(item, &stockMaster, ""); err != nil {
-				slog.Error("failed to map StockMaster", slog.Any("error", err))
-				continue
-			}
-			res.StockMaster = append(res.StockMaster, stockMaster)
-
-		case "CLMIssueSizyouMstKabu":
-			var stockMarketMaster response.ResStockMarketMaster
-			if err := convertMapToStruct(item, &stockMarketMaster, ""); err != nil {
-				slog.Error("failed to map StockMarketMaster", slog.Any("error", err))
-				continue
-			}
-			res.StockMarketMaster = append(res.StockMarketMaster, stockMarketMaster)
-
-		case "CLMIssueSizyouKiseiKabu":
-			var stockIssueRegulation response.ResStockIssueRegulation
-			if err := convertMapToStruct(item, &stockIssueRegulation, ""); err != nil {
-				slog.Error("failed to map StockIssueRegulation", slog.Any("error", err))
-				continue
-			}
-			res.StockIssueRegulation = append(res.StockIssueRegulation, stockIssueRegulation)
-
-		case "CLMIssueMstSak":
-			var futureMaster response.ResFutureMaster
-			if err := convertMapToStruct(item, &futureMaster, ""); err != nil {
-				slog.Error("failed to map FutureMaster", slog.Any("error", err))
-				continue
-			}
-			res.FutureMaster = append(res.FutureMaster, futureMaster)
-
-		case "CLMIssueMstOp":
-			var optionMaster response.ResOptionMaster
-			if err := convertMapToStruct(item, &optionMaster, ""); err != nil {
-				slog.Error("failed to map OptionMaster", slog.Any("error", err))
-				continue
-			}
-			res.OptionMaster = append(res.OptionMaster, optionMaster)
-
-		case "CLMIssueSizyouKiseiHasei":
-			var futureOptionRegulation response.ResFutureOptionRegulation
-			if err := convertMapToStruct(item, &futureOptionRegulation, ""); err != nil {
-				slog.Error("failed to map FutureOptionRegulation", slog.Any("error", err))
-				continue
-			}
-			res.FutureOptionRegulation = append(res.FutureOptionRegulation, futureOptionRegulation)
-
-		case "CLMDaiyouKakeme":
-			var marginRate response.ResMarginRate
-			if err := convertMapToStruct(item, &marginRate, ""); err != nil {
-				slog.Error("failed to map MarginRate", slog.Any("error", err))
-				continue
-			}
-			res.MarginRate = append(res.MarginRate, marginRate)
-
-		case "CLMHosyoukinMst":
-			var marginMaster response.ResMarginMaster
-			if err := convertMapToStruct(item, &marginMaster, ""); err != nil {
-				slog.Error("failed to map MarginMaster", slog.Any("error", err))
-				continue
-			}
-			res.MarginMaster = append(res.MarginMaster, marginMaster)
-
-		case "CLMOrderErrReason":
-			var errorReason response.ResErrorReason
-			if err := convertMapToStruct(item, &errorReason, ""); err != nil {
-				slog.Error("failed to map ErrorReason", slog.Any("error", err))
-				continue
-			}
-			res.ErrorReason = append(res.ErrorReason, errorReason)
-
-		case "CLMEventDownloadComplete":
-			slog.Info("CLMEventDownloadComplete received, download finished.")
-			return res, nil // 正常終了
-
-		default:
-			slog.Warn("Unknown master data type", slog.String("sCLMID", sCLMID))
-		}
-	}
-
-	// ストリームが終了しても完了通知が来ていない場合はエラー
-	slog.Error("DownloadMasterData stream finished without CLMEventDownloadComplete signal")
-	return nil, errors.New("download master data stream finished without complete signal")
-}
 func (m *masterDataClientImpl) GetMasterDataQuery(ctx context.Context, req request.ReqGetMasterData) (*response.ResGetMasterData, error) {
 	if !m.client.loggined {
 		return nil, errors.New("not logged in")
