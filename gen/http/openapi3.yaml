@@ -57,6 +57,16 @@ paths:
                                 name: Dolore cupiditate repudiandae perspiciatis quisquam fugiat.
                                 name_kana: Voluptatum tempora voluptatem porro nobis quisquam.
                                 symbol: Ut id repudiandae id sit.
+    /master/update:
+        post:
+            tags:
+                - master
+            summary: update master
+            description: Trigger a manual update of the master data.
+            operationId: master#update
+            responses:
+                "202":
+                    description: Accepted response.
     /order:
         post:
             tags:

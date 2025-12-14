@@ -15,3 +15,8 @@ import (
 func GetStockMasterPath(symbol string) string {
 	return fmt.Sprintf("/master/stocks/%v", symbol)
 }
+
+// UpdateMasterPath returns the URL path to the master service update HTTP endpoint.
+func UpdateMasterPath() string {
+	return "/master/update"
+}

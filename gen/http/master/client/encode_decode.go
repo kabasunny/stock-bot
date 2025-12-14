@@ -85,3 +85,45 @@ func DecodeGetStockResponse(decoder func(*http.Response) goahttp.Decoder, restor
 		}
 	}
 }
+
+// BuildUpdateRequest instantiates a HTTP request object with method and path
+// set to call the "master" service "update" endpoint
+func (c *Client) BuildUpdateRequest(ctx context.Context, v any) (*http.Request, error) {
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: UpdateMasterPath()}
+	req, err := http.NewRequest("POST", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("master", "update", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// DecodeUpdateResponse returns a decoder for responses returned by the master
+// update endpoint. restoreBody controls whether the response body should be
+// restored after having been read.
+func DecodeUpdateResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusAccepted:
+			return nil, nil
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("master", "update", resp.StatusCode, string(body))
+		}
+	}
+}

@@ -16,18 +16,21 @@ import (
 // Endpoints wraps the "master" service endpoints.
 type Endpoints struct {
 	GetStock goa.Endpoint
+	Update   goa.Endpoint
 }
 
 // NewEndpoints wraps the methods of the "master" service with endpoints.
 func NewEndpoints(s Service) *Endpoints {
 	return &Endpoints{
 		GetStock: NewGetStockEndpoint(s),
+		Update:   NewUpdateEndpoint(s),
 	}
 }
 
 // Use applies the given middleware to all the "master" service endpoints.
 func (e *Endpoints) Use(m func(goa.Endpoint) goa.Endpoint) {
 	e.GetStock = m(e.GetStock)
+	e.Update = m(e.Update)
 }
 
 // NewGetStockEndpoint returns an endpoint function that calls the method
@@ -41,5 +44,13 @@ func NewGetStockEndpoint(s Service) goa.Endpoint {
 		}
 		vres := NewViewedStockbotStockMaster(res, "default")
 		return vres, nil
+	}
+}
+
+// NewUpdateEndpoint returns an endpoint function that calls the method
+// "update" of service "master".
+func NewUpdateEndpoint(s Service) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		return nil, s.Update(ctx)
 	}
 }

@@ -21,4 +21,5 @@ type StockMasterResult struct {
 // MasterUseCase defines the interface for master data related use cases.
 type MasterUseCase interface {
 	GetStock(ctx context.Context, symbol string) (*StockMasterResult, error)
+	DownloadAndStoreMasterData(ctx context.Context) error
 }

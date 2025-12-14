@@ -171,4 +171,16 @@ var _ = Service("master", func() {
             Response(StatusOK)
         })
     })
+
+    // POST /master/update
+    Method("update", func() {
+        Description("Trigger a manual update of the master data.")
+        Payload(Empty)
+        Result(Empty) // 成功したかどうかはHTTPステータスで判断
+
+        HTTP(func() {
+            POST("/master/update")
+            Response(StatusAccepted) // 処理を受け付けたことを示す
+        })
+    })
 })

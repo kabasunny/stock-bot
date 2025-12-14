@@ -29,7 +29,7 @@ func UsageCommands() []string {
 		"order create",
 		"balance get",
 		"position list",
-		"master get-stock",
+		"master (get-stock|update)",
 	}
 }
 
@@ -70,6 +70,8 @@ func ParseEndpoint(
 
 		masterGetStockFlags      = flag.NewFlagSet("get-stock", flag.ExitOnError)
 		masterGetStockSymbolFlag = masterGetStockFlags.String("symbol", "REQUIRED", "Stock symbol to look up")
+
+		masterUpdateFlags = flag.NewFlagSet("update", flag.ExitOnError)
 	)
 	orderFlags.Usage = orderUsage
 	orderCreateFlags.Usage = orderCreateUsage
@@ -82,6 +84,7 @@ func ParseEndpoint(
 
 	masterFlags.Usage = masterUsage
 	masterGetStockFlags.Usage = masterGetStockUsage
+	masterUpdateFlags.Usage = masterUpdateUsage
 
 	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
 		return nil, nil, err
@@ -147,6 +150,9 @@ func ParseEndpoint(
 			case "get-stock":
 				epf = masterGetStockFlags
 
+			case "update":
+				epf = masterUpdateFlags
+
 			}
 
 		}
@@ -195,6 +201,8 @@ func ParseEndpoint(
 			case "get-stock":
 				endpoint = c.GetStock()
 				data, err = masterc.BuildGetStockPayload(*masterGetStockSymbolFlag)
+			case "update":
+				endpoint = c.Update()
 			}
 		}
 	}
@@ -293,6 +301,7 @@ func masterUsage() {
 	fmt.Fprintf(os.Stderr, "Usage:\n    %s [globalflags] master COMMAND [flags]\n\n", os.Args[0])
 	fmt.Fprintln(os.Stderr, "COMMAND:")
 	fmt.Fprintln(os.Stderr, `    get-stock: Get basic master data for a single stock.`)
+	fmt.Fprintln(os.Stderr, `    update: Trigger a manual update of the master data.`)
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Additional help:")
 	fmt.Fprintf(os.Stderr, "    %s master COMMAND --help\n", os.Args[0])
@@ -313,4 +322,20 @@ func masterGetStockUsage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
 	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master get-stock --symbol \"Rerum sequi.\"")
+}
+
+func masterUpdateUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] master update", os.Args[0])
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Trigger a manual update of the master data.`)
+
+	// Flags list
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master update")
 }

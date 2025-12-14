@@ -11,7 +11,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"strings"
 	"time"
 
 	"stock-bot/internal/infrastructure/client/dto/master/request"
@@ -77,51 +76,39 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 	// 5. 配信されるマスタデータを受信する
 	res := &response.ResDownloadMaster{}
 
-	// 6. タイムアウトを設定
-	// ctx, cancel := context.WithTimeout(ctx, 180*time.Second) // 180秒でタイムアウト
-	// defer cancel()
-
-	// ファイルを作成
+	// ファイルを作成 (デバッグ用)
 	file, err := os.Create("raw_response.txt")
 	if err != nil {
-		slog.Error("ファイル作成エラー", slog.Any("error", err))
-		//return nil, fmt.Errorf("ファイル作成エラー: %w", err)
+		slog.Warn("ファイル作成エラー", slog.Any("error", err))
+	} else {
+		defer file.Close()
 	}
-	defer file.Close()
 
-	// 7. レスポンスボディを文字列として読み込む
-	bodyBytes, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return nil, errors.Wrap(err, "failed to read response body")
-	}
-	bodyString := string(bodyBytes)
+	// 7. レスポンスボディをストリーミングで処理する
+	// Shift-JISからUTF-8への変換リーダーを作成
+	utf8Reader := transform.NewReader(resp.Body, japanese.ShiftJIS.NewDecoder())
+	// JSONデコーダーを作成
+	decoder := json.NewDecoder(utf8Reader)
 
-	// JSONオブジェクトの区切り文字で分割
-	jsonStrings := strings.Split(bodyString, "}{")
-
-	// 分割された各部分を個別のJSONオブジェクトとしてデコード
-	for i, jsonString := range jsonStrings {
-		// 最初の要素と最後の要素は、それぞれ '{' と '}' で始まる/終わるように調整
-		if i == 0 {
-			jsonString = jsonString + "}"
-		} else if i == len(jsonStrings)-1 {
-			jsonString = "{" + jsonString
-		} else {
-			jsonString = "{" + jsonString + "}"
-		}
-
-		// Shift-JIS から UTF-8 への変換
-		bodyUTF8, _, err := transform.Bytes(japanese.ShiftJIS.NewDecoder(), []byte(jsonString))
-		if err != nil {
-			slog.Warn("shift-jis decode error", slog.Any("error", err))
+	for {
+		var item map[string]interface{}
+		if err := decoder.Decode(&item); err != nil {
+			if err == io.EOF {
+				// ストリームの終端に達したが、完了通知がなかった
+				break
+			}
+			slog.Warn("Failed to decode json stream object", slog.Any("error", err))
+			// エラーが発生した場合、ストリームの次のオブジェクトまで進むことを試みる
+			// (不正な形式のJSONが混入している可能性)
 			continue
 		}
 
-		// JSONとしてデコード
-		var item map[string]interface{}
-		if err := json.Unmarshal([]byte(bodyUTF8), &item); err != nil {
-			slog.Warn("Failed to unmarshal line", slog.Any("error", err), slog.String("line", jsonString))
-			continue // デコードに失敗したらスキップ
+		// デバッグ用にファイルに書き込む
+		if file != nil {
+			jsonBytes, _ := json.Marshal(item)
+			if _, writeErr := file.Write(append(jsonBytes, '\n')); writeErr != nil {
+				slog.Warn("failed to write to raw_response.txt", slog.Any("error", writeErr))
+			}
 		}
 
 		// sCLMID キーの存在確認
@@ -254,7 +241,7 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 			res.ErrorReason = append(res.ErrorReason, errorReason)
 
 		case "CLMEventDownloadComplete":
-			slog.Info("CLMEventDownloadComplete")
+			slog.Info("CLMEventDownloadComplete received, download finished.")
 			return res, nil // 正常終了
 
 		default:
@@ -262,11 +249,10 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		}
 	}
 
-	// タイムアウトまたはエラーが発生した場合、エラーを返す
-	slog.Info("DownloadMasterData: タイムアウトまたはエラー") // ログ出力
-	return res, errors.New("タイムアウトまたはエラー")
+	// ストリームが終了しても完了通知が来ていない場合はエラー
+	slog.Error("DownloadMasterData stream finished without CLMEventDownloadComplete signal")
+	return nil, errors.New("download master data stream finished without complete signal")
 }
-
 func (m *masterDataClientImpl) GetMasterDataQuery(ctx context.Context, req request.ReqGetMasterData) (*response.ResGetMasterData, error) {
 	if !m.client.loggined {
 		return nil, errors.New("not logged in")

@@ -16,6 +16,8 @@ import (
 type Service interface {
 	// Get basic master data for a single stock.
 	GetStock(context.Context, *GetStockPayload) (res *StockbotStockMaster, err error)
+	// Trigger a manual update of the master data.
+	Update(context.Context) (err error)
 }
 
 // APIName is the name of the API as defined in the design.
@@ -32,7 +34,7 @@ const ServiceName = "master"
 // MethodNames lists the service method names as defined in the design. These
 // are the same values that are set in the endpoint request contexts under the
 // MethodKey key.
-var MethodNames = [1]string{"get_stock"}
+var MethodNames = [2]string{"get_stock", "update"}
 
 // GetStockPayload is the payload type of the master service get_stock method.
 type GetStockPayload struct {

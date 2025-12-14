@@ -5,7 +5,7 @@ package model
 // 株式銘柄の基本情報 CLMIssueMstKabu の情報に対応
 type StockMaster struct {
 	MasterBase
-	IssueCode   string  `gorm:"uniqueIndex;size:255"` // 銘柄コード (ユニークインデックス)
+	IssueCode   string  `gorm:"primaryKey;size:255"` // 銘柄コード (主キー)
 	IssueName   string  `gorm:"size:255"`             // 銘柄名称
 	TradingUnit int     // 売買単位
 	MarketCode  string  `gorm:"size:255"` // 市場コード

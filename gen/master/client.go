@@ -16,12 +16,14 @@ import (
 // Client is the "master" service client.
 type Client struct {
 	GetStockEndpoint goa.Endpoint
+	UpdateEndpoint   goa.Endpoint
 }
 
 // NewClient initializes a "master" service client given the endpoints.
-func NewClient(getStock goa.Endpoint) *Client {
+func NewClient(getStock, update goa.Endpoint) *Client {
 	return &Client{
 		GetStockEndpoint: getStock,
+		UpdateEndpoint:   update,
 	}
 }
 
@@ -33,4 +35,10 @@ func (c *Client) GetStock(ctx context.Context, p *GetStockPayload) (res *Stockbo
 		return
 	}
 	return ires.(*StockbotStockMaster), nil
+}
+
+// Update calls the "update" endpoint of the "master" service.
+func (c *Client) Update(ctx context.Context) (err error) {
+	_, err = c.UpdateEndpoint(ctx, nil)
+	return
 }

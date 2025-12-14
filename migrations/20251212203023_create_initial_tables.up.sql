@@ -69,20 +69,20 @@ CREATE TABLE IF NOT EXISTS signals (
 
 CREATE INDEX IF NOT EXISTS idx_signals_symbol ON signals(symbol);
 
+DROP TABLE IF EXISTS stock_masters;
 CREATE TABLE IF NOT EXISTS stock_masters (
-    id BIGSERIAL PRIMARY KEY,
+    issue_code VARCHAR(255) PRIMARY KEY,
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ,
     deleted_at TIMESTAMPTZ,
-    issue_code VARCHAR(255) UNIQUE,
     issue_name VARCHAR(255),
     trading_unit BIGINT,
     market_code VARCHAR(255),
     upper_limit DOUBLE PRECISION,
     lower_limit DOUBLE PRECISION
 );
-
 CREATE INDEX IF NOT EXISTS idx_stock_masters_deleted_at ON stock_masters(deleted_at);
+
 
 CREATE TABLE IF NOT EXISTS stock_market_masters (
     id BIGSERIAL PRIMARY KEY,
@@ -98,31 +98,26 @@ CREATE INDEX IF NOT EXISTS idx_stock_market_masters_deleted_at ON stock_market_m
 CREATE INDEX IF NOT EXISTS idx_stock_market_masters_issue_code ON stock_market_masters(issue_code);
 CREATE INDEX IF NOT EXISTS idx_stock_market_masters_listing_market ON stock_market_masters(listing_market);
 
-CREATE TABLE IF NOT EXISTS tick_rules (
-    id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ,
-    deleted_at TIMESTAMPTZ,
-    issue_code VARCHAR(255),
-    tick_unit_number VARCHAR(255),
-    applicable_date VARCHAR(255)
-);
+DROP TABLE IF EXISTS tick_levels;
+DROP TABLE IF EXISTS tick_rules;
 
-CREATE INDEX IF NOT EXISTS idx_tick_rules_deleted_at ON tick_rules(deleted_at);
-CREATE INDEX IF NOT EXISTS idx_tick_rules_issue_code ON tick_rules(issue_code);
+CREATE TABLE IF NOT EXISTS tick_rules (
+    tick_unit_number VARCHAR(255) PRIMARY KEY,
+    applicable_date VARCHAR(255),
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ
+);
 
 CREATE TABLE IF NOT EXISTS tick_levels (
     id BIGSERIAL PRIMARY KEY,
-    created_at TIMESTAMPTZ,
-    updated_at TIMESTAMPTZ,
-    deleted_at TIMESTAMPTZ,
-    tick_rule_id BIGINT,
+    tick_rule_unit_number VARCHAR(255) NOT NULL,
     lower_price DOUBLE PRECISION,
     upper_price DOUBLE PRECISION,
     tick_value DOUBLE PRECISION,
+    created_at TIMESTAMPTZ,
+    updated_at TIMESTAMPTZ,
     CONSTRAINT fk_tick_levels_tick_rule
-        FOREIGN KEY(tick_rule_id)
-        REFERENCES tick_rules(id)
+        FOREIGN KEY(tick_rule_unit_number)
+        REFERENCES tick_rules(tick_unit_number)
 );
-
-CREATE INDEX IF NOT EXISTS idx_tick_levels_deleted_at ON tick_levels(deleted_at);
+CREATE INDEX IF NOT EXISTS idx_tick_levels_tick_rule_unit_number ON tick_levels(tick_rule_unit_number);

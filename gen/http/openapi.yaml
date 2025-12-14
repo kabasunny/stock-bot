@@ -47,6 +47,18 @@ paths:
                         $ref: '#/definitions/StockbotStockMaster'
             schemes:
                 - http
+    /master/update:
+        post:
+            tags:
+                - master
+            summary: update master
+            description: Trigger a manual update of the master data.
+            operationId: master#update
+            responses:
+                "202":
+                    description: Accepted response.
+            schemes:
+                - http
     /order:
         post:
             tags:

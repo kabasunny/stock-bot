@@ -90,13 +90,13 @@ func main() {
 	// NOTE: 他のリポジトリやユースケースも今後同様に初期化する
 	// positionRepo := repository_impl.NewPositionRepositoryImpl(db)
 	// signalRepo := repository_impl.NewSignalRepositoryImpl(db)
-	// masterRepo := repository_impl.NewMasterRepositoryImpl(db)
+	masterRepo := repository_impl.NewMasterRepository(db)
 
 	// 4-3. ユースケースを初期化
 	orderUsecase := app.NewOrderUseCaseImpl(tachibanaClient, orderRepo)
 	balanceUsecase := app.NewBalanceUseCaseImpl(tachibanaClient)
 	positionUsecase := app.NewPositionUseCaseImpl(tachibanaClient)
-	masterUsecase := app.NewMasterUseCaseImpl(tachibanaClient) // New line
+	masterUsecase := app.NewMasterUseCaseImpl(tachibanaClient, masterRepo, cfg) // New line
 
 	// 5. Goaサービスの実装を初期化
 	orderSvc := web.NewOrderService(orderUsecase, slog.Default())

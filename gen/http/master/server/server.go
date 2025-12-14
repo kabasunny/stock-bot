@@ -20,6 +20,7 @@ import (
 type Server struct {
 	Mounts   []*MountPoint
 	GetStock http.Handler
+	Update   http.Handler
 }
 
 // MountPoint holds information about the mounted endpoints.
@@ -50,8 +51,10 @@ func New(
 	return &Server{
 		Mounts: []*MountPoint{
 			{"GetStock", "GET", "/master/stocks/{symbol}"},
+			{"Update", "POST", "/master/update"},
 		},
 		GetStock: NewGetStockHandler(e.GetStock, mux, decoder, encoder, errhandler, formatter),
+		Update:   NewUpdateHandler(e.Update, mux, decoder, encoder, errhandler, formatter),
 	}
 }
 
@@ -61,6 +64,7 @@ func (s *Server) Service() string { return "master" }
 // Use wraps the server handlers with the given middleware.
 func (s *Server) Use(m func(http.Handler) http.Handler) {
 	s.GetStock = m(s.GetStock)
+	s.Update = m(s.Update)
 }
 
 // MethodNames returns the methods served.
@@ -69,6 +73,7 @@ func (s *Server) MethodNames() []string { return master.MethodNames[:] }
 // Mount configures the mux to serve the master endpoints.
 func Mount(mux goahttp.Muxer, h *Server) {
 	MountGetStockHandler(mux, h.GetStock)
+	MountUpdateHandler(mux, h.Update)
 }
 
 // Mount configures the mux to serve the master endpoints.
@@ -115,6 +120,52 @@ func NewGetStockHandler(
 			return
 		}
 		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountUpdateHandler configures the mux to serve the "master" service "update"
+// endpoint.
+func MountUpdateHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("POST", "/master/update", f)
+}
+
+// NewUpdateHandler creates a HTTP handler which loads the HTTP request and
+// calls the "master" service "update" endpoint.
+func NewUpdateHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		encodeResponse = EncodeUpdateResponse(encoder)
+		encodeError    = goahttp.ErrorEncoder(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "update")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "master")
+		var err error
+		res, err := endpoint(ctx, nil)
 		if err != nil {
 			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
 				errhandler(ctx, w, err)

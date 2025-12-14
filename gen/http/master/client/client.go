@@ -21,6 +21,9 @@ type Client struct {
 	// endpoint.
 	GetStockDoer goahttp.Doer
 
+	// Update Doer is the HTTP client used to make requests to the update endpoint.
+	UpdateDoer goahttp.Doer
+
 	// RestoreResponseBody controls whether the response bodies are reset after
 	// decoding so they can be read again.
 	RestoreResponseBody bool
@@ -42,6 +45,7 @@ func NewClient(
 ) *Client {
 	return &Client{
 		GetStockDoer:        doer,
+		UpdateDoer:          doer,
 		RestoreResponseBody: restoreBody,
 		scheme:              scheme,
 		host:                host,
@@ -64,6 +68,25 @@ func (c *Client) GetStock() goa.Endpoint {
 		resp, err := c.GetStockDoer.Do(req)
 		if err != nil {
 			return nil, goahttp.ErrRequestError("master", "get_stock", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// Update returns an endpoint that makes HTTP requests to the master service
+// update server.
+func (c *Client) Update() goa.Endpoint {
+	var (
+		decodeResponse = DecodeUpdateResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildUpdateRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.UpdateDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("master", "update", err)
 		}
 		return decodeResponse(resp)
 	}
