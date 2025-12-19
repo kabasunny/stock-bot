@@ -50,36 +50,22 @@ func (s *MasterService) GetStock(ctx context.Context, p *master.GetStockPayload)
 		IndustryName: &appStockMaster.IndustryName,
 	}
 
-			s.logger.Info("GetStock successful", slog.String("symbol", res.Symbol))
+	s.logger.Info("GetStock successful", slog.String("symbol", res.Symbol))
+	return res, nil
+}
 
-		return res, nil
+// Update implements the update action.
+func (s *MasterService) Update(ctx context.Context) (err error) {
+	s.logger.Info("Update master data triggered.")
 
+	if err := s.masterUseCase.DownloadAndStoreMasterData(ctx); err != nil {
+		s.logger.Error("Failed to download and store master data", slog.Any("error", err))
+		return err
 	}
 
-	
+	s.logger.Info("Master data update completed successfully.")
+	return nil
+}
 
-	// Update implements the update action.
-
-	func (s *MasterService) Update(ctx context.Context) (err error) {
-
-	    s.logger.Info("Update master data triggered.")
-
-	
-
-	    if err := s.masterUseCase.DownloadAndStoreMasterData(ctx); err != nil {
-
-	        s.logger.Error("Failed to download and store master data", slog.Any("error", err))
-
-	        return err
-
-	    }
-
-	
-
-	    s.logger.Info("Master data update completed successfully.")
-
-	    return nil
-
-	}
 
 	

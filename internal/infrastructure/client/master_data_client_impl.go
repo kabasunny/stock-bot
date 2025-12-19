@@ -75,17 +75,17 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 	// 5. 配信されるマスタデータを受信する
 	res := &response.ResDownloadMaster{}
 
-		// Shift-JISからUTF-8への変換リーダーを作成
-		utf8Reader := transform.NewReader(resp.Body, japanese.ShiftJIS.NewDecoder())
-	
-		var buf bytes.Buffer
-		chunk := make([]byte, 4096) // チャンクサイズ
-	
-		for {
-			n, err := utf8Reader.Read(chunk)
-			if n > 0 {
-				buf.Write(chunk[:n]) // バッファに書き込む
-			}
+		        // Shift-JISからUTF-8への変換リーダーを作成
+				utf8Reader := transform.NewReader(resp.Body, japanese.ShiftJIS.NewDecoder())
+			
+				var buf bytes.Buffer
+				chunk := make([]byte, 4096) // チャンクサイズ
+			
+				for {
+					n, err := utf8Reader.Read(chunk)
+					if n > 0 {
+						buf.Write(chunk[:n]) // バッファに書き込む
+					}
 	
 			// buf の内容から完全な JSON オブジェクトを抽出して処理
 			// Pythonのサンプルに倣い、`}` を区切りとしてデコードを試みる

@@ -69,6 +69,9 @@ CREATE TABLE IF NOT EXISTS signals (
 
 CREATE INDEX IF NOT EXISTS idx_signals_symbol ON signals(symbol);
 
+DROP TABLE IF EXISTS tick_levels;
+DROP TABLE IF EXISTS tick_rules;
+
 DROP TABLE IF EXISTS stock_masters;
 CREATE TABLE IF NOT EXISTS stock_masters (
     issue_code VARCHAR(255) PRIMARY KEY,
@@ -79,7 +82,18 @@ CREATE TABLE IF NOT EXISTS stock_masters (
     trading_unit BIGINT,
     market_code VARCHAR(255),
     upper_limit DOUBLE PRECISION,
-    lower_limit DOUBLE PRECISION
+    lower_limit DOUBLE PRECISION,
+    company_name VARCHAR(255),
+    sector VARCHAR(255),
+    industry VARCHAR(255),
+    website_url VARCHAR(255),
+    business_summary TEXT,
+    issue_name_short VARCHAR(255),
+    issue_name_kana VARCHAR(255),
+    issue_name_english VARCHAR(255),
+    industry_code VARCHAR(255),
+    industry_name VARCHAR(255),
+    listed_shares_outstanding BIGINT
 );
 CREATE INDEX IF NOT EXISTS idx_stock_masters_deleted_at ON stock_masters(deleted_at);
 
@@ -98,15 +112,13 @@ CREATE INDEX IF NOT EXISTS idx_stock_market_masters_deleted_at ON stock_market_m
 CREATE INDEX IF NOT EXISTS idx_stock_market_masters_issue_code ON stock_market_masters(issue_code);
 CREATE INDEX IF NOT EXISTS idx_stock_market_masters_listing_market ON stock_market_masters(listing_market);
 
-DROP TABLE IF EXISTS tick_levels;
-DROP TABLE IF EXISTS tick_rules;
-
 CREATE TABLE IF NOT EXISTS tick_rules (
     tick_unit_number VARCHAR(255) PRIMARY KEY,
     applicable_date VARCHAR(255),
     created_at TIMESTAMPTZ,
     updated_at TIMESTAMPTZ
 );
+CREATE UNIQUE INDEX IF NOT EXISTS idx_tick_rules_tick_unit_number ON tick_rules(tick_unit_number);
 
 CREATE TABLE IF NOT EXISTS tick_levels (
     id BIGSERIAL PRIMARY KEY,

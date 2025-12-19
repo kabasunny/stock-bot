@@ -157,43 +157,31 @@ func (uc *masterUseCaseImpl) DownloadAndStoreMasterData(ctx context.Context) err
 	return nil
 }
 
-// GetStock retrieves basic master data for a single stock.
+// GetStock retrieves basic master data for a single stock from the local database.
 func (uc *masterUseCaseImpl) GetStock(ctx context.Context, symbol string) (*StockMasterResult, error) {
-	// Request the entire Stock Master list for now (inefficient, to be improved with caching)
-	req := request.ReqGetMasterData{
-		TargetCLMID: "CLMIssueMstKabu", // Request Stock Master data
-		// TargetColumn can be left empty to get all columns, or specified as needed.
-	}
-
-	res, err := uc.masterClient.GetMasterDataQuery(ctx, req)
+	slog.Info("GetStock called", "symbol", symbol)
+	rawResult, err := uc.masterRepo.FindByIssueCode(ctx, symbol, "StockMaster")
 	if err != nil {
-		return nil, fmt.Errorf("failed to get master data query from client: %w", err)
+		return nil, fmt.Errorf("failed to find stock master by issue code from repository: %w", err)
 	}
 
-	if res == nil || len(res.StockMaster) == 0 {
+	if rawResult == nil {
+		slog.Warn("Stock master not found", "symbol", symbol)
 		return nil, ErrNotFound
 	}
 
-	// Find the requested symbol in the returned list
-	var stockFound *response.ResStockMaster
-	for i := range res.StockMaster {
-		if res.StockMaster[i].IssueCode == symbol {
-			stockFound = &res.StockMaster[i]
-			break
-		}
-	}
-
-	if stockFound == nil {
-		return nil, ErrNotFound
+	stock, ok := rawResult.(*model.StockMaster)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type returned from repository for StockMaster")
 	}
 
 	result := &StockMasterResult{
-		Symbol:       stockFound.IssueCode,
-		Name:         stockFound.IssueName,
-		NameKana:     stockFound.IssueNameKana,
-		Market:       stockFound.PreferredMarket,
-		IndustryCode: stockFound.IndustryCode,
-		IndustryName: stockFound.IndustryName,
+		Symbol:       stock.IssueCode,
+		Name:         stock.IssueName,
+		NameKana:     stock.IssueNameKana,
+		Market:       stock.MarketCode,
+		IndustryCode: stock.IndustryCode,
+		IndustryName: stock.IndustryName,
 	}
 
 	return result, nil

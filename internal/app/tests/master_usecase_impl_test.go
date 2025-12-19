@@ -93,37 +93,22 @@ func (m *MasterRepositoryMock) UpsertTickRules(ctx context.Context, tickRules []
 func TestGetStock_Success(t *testing.T) {
 	ctx := context.Background()
 	masterClientMock := new(MasterDataClientMock)
-	masterRepoMock := new(MasterRepositoryMock) // Add repository mock
+	masterRepoMock := new(MasterRepositoryMock)
 	symbol := "7203"
 
 	// --- Mock Data ---
-	apiResponse := &response.ResGetMasterData{
-		StockMaster: []response.ResStockMaster{
-			{
-				IssueCode:       symbol,
-				IssueName:       "トヨタ自動車",
-				IssueNameKana:   "トヨタジドウシャ",
-				PreferredMarket: "東証プライム",
-				IndustryCode:    "3600",
-				IndustryName:    "輸送用機器",
-			},
-			{
-				IssueCode:       "6758",
-				IssueName:       "ソニーグループ",
-				IssueNameKana:   "ソニーグループ",
-				PreferredMarket: "東証プライム",
-				IndustryCode:    "3650",
-				IndustryName:    "電気機器",
-			},
-		},
-	}
-	expectedReq := request.ReqGetMasterData{
-		TargetCLMID: "CLMIssueMstKabu",
+	mockStockMaster := &model.StockMaster{
+		IssueCode:    symbol,
+		IssueName:    "トヨタ自動車",
+		IssueNameKana: "トヨタジドウシャ",
+		MarketCode:   "東証プライム",
+		IndustryCode: "3600",
+		IndustryName: "輸送用機器",
 	}
 
-	masterClientMock.On("GetMasterDataQuery", ctx, expectedReq).Return(apiResponse, nil).Once()
+	masterRepoMock.On("FindByIssueCode", ctx, symbol, "StockMaster").Return(mockStockMaster, nil).Once()
 
-	uc := app.NewMasterUseCaseImpl(masterClientMock, masterRepoMock) // Pass repository mock
+	uc := app.NewMasterUseCaseImpl(masterClientMock, masterRepoMock)
 
 	// --- Execute ---
 	result, err := uc.GetStock(ctx, symbol)
@@ -138,35 +123,18 @@ func TestGetStock_Success(t *testing.T) {
 	assert.Equal(t, "3600", result.IndustryCode)
 	assert.Equal(t, "輸送用機器", result.IndustryName)
 
-	masterClientMock.AssertExpectations(t)
+	masterRepoMock.AssertExpectations(t)
 }
 
 func TestGetStock_NotFound(t *testing.T) {
 	ctx := context.Background()
 	masterClientMock := new(MasterDataClientMock)
-	masterRepoMock := new(MasterRepositoryMock) // Add repository mock
+	masterRepoMock := new(MasterRepositoryMock)
 	symbol := "9999" // Symbol not in mock data
 
-	// --- Mock Data ---
-	apiResponse := &response.ResGetMasterData{
-		StockMaster: []response.ResStockMaster{
-			{
-				IssueCode:       "7203",
-				IssueName:       "トヨタ自動車",
-				IssueNameKana:   "トヨタジドウシャ",
-				PreferredMarket: "東証プライム",
-				IndustryCode:    "3600",
-				IndustryName:    "輸送用機器",
-			},
-		},
-	}
-	expectedReq := request.ReqGetMasterData{
-		TargetCLMID: "CLMIssueMstKabu",
-	}
+	masterRepoMock.On("FindByIssueCode", ctx, symbol, "StockMaster").Return(nil, nil).Once()
 
-	masterClientMock.On("GetMasterDataQuery", ctx, expectedReq).Return(apiResponse, nil).Once()
-
-	uc := app.NewMasterUseCaseImpl(masterClientMock, masterRepoMock) // Pass repository mock
+	uc := app.NewMasterUseCaseImpl(masterClientMock, masterRepoMock)
 
 	// --- Execute ---
 	result, err := uc.GetStock(ctx, symbol)
@@ -176,22 +144,19 @@ func TestGetStock_NotFound(t *testing.T) {
 	assert.Nil(t, result)
 	assert.True(t, errors.Is(err, app.ErrNotFound))
 
-	masterClientMock.AssertExpectations(t)
+	masterRepoMock.AssertExpectations(t)
 }
 
-func TestGetStock_ClientError(t *testing.T) {
+func TestGetStock_RepoError(t *testing.T) {
 	ctx := context.Background()
 	masterClientMock := new(MasterDataClientMock)
-	masterRepoMock := new(MasterRepositoryMock) // Add repository mock
+	masterRepoMock := new(MasterRepositoryMock)
 	symbol := "7203"
-	expectedErr := errors.New("API communication failed")
-	expectedReq := request.ReqGetMasterData{
-		TargetCLMID: "CLMIssueMstKabu",
-	}
+	expectedErr := errors.New("repository error")
 
-	masterClientMock.On("GetMasterDataQuery", ctx, expectedReq).Return(nil, expectedErr).Once()
+	masterRepoMock.On("FindByIssueCode", ctx, symbol, "StockMaster").Return(nil, expectedErr).Once()
 
-	uc := app.NewMasterUseCaseImpl(masterClientMock, masterRepoMock) // Pass repository mock
+	uc := app.NewMasterUseCaseImpl(masterClientMock, masterRepoMock)
 
 	// --- Execute ---
 	result, err := uc.GetStock(ctx, symbol)
@@ -201,7 +166,7 @@ func TestGetStock_ClientError(t *testing.T) {
 	assert.Nil(t, result)
 	assert.Contains(t, err.Error(), expectedErr.Error())
 
-	masterClientMock.AssertExpectations(t)
+	masterRepoMock.AssertExpectations(t)
 }
 
 func TestDownloadAndStoreMasterData_Success(t *testing.T) {

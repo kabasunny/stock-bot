@@ -21,9 +21,14 @@ This file contains example `curl` commands for interacting with the Stock Bot AP
 
 Retrieves a summary of the account's balance, including available cash and margin information.
 
+**curl:**
 ```sh
-# Get account balance summary
 curl -i -X GET http://localhost:8080/balance
+```
+
+**PowerShell:**
+```powershell
+Invoke-WebRequest -Uri http://localhost:8080/balance -UseBasicParsing
 ```
 
 ---
@@ -34,27 +39,45 @@ curl -i -X GET http://localhost:8080/balance
 
 Places a "market" buy order for a specified quantity of a stock.
 
+**curl:**
 ```sh
 # Create a new MARKET BUY order for 100 shares of symbol 7203 (Toyota)
 curl -i -X POST -H "Content-Type: application/json" -d "{\"symbol\":\"7203\",\"trade_type\":\"BUY\",\"order_type\":\"MARKET\",\"quantity\":100}" http://localhost:8080/order
+```
+
+**PowerShell:**
+```powershell
+Invoke-WebRequest -Uri http://localhost:8080/order -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"symbol":"6658","trade_type":"BUY","order_type":"MARKET","quantity":100}' -UseBasicParsing
 ```
 
 ### Create a Limit Sell Order
 
 Places a "limit" sell order for a specified quantity of a stock at a specific price or better.
 
+**curl:**
 ```sh
 # Create a new LIMIT SELL order for 50 shares of symbol 6758 (Sony) at a price of 13000
 curl -i -X POST -H "Content-Type: application/json" -d "{\"symbol\":\"7203\",\"trade_type\":\"SELL\",\"order_type\":\"LIMIT\",\"quantity\":100,\"price\":3500.0}" http://localhost:8080/order
+```
+
+**PowerShell:**
+```powershell
+Invoke-WebRequest -Uri http://localhost:8080/order -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"symbol":"7203","trade_type":"SELL","order_type":"LIMIT","quantity":100,"price":3500.0}' -UseBasicParsing
 ```
 
 ### Create a Market Buy Order (Margin)
 
 Places a market buy order using margin.
 
+**curl:**
 ```sh
 # Create a new MARKET BUY order for 100 shares of symbol 9984 (SoftBank) using margin
 curl -i -X POST -H "Content-Type: application/json" -d "{\"symbol\":\"9984\",\"trade_type\":\"BUY\",\"order_type\":\"MARKET\",\"quantity\":100,\"is_margin\":true}" http://localhost:8080/order
+```
+
+**PowerShell:**
+```powershell
+Invoke-WebRequest -Uri http://localhost:8080/order -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"symbol":"9984","trade_type":"BUY","order_type":"MARKET","quantity":100,"is_margin":true}' -UseBasicParsing
 ```
 
 ---
@@ -65,6 +88,7 @@ curl -i -X POST -H "Content-Type: application/json" -d "{\"symbol\":\"9984\",\"t
 
 Retrieves a list of all currently held positions (cash and margin).
 
+**curl:**
 ```sh
 # Get all positions
 curl -i -X GET http://localhost:8080/positions
@@ -76,6 +100,18 @@ curl -i -X GET "http://localhost:8080/positions?type=cash"
 curl -i -X GET "http://localhost:8080/positions?type=margin"
 ```
 
+**PowerShell:**
+```powershell
+# Get all positions
+Invoke-WebRequest -Uri http://localhost:8080/positions -UseBasicParsing
+
+# Get only cash positions
+Invoke-WebRequest -Uri "http://localhost:8080/positions?type=cash" -UseBasicParsing
+
+# Get only margin positions
+Invoke-WebRequest -Uri "http://localhost:8080/positions?type=margin" -UseBasicParsing
+```
+
 ---
 
 ## Master Service
@@ -84,11 +120,18 @@ curl -i -X GET "http://localhost:8080/positions?type=margin"
 
 Retrieves detailed master data for a specific stock symbol.
 
+**curl:**
 ```sh
 # Get details for Toyota (symbol 7203)
 curl -i -X GET http://localhost:8080/master/stocks/7203
 
 # Get details for Sony (symbol 6758)
 curl -i -X GET http://localhost:8080/master/stocks/6758
+```
+
+**PowerShell:**
+```powershell
+# Get details for Toyota (symbol 7203)
+Invoke-WebRequest -Uri http://localhost:8080/master/stocks/7203 -UseBasicParsing
 ```
 

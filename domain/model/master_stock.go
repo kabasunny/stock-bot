@@ -17,5 +17,5 @@ type StockMaster struct {
 	ListedSharesOutstanding int64   // 上場発行株数
 	UpperLimit              float64 // 値幅上限
 	LowerLimit              float64 // 値幅下限
-	TickRules               []TickRule `gorm:"foreignKey:IssueCode;references:IssueCode"` // 呼値 (1対多の関係)
+	TickRules               []TickRule `gorm:"-"` // 呼値 (一旦リレーションを無視)
 }

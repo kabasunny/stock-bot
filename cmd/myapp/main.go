@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"log/slog"
 	"net/http"
@@ -48,6 +49,10 @@ func (l *GoaSlogger) Log(keyvals ...interface{}) error {
 }
 
 func main() {
+	// 1. コマンドラインフラグの定義
+	skipSync := flag.Bool("skip-sync", false, "Skip initial master data synchronization on startup")
+	flag.Parse()
+
 	// 1. ロガーのセットアップ
 	goaLogger := &GoaSlogger{slog.Default()}
 
@@ -98,13 +103,17 @@ func main() {
 	positionUsecase := app.NewPositionUseCaseImpl(tachibanaClient)
 	masterUsecase := app.NewMasterUseCaseImpl(tachibanaClient, masterRepo)
 
-	slog.Default().Info("Starting initial master data synchronization...")
-	err = masterUsecase.DownloadAndStoreMasterData(context.Background())
-	if err != nil {
-		slog.Default().Error("failed to download and store master data on startup", slog.Any("error", err))
-		os.Exit(1)
+	if !*skipSync {
+		slog.Default().Info("Starting initial master data synchronization...")
+		err = masterUsecase.DownloadAndStoreMasterData(context.Background())
+		if err != nil {
+			slog.Default().Error("failed to download and store master data on startup", slog.Any("error", err))
+			os.Exit(1)
+		}
+		slog.Default().Info("Initial master data synchronization completed successfully.")
+	} else {
+		slog.Default().Info("Skipping initial master data synchronization.")
 	}
-	slog.Default().Info("Initial master data synchronization completed successfully.")
 
 	// 5. Goaサービスの実装を初期化
 	orderSvc := web.NewOrderService(orderUsecase, slog.Default())

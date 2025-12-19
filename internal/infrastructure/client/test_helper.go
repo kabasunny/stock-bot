@@ -148,3 +148,37 @@ func (tc *TachibanaClientImpl) FormatSDDateForTest() string {
 	return formatSDDate(time.Now())
 
 }
+
+// SetLoginStateForTest は、テスト用に手動でログイン状態を設定します。
+func (tc *TachibanaClientImpl) SetLoginStateForTest(t *testing.T, sessionCookie, priceURL string, pNo int64) {
+	t.Helper()
+	tc.mu.Lock()
+	defer tc.mu.Unlock()
+
+	// 1. ログイン状態をtrueに設定
+	tc.loggined = true
+
+	// 2. p_no を設定
+	tc.p_no = pNo
+
+	// 3. LoginInfo を設定 (PriceURLのみで初期化)
+	tc.loginInfo = &LoginInfo{
+		PriceURL: priceURL,
+		// 他のURLも必要であれば、引数に追加する
+	}
+
+	// 4. Cookieを設定
+	header := http.Header{}
+	header.Add("Set-Cookie", sessionCookie)
+	cookies := (&http.Response{Header: header}).Cookies()
+	tc.httpClient.Jar.SetCookies(tc.baseURL, cookies)
+
+	t.Log("手動でクライアントのログイン状態を設定しました。")
+}
+
+// GetPNoForTest はテスト用に p_no を取得します。
+func (tc *TachibanaClientImpl) GetPNoForTest() int64 {
+	tc.p_NoMu.Lock()
+	defer tc.p_NoMu.Unlock()
+	return tc.p_no
+}
