@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv" // 追加
 	"time"
 
 	"stock-bot/internal/infrastructure/client/dto/price/request"
@@ -17,23 +18,22 @@ import (
 
 	"github.com/cockroachdb/errors"
 )
-
 type priceInfoClientImpl struct {
 	client *TachibanaClientImpl
 }
 
-func (p *priceInfoClientImpl) GetPriceInfo(ctx context.Context, req request.ReqGetPriceInfo) (*response.ResGetPriceInfo, error) {
-	if !p.client.loggined {
-		return nil, errors.New("not logged in")
+func (p *priceInfoClientImpl) GetPriceInfo(ctx context.Context, session *Session, req request.ReqGetPriceInfo) (*response.ResGetPriceInfo, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(p.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
-	req.CLMID = "CLMMfdsGetMarketPrice" // 修正
-	req.P_no = p.client.getPNo()
+	req.CLMID = "CLMMfdsGetMarketPrice"
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -64,7 +64,12 @@ func (p *priceInfoClientImpl) GetPriceInfo(ctx context.Context, req request.ReqG
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(p.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get price info with post failed")
 	}
@@ -77,18 +82,18 @@ func (p *priceInfoClientImpl) GetPriceInfo(ctx context.Context, req request.ReqG
 	return res, nil
 }
 
-func (p *priceInfoClientImpl) GetPriceInfoHistory(ctx context.Context, req request.ReqGetPriceInfoHistory) (*response.ResGetPriceInfoHistory, error) {
-	if !p.client.loggined {
-		return nil, errors.New("not logged in")
+func (p *priceInfoClientImpl) GetPriceInfoHistory(ctx context.Context, session *Session, req request.ReqGetPriceInfoHistory) (*response.ResGetPriceInfoHistory, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(p.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
-	req.CLMID = "CLMMfdsGetMarketPriceHistory" // 修正
-	req.P_no = p.client.getPNo()
+	req.CLMID = "CLMMfdsGetMarketPriceHistory"
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -119,7 +124,12 @@ func (p *priceInfoClientImpl) GetPriceInfoHistory(ctx context.Context, req reque
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(p.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get price info history with post failed")
 	}
@@ -131,19 +141,18 @@ func (p *priceInfoClientImpl) GetPriceInfoHistory(ctx context.Context, req reque
 
 	return res, nil
 }
-
-func (p *priceInfoClientImpl) GetPriceInfoHistoryWithPost(ctx context.Context, req request.ReqGetPriceInfoHistory) (*response.ResGetPriceInfoHistory, error) {
-	if !p.client.loggined {
-		return nil, errors.New("not logged in")
+func (p *priceInfoClientImpl) GetPriceInfoHistoryWithPost(ctx context.Context, session *Session, req request.ReqGetPriceInfoHistory) (*response.ResGetPriceInfoHistory, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(p.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
-	req.CLMID = "CLMMfdsGetMarketPriceHistory" // 修正
-	req.P_no = p.client.getPNo()
+	req.CLMID = "CLMMfdsGetMarketPriceHistory"
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -174,7 +183,12 @@ func (p *priceInfoClientImpl) GetPriceInfoHistoryWithPost(ctx context.Context, r
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(p.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get price info history with post failed")
 	}

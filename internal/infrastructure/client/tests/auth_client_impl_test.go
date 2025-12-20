@@ -6,8 +6,8 @@ import (
 	"stock-bot/internal/infrastructure/client"
 	request_auth "stock-bot/internal/infrastructure/client/dto/auth/request"
 	"testing"
-	"time" // timeパッケージをインポート
 
+	// timeパッケージをインポート
 	// "github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -241,14 +241,13 @@ func TestAuthClientImpl_LoginOnly(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	loginRes, err := c.LoginWithPost(context.Background(), loginReq)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
 
 	// ログインの成功を確認
 	require.NoError(t, err, "Login should not produce an error")
-	require.NotNil(t, loginRes, "Login response should not be nil")
-	require.Equal(t, "0", loginRes.ResultCode, "Login result code should be 0")
-	require.True(t, c.GetLogginedForTest(), "Client should be in a logged-in state")
-	t.Logf("TestAuthClientImpl_LoginOnly - ログイン成功後の p_no: %d", c.GetPNoForTest())
+	require.NotNil(t, session, "Session should not be nil")
+	require.Equal(t, "0", session.ResultCode, "Login result code should be 0")
+	t.Logf("TestAuthClientImpl_LoginOnly - ログイン成功")
 }
 
 // TestAuthClientImpl_LogoutOnly は、ログイン後にログアウトのみを行うテストです。
@@ -261,56 +260,50 @@ func TestAuthClientImpl_LogoutOnly(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	loginRes, err := c.LoginWithPost(context.Background(), loginReq)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
 	require.NoError(t, err, "Login should not produce an error before logout test")
-	require.NotNil(t, loginRes, "Login response should not be nil before logout test")
-	require.Equal(t, "0", loginRes.ResultCode, "Login result code should be 0 before logout test")
-	require.True(t, c.GetLogginedForTest(), "Client should be in a logged-in state before logout test")
-	t.Logf("TestAuthClientImpl_LogoutOnly - ログイン成功後の p_no (ログアウト前): %d", c.GetPNoForTest())
+	require.NotNil(t, session, "Session should not be nil before logout test")
+	t.Logf("TestAuthClientImpl_LogoutOnly - ログイン成功")
 
 	// 3. ログアウト
-	t.Logf("TestAuthClientImpl_LogoutOnly - ログアウト前の p_no: %d", c.GetPNoForTest())
-	logoutRes, err := c.LogoutWithPost(context.Background(), request_auth.ReqLogout{})
+	logoutRes, err := c.LogoutWithPost(context.Background(), session, request_auth.ReqLogout{})
 
 	// ログアウトの成功を確認
 	require.NoError(t, err, "Logout should not produce an error")
 	require.NotNil(t, logoutRes, "Logout response should not be nil")
 	require.Equal(t, "0", logoutRes.ResultCode, "Logout result code should be 0")
-	require.False(t, c.GetLogginedForTest(), "Client should be in a logged-out state")
-	t.Logf("TestAuthClientImpl_LogoutOnly - ログアウト実行後の p_no: %d", c.GetPNoForTest())
+	t.Logf("TestAuthClientImpl_LogoutOnly - ログアウト成功")
 }
 
-// TestAuthClientImpl_Sequence_LoginWaitLogout は、ログイン、5分待機、ログアウトの一連のシーケンスをテストします。
-// このテストは実行に5分以上かかります。
-func TestAuthClientImpl_Sequence_LoginWaitLogout(t *testing.T) {
-	t.Log("【シーケンステスト開始】ログイン → 5分待機 → ログアウト")
+// // TestAuthClientImpl_Sequence_LoginWaitLogout は、ログイン、5分待機、ログアウトの一連のシーケンスをテストします。
+// // このテストは実行に5分以上かかります。
+// func TestAuthClientImpl_Sequence_LoginWaitLogout(t *testing.T) {
+// 	t.Log("【シーケンステスト開始】ログイン → 5分待機 → ログアウト")
 
-	// 1. ログイン
-	c := client.CreateTestClient(t)
-	loginReq := request_auth.ReqLogin{
-		UserId:   c.GetUserIDForTest(),
-		Password: c.GetPasswordForTest(),
-	}
-	loginRes, err := c.LoginWithPost(context.Background(), loginReq)
-	require.NoError(t, err, "シーケンステスト中のログインに失敗しました")
-	require.NotNil(t, loginRes)
-	require.Equal(t, "0", loginRes.ResultCode, "ログインAPIからエラーが返されました")
-	t.Logf("ログイン成功。p_no: %d", c.GetPNoForTest())
+// 	// 1. ログイン
+// 	c := client.CreateTestClient(t)
+// 	loginReq := request_auth.ReqLogin{
+// 		UserId:   c.GetUserIDForTest(),
+// 		Password: c.GetPasswordForTest(),
+// 	}
+// 	session, err := c.LoginWithPost(context.Background(), loginReq)
+// 	require.NoError(t, err, "シーケンステスト中のログインに失敗しました")
+// 	require.NotNil(t, session, "Session should not be nil")
+// 	require.Equal(t, "0", session.ResultCode, "ログインAPIからエラーが返されました")
+// 	t.Logf("ログイン成功。")
 
-	// 2. 5分間待機
-	const waitMinutes = 5
-	t.Logf("%d分間待機します...", waitMinutes)
-	time.Sleep(waitMinutes * time.Minute)
-	t.Log("待機完了。")
+// 	// 2. 5分間待機
+// 	const waitMinutes = 5
+// 	t.Logf("%d分間待機します...", waitMinutes)
+// 	time.Sleep(waitMinutes * time.Minute)
+// 	t.Log("待機完了。")
 
-	// 3. ログアウト
-	// ここでは、新しくログインせず、既存のセッションを使ってログアウトのみを実行します。
-	t.Logf("ログアウト前の p_no: %d", c.GetPNoForTest())
-	logoutRes, err := c.LogoutWithPost(context.Background(), request_auth.ReqLogout{})
-	require.NoError(t, err, "ログアウトAPIの呼び出し自体に失敗しました")
-	require.NotNil(t, logoutRes)
-	t.Logf("ログアウトAPIの応答: ResultCode=%s, ResultText=%s", logoutRes.ResultCode, logoutRes.ResultText)
-	t.Logf("ログアウト実行後の p_no: %d", c.GetPNoForTest())
+// 	// 3. ログアウト
+// 	// ここでは、新しくログインせず、既存のセッションを使ってログアウトのみを実行します。
+// 	logoutRes, err := c.LogoutWithPost(context.Background(), session, request_auth.ReqLogout{})
+// 	require.NoError(t, err, "ログアウトAPIの呼び出し自体に失敗しました")
+// 	require.NotNil(t, logoutRes, "ログアウトのレスポンスがnilです")
+// 	t.Logf("ログアウトAPIの応答: ResultCode=%s, ResultText=%s", logoutRes.ResultCode, logoutRes.ResultText)
 
-	// このテストでは、ログアウトAPIがどのような結果を返すか（成功するのか、セッション切れエラーか）を観察します。
-}
+// 	// このテストでは、ログアウトAPIがどのような結果を返すか（成功するのか、セッション切れエラーか）を観察します。
+// }

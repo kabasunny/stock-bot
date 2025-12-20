@@ -10,6 +10,7 @@ import (
 	"log/slog"
 	"net/http"
 	"net/url"
+	"strconv" // 追加
 	"time"
 
 	"stock-bot/internal/infrastructure/client/dto/master/request"
@@ -25,17 +26,17 @@ type masterDataClientImpl struct {
 	client *TachibanaClientImpl
 }
 
-func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req request.ReqDownloadMaster) (*response.ResDownloadMaster, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
+func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, session *Session, req request.ReqDownloadMaster) (*response.ResDownloadMaster, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
 	// 1. リクエストURLの作成
-	u := m.client.loginInfo.MasterURL
+	u := session.MasterURL
 
 	// 2. リクエストパラメータの作成
 	req.CLMID = "CLMEventDownload"
-	req.P_no = m.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10)
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -62,7 +63,10 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 	slog.Debug("Decoded URL", slog.String("decodedUrl", decodedURL))
 
 	// 4. リクエストの送信 (SendRequestを直接使わず、専用の処理を行う)
-	resp, err := m.client.httpClient.Do(httpReq)
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+	resp, err := tempClient.Do(httpReq)
 	if err != nil {
 		return nil, errors.Wrap(err, "download master data failed")
 	}
@@ -273,18 +277,18 @@ func (m *masterDataClientImpl) DownloadMasterData(ctx context.Context, req reque
 		slog.Error("DownloadMasterData stream finished without CLMEventDownloadComplete signal")
 		return nil, errors.New("download master data stream finished without complete signal")}
 
-func (m *masterDataClientImpl) GetMasterDataQuery(ctx context.Context, req request.ReqGetMasterData) (*response.ResGetMasterData, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
+func (m *masterDataClientImpl) GetMasterDataQuery(ctx context.Context, session *Session, req request.ReqGetMasterData) (*response.ResGetMasterData, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	u, err := url.Parse(session.MasterURL) // sessionからMasterURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse master URL")
+		return nil, errors.Wrap(err, "failed to parse master URL from session")
 	}
 
 	req.CLMID = "CLMMfdsGetMasterData"
-	req.P_no = m.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -315,7 +319,12 @@ func (m *masterDataClientImpl) GetMasterDataQuery(ctx context.Context, req reque
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get master data query with post failed")
 	}
@@ -328,18 +337,18 @@ func (m *masterDataClientImpl) GetMasterDataQuery(ctx context.Context, req reque
 	return res, nil
 }
 
-func (m *masterDataClientImpl) GetNewsHeader(ctx context.Context, req request.ReqGetNewsHead) (*response.ResGetNewsHeader, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
+func (m *masterDataClientImpl) GetNewsHeader(ctx context.Context, session *Session, req request.ReqGetNewsHead) (*response.ResGetNewsHeader, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	u, err := url.Parse(session.MasterURL) // sessionからMasterURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse master URL")
+		return nil, errors.Wrap(err, "failed to parse master URL from session")
 	}
 
 	req.CLMID = "CLMMfdsGetNewsHead"
-	req.P_no = m.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -370,7 +379,12 @@ func (m *masterDataClientImpl) GetNewsHeader(ctx context.Context, req request.Re
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get news header with post failed")
 	}
@@ -383,18 +397,18 @@ func (m *masterDataClientImpl) GetNewsHeader(ctx context.Context, req request.Re
 	return res, nil
 }
 
-func (m *masterDataClientImpl) GetNewsBody(ctx context.Context, req request.ReqGetNewsBody) (*response.ResGetNewsBody, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
+func (m *masterDataClientImpl) GetNewsBody(ctx context.Context, session *Session, req request.ReqGetNewsBody) (*response.ResGetNewsBody, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	u, err := url.Parse(session.MasterURL) // sessionからMasterURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse master URL")
+		return nil, errors.Wrap(err, "failed to parse master URL from session")
 	}
 
 	req.CLMID = "CLMMfdsGetNewsBody"
-	req.P_no = m.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -425,7 +439,12 @@ func (m *masterDataClientImpl) GetNewsBody(ctx context.Context, req request.ReqG
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get news body with post failed")
 	}
@@ -438,18 +457,18 @@ func (m *masterDataClientImpl) GetNewsBody(ctx context.Context, req request.ReqG
 	return res, nil
 }
 
-func (m *masterDataClientImpl) GetIssueDetail(ctx context.Context, req request.ReqGetIssueDetail) (*response.ResGetIssueDetail, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
+func (m *masterDataClientImpl) GetIssueDetail(ctx context.Context, session *Session, req request.ReqGetIssueDetail) (*response.ResGetIssueDetail, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	u, err := url.Parse(session.MasterURL) // sessionからMasterURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse master URL")
+		return nil, errors.Wrap(err, "failed to parse master URL from session")
 	}
 
 	req.CLMID = "CLMMfdsGetIssueDetail"
-	req.P_no = m.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -480,7 +499,12 @@ func (m *masterDataClientImpl) GetIssueDetail(ctx context.Context, req request.R
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get issue detail with post failed")
 	}
@@ -493,18 +517,18 @@ func (m *masterDataClientImpl) GetIssueDetail(ctx context.Context, req request.R
 	return res, nil
 }
 
-func (m *masterDataClientImpl) GetMarginInfo(ctx context.Context, req request.ReqGetMarginInfo) (*response.ResGetMarginInfo, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
+func (m *masterDataClientImpl) GetMarginInfo(ctx context.Context, session *Session, req request.ReqGetMarginInfo) (*response.ResGetMarginInfo, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	u, err := url.Parse(session.MasterURL) // sessionからMasterURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse master URL")
+		return nil, errors.Wrap(err, "failed to parse master URL from session")
 	}
 
 	req.CLMID = "CLMMfdsGetSyoukinZan"
-	req.P_no = m.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -535,7 +559,12 @@ func (m *masterDataClientImpl) GetMarginInfo(ctx context.Context, req request.Re
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get margin info with post failed")
 	}
@@ -548,18 +577,18 @@ func (m *masterDataClientImpl) GetMarginInfo(ctx context.Context, req request.Re
 	return res, nil
 }
 
-func (m *masterDataClientImpl) GetCreditInfo(ctx context.Context, req request.ReqGetCreditInfo) (*response.ResGetCreditInfo, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
+func (m *masterDataClientImpl) GetCreditInfo(ctx context.Context, session *Session, req request.ReqGetCreditInfo) (*response.ResGetCreditInfo, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	u, err := url.Parse(session.MasterURL) // sessionからMasterURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse master URL")
+		return nil, errors.Wrap(err, "failed to parse master URL from session")
 	}
 
 	req.CLMID = "CLMMfdsGetShinyouZan"
-	req.P_no = m.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -590,7 +619,12 @@ func (m *masterDataClientImpl) GetCreditInfo(ctx context.Context, req request.Re
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get credit info with post failed")
 	}
@@ -603,18 +637,18 @@ func (m *masterDataClientImpl) GetCreditInfo(ctx context.Context, req request.Re
 	return res, nil
 }
 
-func (m *masterDataClientImpl) GetMarginPremiumInfo(ctx context.Context, req request.ReqGetMarginPremiumInfo) (*response.ResGetMarginPremiumInfo, error) {
-	if !m.client.loggined {
-		return nil, errors.New("not logged in")
+func (m *masterDataClientImpl) GetMarginPremiumInfo(ctx context.Context, session *Session, req request.ReqGetMarginPremiumInfo) (*response.ResGetMarginPremiumInfo, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(m.client.loginInfo.MasterURL)
+	u, err := url.Parse(session.MasterURL) // sessionからMasterURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse master URL")
+		return nil, errors.Wrap(err, "failed to parse master URL from session")
 	}
 
 	req.CLMID = "CLMMfdsGetHibuInfo"
-	req.P_no = m.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -645,7 +679,12 @@ func (m *masterDataClientImpl) GetMarginPremiumInfo(ctx context.Context, req req
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(m.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get margin premium info with post failed")
 	}

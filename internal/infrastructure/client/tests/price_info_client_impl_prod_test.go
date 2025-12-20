@@ -42,12 +42,12 @@ func TestPriceInfoClientImpl_Production(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	loginRes, err := c.LoginWithPost(context.Background(), loginReq)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
 
 	// ログイン失敗時はテストを中断
 	require.NoError(t, err, "本番環境へのログインに失敗しました。電話認証が完了しているか、.envの本番用設定（ID/PW/URL）が正しいか確認してください。")
-	require.NotNil(t, loginRes)
-	require.Equal(t, "0", loginRes.ResultCode, "ログインAPIからエラーが返されました。ResultCode: %s", loginRes.ResultCode)
+	require.NotNil(t, session)
+	require.Equal(t, "0", session.ResultCode, "ログインAPIからエラーが返されました。ResultCode: %s", session.ResultCode)
 
 	t.Log("本番環境へのログインに成功しました。株価照会テストを開始します。")
 
@@ -56,7 +56,7 @@ func TestPriceInfoClientImpl_Production(t *testing.T) {
 		req := request.ReqGetPriceInfo{
 			TargetIssueCode: "7203", // トヨタ自動車
 		}
-		res, err := c.GetPriceInfo(context.Background(), req)
+		res, err := c.GetPriceInfo(context.Background(), session, req)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 
@@ -72,7 +72,7 @@ func TestPriceInfoClientImpl_Production(t *testing.T) {
 		req := request.ReqGetPriceInfoHistory{
 			IssueCode: "7203", // トヨタ自動車
 		}
-		res, err := c.GetPriceInfoHistory(context.Background(), req)
+		res, err := c.GetPriceInfoHistory(context.Background(), session, req)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 
@@ -84,7 +84,6 @@ func TestPriceInfoClientImpl_Production(t *testing.T) {
 		}
 	})
 }
-
 // TestPriceInfo_Sequence_LoginWaitGetPrice は、無通信タイムアウトを確認するテストです。
 // ログイン後、30分待機してから株価照会APIを呼び出します。
 // このテストは完了まで30分以上かかります。
@@ -106,10 +105,10 @@ func TestPriceInfo_Sequence_LoginWaitGetPrice(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	loginRes, err := c.LoginWithPost(context.Background(), loginReq)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
 	require.NoError(t, err, "シーケンステスト中のログインに失敗しました")
-	require.NotNil(t, loginRes)
-	require.Equal(t, "0", loginRes.ResultCode, "ログインAPIからエラーが返されました")
+	require.NotNil(t, session)
+	require.Equal(t, "0", session.ResultCode, "ログインAPIからエラーが返されました")
 	t.Log("ログイン成功。")
 
 	// 2. 30分間待機
@@ -123,7 +122,7 @@ func TestPriceInfo_Sequence_LoginWaitGetPrice(t *testing.T) {
 	req := request.ReqGetPriceInfo{
 		TargetIssueCode: "7203", // トヨタ自動車
 	}
-	res, err := c.GetPriceInfo(context.Background(), req)
+	res, err := c.GetPriceInfo(context.Background(), session, req)
 	if err != nil {
 		t.Logf("株価照会APIの呼び出しでエラーが発生しました: %v", err)
 	}

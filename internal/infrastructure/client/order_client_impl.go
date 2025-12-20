@@ -9,6 +9,7 @@ import (
 	"io"
 	"net/http"
 	"net/url"
+	"strconv" // 追加
 	"stock-bot/internal/infrastructure/client/dto"
 	"stock-bot/internal/infrastructure/client/dto/order/request"
 	"stock-bot/internal/infrastructure/client/dto/order/response"
@@ -16,24 +17,23 @@ import (
 
 	"github.com/cockroachdb/errors"
 )
-
 type orderClientImpl struct {
 	client *TachibanaClientImpl
 }
 
-func (o *orderClientImpl) NewOrder(ctx context.Context, params NewOrderParams) (*response.ResNewOrder, error) {
-	if !o.client.loggined {
-		return nil, errors.New("not logged in")
+func (o *orderClientImpl) NewOrder(ctx context.Context, session *Session, params NewOrderParams) (*response.ResNewOrder, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(o.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req := request.ReqNewOrder{
 		RequestBase: dto.RequestBase{
-			P_no:      o.client.getPNo(),
+			P_no:      strconv.FormatInt(int64(session.GetPNo()), 10), // sessionからp_noを取得
 			P_sd_date: formatSDDate(time.Now()),
 			JsonOfmt:  "4",
 		},
@@ -53,7 +53,7 @@ func (o *orderClientImpl) NewOrder(ctx context.Context, params NewOrderParams) (
 		TatebiType:               params.TatebiType,
 		TategyokuZyoutoekiKazeiC: params.TategyokuZyoutoekiKazeiC,
 		CLMKabuHensaiData:        params.CLMKabuHensaiData,
-		SecondPassword:           o.client.sSecondPassword,
+		SecondPassword:           session.SecondPassword, // sessionからSecondPasswordを取得
 	}
 
 	var hensaiDataJSON string
@@ -103,7 +103,12 @@ func (o *orderClientImpl) NewOrder(ctx context.Context, params NewOrderParams) (
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "new order failed")
 	}
@@ -114,20 +119,19 @@ func (o *orderClientImpl) NewOrder(ctx context.Context, params NewOrderParams) (
 	}
 	return res, nil
 }
-
-func (o *orderClientImpl) CorrectOrder(ctx context.Context, params CorrectOrderParams) (*response.ResCorrectOrder, error) {
-	if !o.client.loggined {
-		return nil, errors.New("not logged in")
+func (o *orderClientImpl) CorrectOrder(ctx context.Context, session *Session, params CorrectOrderParams) (*response.ResCorrectOrder, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(o.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req := request.ReqCorrectOrder{
 		RequestBase: dto.RequestBase{
-			P_no:      o.client.getPNo(),
+			P_no:      strconv.FormatInt(int64(session.GetPNo()), 10), // sessionからp_noを取得
 			P_sd_date: formatSDDate(time.Now()),
 			JsonOfmt:  "4",
 		},
@@ -140,7 +144,7 @@ func (o *orderClientImpl) CorrectOrder(ctx context.Context, params CorrectOrderP
 		OrderExpireDay:   params.OrderExpireDay,
 		GyakusasiZyouken: params.GyakusasiZyouken,
 		GyakusasiPrice:   params.GyakusasiPrice,
-		SecondPassword:   o.client.sSecondPassword,
+		SecondPassword:   session.SecondPassword, // sessionからSecondPasswordを取得
 	}
 
 	reqMap, err := structToMapString(req)
@@ -170,7 +174,12 @@ func (o *orderClientImpl) CorrectOrder(ctx context.Context, params CorrectOrderP
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "correct order failed")
 	}
@@ -185,27 +194,26 @@ func (o *orderClientImpl) CorrectOrder(ctx context.Context, params CorrectOrderP
 
 	return res, nil
 }
-
-func (o *orderClientImpl) CancelOrder(ctx context.Context, params CancelOrderParams) (*response.ResCancelOrder, error) {
-	if !o.client.loggined {
-		return nil, errors.New("not logged in")
+func (o *orderClientImpl) CancelOrder(ctx context.Context, session *Session, params CancelOrderParams) (*response.ResCancelOrder, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(o.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req := request.ReqCancelOrder{
 		RequestBase: dto.RequestBase{
-			P_no:      o.client.getPNo(),
+			P_no:      strconv.FormatInt(int64(session.GetPNo()), 10), // sessionからp_noを取得
 			P_sd_date: formatSDDate(time.Now()),
 			JsonOfmt:  "4",
 		},
 		CLMID:          "CLMKabuCancelOrder",
 		OrderNumber:    params.OrderNumber,
 		EigyouDay:      params.EigyouDay,
-		SecondPassword: o.client.sSecondPassword,
+		SecondPassword: session.SecondPassword, // sessionからSecondPasswordを取得
 	}
 
 	reqMap, err := structToMapString(req)
@@ -235,7 +243,12 @@ func (o *orderClientImpl) CancelOrder(ctx context.Context, params CancelOrderPar
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "cancel order failed")
 	}
@@ -247,25 +260,24 @@ func (o *orderClientImpl) CancelOrder(ctx context.Context, params CancelOrderPar
 
 	return res, nil
 }
-
-func (o *orderClientImpl) CancelOrderAll(ctx context.Context, params CancelOrderAllParams) (*response.ResCancelOrderAll, error) {
-	if !o.client.loggined {
-		return nil, errors.New("not logged in")
+func (o *orderClientImpl) CancelOrderAll(ctx context.Context, session *Session, params CancelOrderAllParams) (*response.ResCancelOrderAll, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(o.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req := request.ReqCancelOrderAll{
 		RequestBase: dto.RequestBase{
-			P_no:      o.client.getPNo(),
+			P_no:      strconv.FormatInt(int64(session.GetPNo()), 10), // sessionからp_noを取得
 			P_sd_date: formatSDDate(time.Now()),
 			JsonOfmt:  "4",
 		},
 		CLMID:          "CLMKabuCancelOrderAll",
-		SecondPassword: o.client.sSecondPassword,
+		SecondPassword: session.SecondPassword, // sessionからSecondPasswordを取得
 	}
 
 	reqMap, err := structToMapString(req)
@@ -295,7 +307,12 @@ func (o *orderClientImpl) CancelOrderAll(ctx context.Context, params CancelOrder
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "cancel all order failed")
 	}
@@ -308,18 +325,18 @@ func (o *orderClientImpl) CancelOrderAll(ctx context.Context, params CancelOrder
 	return res, nil
 }
 
-func (o *orderClientImpl) GetOrderList(ctx context.Context, req request.ReqOrderList) (*response.ResOrderList, error) {
-	if !o.client.loggined {
-		return nil, errors.New("not logged in")
+func (o *orderClientImpl) GetOrderList(ctx context.Context, session *Session, req request.ReqOrderList) (*response.ResOrderList, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(o.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req.CLMID = "CLMOrderList"
-	req.P_no = o.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -350,7 +367,12 @@ func (o *orderClientImpl) GetOrderList(ctx context.Context, req request.ReqOrder
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get order list failed")
 	}
@@ -361,19 +383,18 @@ func (o *orderClientImpl) GetOrderList(ctx context.Context, req request.ReqOrder
 	}
 	return res, nil
 }
-
-func (o *orderClientImpl) GetOrderListDetail(ctx context.Context, req request.ReqOrderListDetail) (*response.ResOrderListDetail, error) {
-	if !o.client.loggined {
-		return nil, errors.New("not logged in")
+func (o *orderClientImpl) GetOrderListDetail(ctx context.Context, session *Session, req request.ReqOrderListDetail) (*response.ResOrderListDetail, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(o.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req.CLMID = "CLMOrderListDetail"
-	req.P_no = o.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -404,7 +425,12 @@ func (o *orderClientImpl) GetOrderListDetail(ctx context.Context, req request.Re
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(o.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "get order list detail failed")
 	}

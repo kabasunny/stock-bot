@@ -22,19 +22,19 @@ type balanceClientImpl struct {
 	client *TachibanaClientImpl
 }
 
-func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context) (*response.ResGenbutuKabuList, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
+func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context, session *Session) (*response.ResGenbutuKabuList, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req := request.ReqGenbutuKabuList{}
 	req.CLMID = "CLMGenbutuKabuList"
-	req.P_no = b.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -65,7 +65,12 @@ func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context) (*response.R
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "GetGenbutuKabuList failed")
 	}
@@ -76,20 +81,19 @@ func (b *balanceClientImpl) GetGenbutuKabuList(ctx context.Context) (*response.R
 	}
 	return res, nil
 }
-
-func (b *balanceClientImpl) GetShinyouTategyokuList(ctx context.Context) (*response.ResShinyouTategyokuList, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
+func (b *balanceClientImpl) GetShinyouTategyokuList(ctx context.Context, session *Session) (*response.ResShinyouTategyokuList, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req := request.ReqShinyouTategyokuList{}
 	req.CLMID = "CLMShinyouTategyokuList"
-	req.P_no = b.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -120,7 +124,12 @@ func (b *balanceClientImpl) GetShinyouTategyokuList(ctx context.Context) (*respo
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "GetShinyouTategyokuList failed")
 	}
@@ -131,19 +140,18 @@ func (b *balanceClientImpl) GetShinyouTategyokuList(ctx context.Context) (*respo
 	}
 	return res, nil
 }
-
-func (b *balanceClientImpl) GetZanKaiKanougaku(ctx context.Context, req request.ReqZanKaiKanougaku) (*response.ResZanKaiKanougaku, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
+func (b *balanceClientImpl) GetZanKaiKanougaku(ctx context.Context, session *Session, req request.ReqZanKaiKanougaku) (*response.ResZanKaiKanougaku, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req.CLMID = "CLMZanKaiKanougaku"
-	req.P_no = b.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -174,7 +182,12 @@ func (b *balanceClientImpl) GetZanKaiKanougaku(ctx context.Context, req request.
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiKanougaku failed")
 	}
@@ -185,19 +198,18 @@ func (b *balanceClientImpl) GetZanKaiKanougaku(ctx context.Context, req request.
 	}
 	return res, nil
 }
-
-func (b *balanceClientImpl) GetZanKaiKanougakuSuii(ctx context.Context, req request.ReqZanKaiKanougakuSuii) (*response.ResZanKaiKanougakuSuii, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
+func (b *balanceClientImpl) GetZanKaiKanougakuSuii(ctx context.Context, session *Session, req request.ReqZanKaiKanougakuSuii) (*response.ResZanKaiKanougakuSuii, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req.CLMID = "CLMZanKaiKanougakuSuii"
-	req.P_no = b.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -228,7 +240,12 @@ func (b *balanceClientImpl) GetZanKaiKanougakuSuii(ctx context.Context, req requ
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiKanougakuSuii failed")
 	}
@@ -240,19 +257,19 @@ func (b *balanceClientImpl) GetZanKaiKanougakuSuii(ctx context.Context, req requ
 	return res, nil
 }
 
-func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context) (*response.ResZanKaiSummary, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
+func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context, session *Session) (*response.ResZanKaiSummary, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req := request.ReqZanKaiSummary{}
 	req.CLMID = "CLMZanKaiSummary"
-	req.P_no = b.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -283,7 +300,12 @@ func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context) (*response.Res
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiSummary failed")
 	}
@@ -295,20 +317,20 @@ func (b *balanceClientImpl) GetZanKaiSummary(ctx context.Context) (*response.Res
 	return res, nil
 }
 
-func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, tradingDay int) (*response.ResZanKaiGenbutuKaitukeSyousai, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
+func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, session *Session, tradingDay int) (*response.ResZanKaiGenbutuKaitukeSyousai, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req := request.ReqZanKaiGenbutuKaitukeSyousai{}
 	req.CLMID = "CLMZanKaiGenbutuKaitukeSyousai"
 	req.HitukeIndex = strconv.Itoa(tradingDay)
-	req.P_no = b.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -339,7 +361,12 @@ func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, 
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiGenbutuKaitukeSyousai failed")
 	}
@@ -351,20 +378,20 @@ func (b *balanceClientImpl) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, 
 	return res, nil
 }
 
-func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousai(ctx context.Context, tradingDay int) (*response.ResZanKaiSinyouSinkidateSyousai, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
+func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousai(ctx context.Context, session *Session, tradingDay int) (*response.ResZanKaiSinyouSinkidateSyousai, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req := request.ReqZanKaiSinyouSinkidateSyousai{}
 	req.CLMID = "CLMZanKaiSinyouSinkidateSyousai"
 	req.HitukeIndex = strconv.Itoa(tradingDay)
-	req.P_no = b.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -395,7 +422,12 @@ func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousai(ctx context.Context,
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanKaiSinyouSinkidateSyousai failed")
 	}
@@ -406,19 +438,18 @@ func (b *balanceClientImpl) GetZanKaiSinyouSinkidateSyousai(ctx context.Context,
 	}
 	return res, nil
 }
-
-func (b *balanceClientImpl) GetZanRealHosyoukinRitu(ctx context.Context, req request.ReqZanRealHosyoukinRitu) (*response.ResZanRealHosyoukinRitu, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
+func (b *balanceClientImpl) GetZanRealHosyoukinRitu(ctx context.Context, session *Session, req request.ReqZanRealHosyoukinRitu) (*response.ResZanRealHosyoukinRitu, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req.CLMID = "CLMZanRealHosyoukinRitu"
-	req.P_no = b.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -449,7 +480,12 @@ func (b *balanceClientImpl) GetZanRealHosyoukinRitu(ctx context.Context, req req
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanRealHosyoukinRitu failed")
 	}
@@ -461,18 +497,18 @@ func (b *balanceClientImpl) GetZanRealHosyoukinRitu(ctx context.Context, req req
 	return res, nil
 }
 
-func (b *balanceClientImpl) GetZanShinkiKanoIjiritu(ctx context.Context, req request.ReqZanShinkiKanoIjiritu) (*response.ResZanShinkiKanoIjiritu, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
+func (b *balanceClientImpl) GetZanShinkiKanoIjiritu(ctx context.Context, session *Session, req request.ReqZanShinkiKanoIjiritu) (*response.ResZanShinkiKanoIjiritu, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req.CLMID = "CLMZanShinkiKanoIjiritu"
-	req.P_no = b.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -503,7 +539,12 @@ func (b *balanceClientImpl) GetZanShinkiKanoIjiritu(ctx context.Context, req req
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanShinkiKanoIjiritu failed")
 	}
@@ -515,18 +556,18 @@ func (b *balanceClientImpl) GetZanShinkiKanoIjiritu(ctx context.Context, req req
 	return res, nil
 }
 
-func (b *balanceClientImpl) GetZanUriKanousuu(ctx context.Context, req request.ReqZanUriKanousuu) (*response.ResZanUriKanousuu, error) {
-	if !b.client.loggined {
-		return nil, errors.New("not logged in")
+func (b *balanceClientImpl) GetZanUriKanousuu(ctx context.Context, session *Session, req request.ReqZanUriKanousuu) (*response.ResZanUriKanousuu, error) {
+	if session == nil {
+		return nil, errors.New("session is nil")
 	}
 
-	u, err := url.Parse(b.client.loginInfo.RequestURL)
+	u, err := url.Parse(session.RequestURL) // sessionからURLを取得
 	if err != nil {
-		return nil, errors.Wrap(err, "failed to parse request URL")
+		return nil, errors.Wrap(err, "failed to parse request URL from session")
 	}
 
 	req.CLMID = "CLMZanUriKanousuu"
-	req.P_no = b.client.getPNo()
+	req.P_no = strconv.FormatInt(int64(session.GetPNo()), 10) // sessionからp_noを取得
 	req.P_sd_date = formatSDDate(time.Now())
 	req.JsonOfmt = "4"
 
@@ -557,7 +598,12 @@ func (b *balanceClientImpl) GetZanUriKanousuu(ctx context.Context, req request.R
 		return io.NopCloser(bytes.NewBuffer(payloadJSON)), nil
 	}
 
-	respMap, err := SendRequest(b.client.httpClient, httpReq, 3)
+	// 認証済みセッションのCookieJarを持つ一時的なhttp.Clientを作成
+	tempClient := &http.Client{
+		Jar: session.CookieJar,
+	}
+
+	respMap, err := SendRequest(tempClient, httpReq, 3) // tempClient を使用
 	if err != nil {
 		return nil, errors.Wrap(err, "GetZanUriKanousuu failed")
 	}
