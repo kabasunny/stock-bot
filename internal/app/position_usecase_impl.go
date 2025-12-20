@@ -17,12 +17,12 @@ func NewPositionUseCaseImpl(balanceClient client.BalanceClient) PositionUseCase 
 	return &positionUseCaseImpl{balanceClient: balanceClient}
 }
 
-func (uc *positionUseCaseImpl) ListPositions(ctx context.Context, filterType string) ([]*Position, error) {
+func (uc *positionUseCaseImpl) ListPositions(ctx context.Context, session *client.Session, filterType string) ([]*Position, error) {
 	var positions []*Position
 
 	// Fetch cash positions
 	if filterType == "all" || filterType == "cash" {
-		cashPositions, err := uc.balanceClient.GetGenbutuKabuList(ctx)
+		cashPositions, err := uc.balanceClient.GetGenbutuKabuList(ctx, session)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get cash positions: %w", err)
 		}
@@ -53,7 +53,7 @@ func (uc *positionUseCaseImpl) ListPositions(ctx context.Context, filterType str
 
 	// Fetch margin positions
 	if filterType == "all" || filterType == "margin" {
-		marginPositions, err := uc.balanceClient.GetShinyouTategyokuList(ctx)
+		marginPositions, err := uc.balanceClient.GetShinyouTategyokuList(ctx, session)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get margin positions: %w", err)
 		}

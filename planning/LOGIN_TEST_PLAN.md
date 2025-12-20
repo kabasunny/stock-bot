@@ -66,8 +66,8 @@
      go test -v ./internal/infrastructure/client/tests/auth_client_impl_test.go -run TestAuthClientImpl_LoginOnly
      ```
 - **期待される結果**: すべての操作が電話認証の有効期間（3分）内に行われれば、再ログインは成功する。`p_no`は`1`になる。
-- **実行結果**:
-- **ステータス**: 未実施
+- **実行結果**: `TestAuthClientImpl_LogoutOnly`（ログイン→ログアウト）と、その直後の`TestAuthClientImpl_LoginOnly`（再ログイン）が共に成功した。
+- **ステータス**: 成功
 
 ---
 
@@ -78,12 +78,12 @@
   1. 手動で電話認証を行う。
   2. 新しく追加したシーケンステストを実行する。このテストは内部でログイン、5分待機、ログアウトを行います。
      ```bash
-     go test -v ./internal/infrastructure/client/tests/auth_client_impl_test.go -run TestAuthClientImpl_Sequence_LoginWaitLogout
+     go test -v ./internal/infrastructure/client/tests/auth_client_impl_test.go -run TestAuthClientImpl_Sequence_LoginWaitLogoutLogin
      ```
   3. テストのログに出力される`p_no`の挙動と、ログアウトAPIの結果を確認する。
 - **期待される結果**: ログインから5分後には電話認証の有効期間（3分）が切れているため、ログアウト後の再ログインは失敗する。
-- **実行結果**:
-- **ステータス**: 未実施
+- **実行結果**: `TestAuthClientImpl_Sequence_LoginWaitLogoutLogin` テストを実行。ログイン→5分待機→ログアウトのシーケンスは成功。その後の再ログインは、期待通り `result code 10089` エラーで失敗した。
+- **ステータス**: 成功（APIの挙動を解明）
 
 ---
 
@@ -120,8 +120,8 @@
      go test -v ./internal/infrastructure/client/tests/price_info_client_impl_prod_test.go -run TestPriceInfoClientImpl_Production
      ```
 - **期待される結果**: ターミナルBのログインによってターミナルAのセッションは無効化されているはず。そのため、ターミナルAでの最後の株価照会テストは、ログインの段階で失敗する（再度、電話認証を求められる）か、何らかのセッションエラーが発生する。
-- **実行結果**:
-- **ステータス**: 未実施
+- **実行結果**: `TestAuthClientImpl_MultipleSessions` テストにより、新しいログインセッションが確立されると、それ以前のセッションはサーバー側で無効化されることが確認された。
+- **ステータス**: 成功
 
 ---
 

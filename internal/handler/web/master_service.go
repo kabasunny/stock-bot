@@ -4,8 +4,9 @@ import (
 	"context"
 	"errors"
 	"log/slog"
-	"stock-bot/gen/master"   // Goa-generated service interface and types
-	"stock-bot/internal/app" // Our app-level use case interface and types
+	"stock-bot/gen/master"
+	"stock-bot/internal/app"
+	"stock-bot/internal/infrastructure/client"
 
 	goa "goa.design/goa/v3/pkg"
 )
@@ -14,13 +15,15 @@ import (
 type MasterService struct {
 	masterUseCase app.MasterUseCase
 	logger        *slog.Logger
+    session       *client.Session
 }
 
 // NewMasterService creates a new MasterService.
-func NewMasterService(masterUseCase app.MasterUseCase, logger *slog.Logger) *MasterService {
+func NewMasterService(masterUseCase app.MasterUseCase, logger *slog.Logger, session *client.Session) *MasterService {
 	return &MasterService{
 		masterUseCase: masterUseCase,
 		logger:        logger,
+        session:       session,
 	}
 }
 
@@ -58,7 +61,7 @@ func (s *MasterService) GetStock(ctx context.Context, p *master.GetStockPayload)
 func (s *MasterService) Update(ctx context.Context) (err error) {
 	s.logger.Info("Update master data triggered.")
 
-	if err := s.masterUseCase.DownloadAndStoreMasterData(ctx); err != nil {
+	if err := s.masterUseCase.DownloadAndStoreMasterData(ctx, s.session); err != nil {
 		s.logger.Error("Failed to download and store master data", slog.Any("error", err))
 		return err
 	}
@@ -66,6 +69,3 @@ func (s *MasterService) Update(ctx context.Context) (err error) {
 	s.logger.Info("Master data update completed successfully.")
 	return nil
 }
-
-
-	

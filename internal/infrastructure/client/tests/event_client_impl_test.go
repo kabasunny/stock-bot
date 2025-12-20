@@ -93,19 +93,19 @@ func TestEventClient_ConnectReadMessagesWithDemoAPI(t *testing.T) {
 		Password: tc.GetPasswordForTest(),
 	}
 	t.Logf("Logging in with UserID: %s", loginReq.UserId)
-	loginRes, err := tc.Login(context.Background(), loginReq)
+	session, err := tc.LoginWithPost(context.Background(), loginReq)
 	require.NoError(t, err, "Login to demo API should be successful")
-	require.NotNil(t, loginRes, "Login response should not be nil")
-	require.Equal(t, "0", loginRes.ResultCode, "Login ResultCode should be 0 for success")
+	require.NotNil(t, session, "Login session should not be nil")
+	require.Equal(t, "0", session.ResultCode, "Login ResultCode should be 0 for success")
 	defer func() {
 		t.Log("Logging out from demo API.")
 		logoutReq := request_auth.ReqLogout{}
-		_, logoutErr := tc.Logout(context.Background(), logoutReq)
+		_, logoutErr := tc.LogoutWithPost(context.Background(), session, logoutReq)
 		assert.NoError(t, logoutErr, "Logout should be successful")
 	}()
 
 	// 3. Get Event URL from login info and convert it to WebSocket scheme
-	eventURL := loginRes.EventURL
+	eventURL := session.EventURL
 	require.NotEmpty(t, eventURL, "EventURL should not be empty after login")
 	t.Logf("Received HTTP Event URL: %s", eventURL)
 
@@ -134,7 +134,7 @@ func TestEventClient_ConnectReadMessagesWithDemoAPI(t *testing.T) {
 	defer cancel()
 
 	// Retrieve the cookie jar after login
-	jar := tc.CookieJar()
+	jar := session.CookieJar
 	require.NotNil(t, jar, "CookieJar should not be nil after login")
 
 	err = eventClient.Connect(ctx, fullWSURL, jar)
@@ -173,3 +173,5 @@ func TestEventClient_ConnectReadMessagesWithDemoAPI(t *testing.T) {
 	eventClient.Close()
 	t.Log("WebSocket client closed.")
 }
+
+// go test -v ./internal/infrastructure/client/tests/event_client_impl_test.go

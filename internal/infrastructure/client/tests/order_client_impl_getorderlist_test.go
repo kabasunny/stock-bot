@@ -10,6 +10,7 @@ import (
 	"stock-bot/internal/infrastructure/client/dto/order/request"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOrderClientImpl_GetOrderList(t *testing.T) {
@@ -21,15 +22,16 @@ func TestOrderClientImpl_GetOrderList(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.Login(context.Background(), loginReq)
-	assert.NoError(t, err)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	t.Run("正常系 (POST): 注文一覧取得が成功すること", func(t *testing.T) {
 		// GetOrderList リクエストを作成 (すべての注文を取得)
 		orderListReq := request.ReqOrderList{}
 
 		// GetOrderList 実行
-		res, err := c.GetOrderList(context.Background(), orderListReq)
+		res, err := c.GetOrderList(context.Background(), session, orderListReq) // session引数を追加
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		if res != nil {

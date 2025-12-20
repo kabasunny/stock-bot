@@ -3,42 +3,42 @@ package web
 import (
 	"context"
 	"log/slog"
-	"stock-bot/gen/position" // Goa-generated service interface and types
-	"stock-bot/internal/app" // Our app-level use case interface and types
+	"stock-bot/gen/position"
+	"stock-bot/internal/app"
+	"stock-bot/internal/infrastructure/client"
 )
 
 // PositionService implements the position.Service interface.
 type PositionService struct {
 	positionUseCase app.PositionUseCase
 	logger          *slog.Logger
+    session         *client.Session
 }
 
 // NewPositionService creates a new PositionService.
-func NewPositionService(positionUseCase app.PositionUseCase, logger *slog.Logger) *PositionService {
+func NewPositionService(positionUseCase app.PositionUseCase, logger *slog.Logger, session *client.Session) *PositionService {
 	return &PositionService{
 		positionUseCase: positionUseCase,
 		logger:          logger,
+        session:         session,
 	}
 }
 
 // List implements the list action.
-
 func (s *PositionService) List(ctx context.Context, p *position.ListPayload) (res *position.StockbotPositionCollection, err error) {
-
 	s.logger.Info("ListPositions called", slog.String("filterType", p.Type))
 
-
+	filterType := "all" // デフォルト
+	if p.Type != "" {
+		filterType = p.Type
+	}
 
 	// Call the use case
-
-	appPositions, err := s.positionUseCase.ListPositions(ctx, p.Type)
+	appPositions, err := s.positionUseCase.ListPositions(ctx, s.session, filterType)
 
 	if err != nil {
-
 		s.logger.Error("Failed to list positions from use case", slog.Any("error", err))
-
 		return nil, err
-
 	}
 
 

@@ -11,6 +11,7 @@ import (
 	// "stock-bot/internal/infrastructure/client/dto/order/request" // Removed as request.ReqNewOrder is no longer directly used
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestOrderClientImpl_NewOrder_Cases(t *testing.T) {
@@ -22,8 +23,9 @@ func TestOrderClientImpl_NewOrder_Cases(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.Login(context.Background(), loginReq)
-	assert.NoError(t, err)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	t.Run("正常系 (POST): 現物 買い注文 (成行、特定口座) が成功すること", func(t *testing.T) {
 		orderReq := client.NewOrderParams{
@@ -44,7 +46,7 @@ func TestOrderClientImpl_NewOrder_Cases(t *testing.T) {
 			// SecondPassword は client.NewOrder の内部で設定されるため不要
 		}
 
-		res, err := c.NewOrder(context.Background(), orderReq)
+		res, err := c.NewOrder(context.Background(), session, orderReq)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		if res != nil {
@@ -75,7 +77,7 @@ func TestOrderClientImpl_NewOrder_Cases(t *testing.T) {
 
 		time.Sleep(1 * time.Second) // 1秒のタイムラグ
 
-		res, err := c.NewOrder(context.Background(), orderReq)
+		res, err := c.NewOrder(context.Background(), session, orderReq)
 		assert.NoError(t, err)
 		assert.NotNil(t, res)
 		if res != nil {

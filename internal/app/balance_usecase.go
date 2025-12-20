@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"stock-bot/internal/infrastructure/client"
 )
 
 // BalanceResult is the result type for the GetBalance use case.
@@ -16,5 +17,5 @@ type BalanceResult struct {
 
 // BalanceUseCase defines the interface for balance-related use cases.
 type BalanceUseCase interface {
-	GetBalance(ctx context.Context) (*BalanceResult, error)
+	GetBalance(ctx context.Context, session *client.Session) (*BalanceResult, error)
 }

@@ -27,10 +27,10 @@ func NewMasterUseCaseImpl(masterClient client.MasterDataClient, masterRepo repos
 }
 
 // DownloadAndStoreMasterData downloads all master data and stores the watched stocks into the database.
-func (uc *masterUseCaseImpl) DownloadAndStoreMasterData(ctx context.Context) error {
+func (uc *masterUseCaseImpl) DownloadAndStoreMasterData(ctx context.Context, session *client.Session) error {
 	slog.Info("Starting master data download...")
 	// 1. Call DownloadMasterData
-	res, err := uc.masterClient.DownloadMasterData(ctx, request.ReqDownloadMaster{})
+	res, err := uc.masterClient.DownloadMasterData(ctx, session, request.ReqDownloadMaster{})
 	if err != nil {
 		return fmt.Errorf("failed to download master data: %w", err)
 	}

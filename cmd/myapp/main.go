@@ -83,11 +83,15 @@ func main() {
 		UserId:   cfg.TachibanaUserID,
 		Password: cfg.TachibanaPassword,
 	}
-	_, err = tachibanaClient.Login(context.Background(), loginReq)
+	appSession, err := tachibanaClient.LoginWithPost(context.Background(), loginReq)
 	if err != nil {
 		slog.Default().Error("failed to login", slog.Any("error", err))
 		os.Exit(1)
 	}
+    if appSession.ResultCode != "0" {
+        slog.Default().Error("failed to login: API returned error", slog.String("code", appSession.ResultCode), slog.String("text", appSession.ResultText))
+        os.Exit(1)
+    }
 	slog.Default().Info("login successful")
 
 	// 4-2. リポジトリを初期化
@@ -105,7 +109,7 @@ func main() {
 
 	if !*skipSync {
 		slog.Default().Info("Starting initial master data synchronization...")
-		err = masterUsecase.DownloadAndStoreMasterData(context.Background())
+		err = masterUsecase.DownloadAndStoreMasterData(context.Background(), appSession)
 		if err != nil {
 			slog.Default().Error("failed to download and store master data on startup", slog.Any("error", err))
 			os.Exit(1)
@@ -116,10 +120,10 @@ func main() {
 	}
 
 	// 5. Goaサービスの実装を初期化
-	orderSvc := web.NewOrderService(orderUsecase, slog.Default())
-	balanceSvc := web.NewBalanceService(balanceUsecase, slog.Default())
-	positionSvc := web.NewPositionService(positionUsecase, slog.Default())
-	masterSvc := web.NewMasterService(masterUsecase, slog.Default()) // New line
+	orderSvc := web.NewOrderService(orderUsecase, slog.Default(), appSession)
+	balanceSvc := web.NewBalanceService(balanceUsecase, slog.Default(), appSession)
+	positionSvc := web.NewPositionService(positionUsecase, slog.Default(), appSession)
+	masterSvc := web.NewMasterService(masterUsecase, slog.Default(), appSession)
 
 	// 6. GoaのエンドポイントとHTTPハンドラを構築
 	wg := &sync.WaitGroup{}

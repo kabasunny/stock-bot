@@ -3,13 +3,9 @@ package tests
 
 import (
 	"context"
-	"bufio"
-	"fmt"
-	"os"
 	"stock-bot/internal/infrastructure/client"
 	request_auth "stock-bot/internal/infrastructure/client/dto/auth/request"
 	"stock-bot/internal/infrastructure/client/dto/price/request"
-	"strings"
 	"testing"
 	"time"
 
@@ -24,16 +20,6 @@ import (
 // 電話認証が行われていない場合、ログインに失敗し、テストは実行されません。
 // また、.envファイルが本番環境用に設定されている必要があります。
 func TestPriceInfoClientImpl_Production(t *testing.T) {
-	fmt.Print("【確認】手動での電話認証は完了していますか？ (Y/N): ")
-	reader := bufio.NewReader(os.Stdin)
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-
-	if !strings.EqualFold(input, "Y") {
-		t.Skip("電話認証が未了のため、テストをスキップしました。")
-        return
-	}
-
 	// .env から本番用の設定を読み込むために CreateTestClient を使用
 	c := client.CreateTestClient(t)
 
@@ -84,20 +70,14 @@ func TestPriceInfoClientImpl_Production(t *testing.T) {
 		}
 	})
 }
+
+// go test -v ./internal/infrastructure/client/tests/price_info_client_impl_prod_test.go -run TestPriceInfoClientImpl_Production
+
 // TestPriceInfo_Sequence_LoginWaitGetPrice は、無通信タイムアウトを確認するテストです。
 // ログイン後、30分待機してから株価照会APIを呼び出します。
 // このテストは完了まで30分以上かかります。
 func TestPriceInfo_Sequence_LoginWaitGetPrice(t *testing.T) {
 	t.Log("【シーケンステスト開始】ログイン → 30分待機 → 株価照会")
-	fmt.Print("【確認】手動での電話認証は完了していますか？ (Y/N): ")
-	reader := bufio.NewReader(os.Stdin)
-	input, _ := reader.ReadString('\n')
-	input = strings.TrimSpace(input)
-
-	if !strings.EqualFold(input, "Y") {
-		t.Skip("電話認証が未了のため、テストをスキップしました。")
-		return
-	}
 
 	// 1. ログイン
 	c := client.CreateTestClient(t)
@@ -135,3 +115,5 @@ func TestPriceInfo_Sequence_LoginWaitGetPrice(t *testing.T) {
 		}
 	}
 }
+
+// go test -v ./internal/infrastructure/client/tests/price_info_client_impl_prod_test.go -run TestPriceInfo_Sequence_LoginWaitGetPrice -timeout 35m

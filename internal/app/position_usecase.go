@@ -2,6 +2,7 @@ package app
 
 import (
 	"context"
+	"stock-bot/internal/infrastructure/client"
 )
 
 // PositionType defines the type of a holding.
@@ -27,5 +28,5 @@ type Position struct {
 
 // PositionUseCase defines the interface for position-related use cases.
 type PositionUseCase interface {
-	ListPositions(ctx context.Context, filterType string) ([]*Position, error)
+	ListPositions(ctx context.Context, session *client.Session, filterType string) ([]*Position, error)
 }

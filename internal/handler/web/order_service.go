@@ -4,30 +4,32 @@ import (
 	"context"
 	"log/slog"
 	"stock-bot/domain/model"
-	"stock-bot/internal/app"
 	ordersvr "stock-bot/gen/order"
+	"stock-bot/internal/app"
+	"stock-bot/internal/infrastructure/client"
 )
 
-// order.Serviceインターフェースを実装する構造体
+// OrderService implements the order.Service interface.
 type OrderService struct {
 	usecase app.OrderUseCase
 	logger  *slog.Logger
+	session *client.Session
 }
 
-// コンストラクタ
-func NewOrderService(usecase app.OrderUseCase, logger *slog.Logger) ordersvr.Service {
+// NewOrderService creates a new order service.
+func NewOrderService(usecase app.OrderUseCase, logger *slog.Logger, session *client.Session) ordersvr.Service {
 	return &OrderService{
 		usecase: usecase,
 		logger:  logger,
+		session: session,
 	}
 }
 
-// Createメソッドの実装 (Goaが生成したインターフェースを満たす)
+// Create implements create.
 func (s *OrderService) Create(ctx context.Context, p *ordersvr.CreatePayload) (res *ordersvr.CreateResult, err error) {
-	s.logger.Info("order.create method called", slog.Any("payload", p))
+	s.logger.Info("order.create method called", "payload", p)
 
-	// PayloadをUsecaseが要求するパラメータに変換
-	// TODO: 文字列からの変換部分のバリデーションを強化する
+	// PayloadからOrderParamsへの変換
 	orderParams := app.OrderParams{
 		Symbol:    p.Symbol,
 		TradeType: model.TradeType(p.TradeType),
@@ -37,16 +39,15 @@ func (s *OrderService) Create(ctx context.Context, p *ordersvr.CreatePayload) (r
 		IsMargin:  p.IsMargin,
 	}
 
-	// Usecaseの呼び出し
-	createdOrder, err := s.usecase.ExecuteOrder(ctx, orderParams)
+	// UseCaseを呼び出す際にsessionを渡す
+	createdOrder, err := s.usecase.ExecuteOrder(ctx, s.session, orderParams)
 	if err != nil {
-		s.logger.Error("failed to execute order", slog.Any("error", err))
+		s.logger.Error("Failed to execute order", "error", err)
 		return nil, err // Goaが適切なエラーレスポンスに変換してくれる
 	}
 
-	// 結果をレスポンスに設定
 	res = &ordersvr.CreateResult{OrderID: createdOrder.OrderID}
-	s.logger.Info("order.create method successfully processed", slog.String("order_id", createdOrder.OrderID))
+	s.logger.Info("order.create method successfully processed.", "orderID", res.OrderID)
 
 	return res, nil
 }

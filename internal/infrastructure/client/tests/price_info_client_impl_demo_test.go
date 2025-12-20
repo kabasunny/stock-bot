@@ -13,7 +13,7 @@ import (
 )
 
 // setupLoggedInClientForPriceInfoTest は、テスト用のログイン済みクライアントをセットアップするヘルパー関数です。
-func setupLoggedInClientForPriceInfoTest(t *testing.T) *client.TachibanaClientImpl {
+func setupLoggedInClientForPriceInfoTest(t *testing.T) (*client.TachibanaClientImpl, *client.Session) {
 	t.Helper() // これがヘルパー関数であることを示す
 
 	c := client.CreateTestClient(t)
@@ -24,16 +24,17 @@ func setupLoggedInClientForPriceInfoTest(t *testing.T) *client.TachibanaClientIm
 		Password: c.GetPasswordForTest(),
 	}
 	// ログイン実行
-	_, err := c.LoginWithPost(context.Background(), loginReq)
+	session, err := c.LoginWithPost(context.Background(), loginReq) // session を受け取るように変更
 	// ログインに失敗した場合はテストを即時終了
 	require.NoError(t, err, "テストの前提条件であるログインに失敗しました。ログインID/パスワード、APIのURLを確認してください。")
+	require.NotNil(t, session, "セッションがnilです。") // session が nil でないことを確認
 
-	return c
+	return c, session
 }
 
 func TestPriceInfoClientImpl_GetPriceInfo(t *testing.T) {
 	// ヘルパー関数でログイン済みのクライアントを取得
-	c := setupLoggedInClientForPriceInfoTest(t)
+	c, session := setupLoggedInClientForPriceInfoTest(t) // session も受け取るように変更
 
 	t.Run("正常系 (POST): トヨタの株価情報取得が成功し、内容が正しいこと", func(t *testing.T) {
 		// リクエストパラメータの設定
@@ -42,7 +43,7 @@ func TestPriceInfoClientImpl_GetPriceInfo(t *testing.T) {
 		}
 
 		// API呼び出し
-		res, err := c.GetPriceInfo(context.Background(), req)
+		res, err := c.GetPriceInfo(context.Background(), session, req) // session引数を追加
 		if err != nil {
 			t.Fatalf("API呼び出しエラー: %v", err)
 		}
@@ -64,7 +65,7 @@ func TestPriceInfoClientImpl_GetPriceInfo(t *testing.T) {
 
 func TestPriceInfoClientImpl_GetPriceInfoHistory(t *testing.T) {
 	// ヘルパー関数でログイン済みのクライアントを取得
-	c := setupLoggedInClientForPriceInfoTest(t)
+	c, session := setupLoggedInClientForPriceInfoTest(t) // session も受け取るように変更
 
 	t.Run("正常系 (POST): トヨタの株価履歴情報取得が成功し、内容が正しいこと", func(t *testing.T) {
 		// リクエストパラメータの設定
@@ -73,7 +74,7 @@ func TestPriceInfoClientImpl_GetPriceInfoHistory(t *testing.T) {
 		}
 
 		// API呼び出し
-		res, err := c.GetPriceInfoHistory(context.Background(), req)
+		res, err := c.GetPriceInfoHistory(context.Background(), session, req) // session引数を追加
 		if err != nil {
 			t.Fatalf("API呼び出しエラー: %v", err)
 		}

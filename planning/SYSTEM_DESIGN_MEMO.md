@@ -190,19 +190,56 @@ APIのログイン仕様に関する不明点を解消するため、`planning/L
 *   **インターフェースの更新**: `AuthClient`, `PriceInfoClient`, `OrderClient`, `BalanceClient`, `MasterDataClient`の全メソッドのシグネチャを、`Session`オブジェクトを利用する形に更新。
 *   **実装の更新**: 上記インターフェース変更に伴い、`DownloadMasterData`を除く全ての`...ClientImpl`の実装を修正。
 
+### 複数のセッション独立性に関するテスト結果 (2025-12-20 追加)
+`auth_client_impl_test.go` に追加した `TestAuthClientImpl_MultipleSessions` の結果、以下のAPI仕様が判明しました。
+*   **新しいログインセッションが確立されると、それ以前のセッションはサーバー側で無効化される。**
+*   複数のログインセッションを同時にアクティブな状態に保ち、それぞれを独立して操作（ログアウトなど）することはできません。常に最新のセッションのみが有効です。
+
+### APIクライアントのリファクタリングに伴うテストコードの全面的な修正 (2025-12-20 更新)
+`APIクライアントのリファクタリング: セッションオブジェクトの導入` に伴い、以下のテストコードを修正しました。
+
+**修正済みテストファイル:**
+*   `internal/infrastructure/client/tests/order_client_impl_neworder_test.go`
+*   `internal/infrastructure/client/tests/order_client_impl_cancelorder_test.go`
+*   `internal/infrastructure/client/tests/order_client_impl_correctorder_test.go`
+*   `internal/infrastructure/client/tests/order_client_impl_cancelorderall_test.go`
+*   `internal/infrastructure/client/tests/order_client_impl_getorderlist_test.go`
+*   `internal/infrastructure/client/tests/order_client_impl_getorderlistdetail_test.go`
+*   `internal/infrastructure/client/tests/master_data_client_impl_test.go` (GetMasterDataQuery, GetNewsHeader, GetNewsBody, GetIssueDetail, GetMarginInfo, GetCreditInfo, GetMarginPremiumInfo)
+*   `internal/infrastructure/client/tests/master_data_client_impl_download_masterdata_test.go`
+*   `internal/infrastructure/client/tests/event_client_impl_test.go`
+*   `internal/infrastructure/client/tests/price_info_client_impl_demo_test.go`
+
+### ログイン仕様に関するテスト結果 (2025-12-20 追加)
+`planning/LOGIN_TEST_PLAN.md` に基づき、ログイン関連のテストを実施しました。
+*   **TEST-003: ログアウト後の再ログイン**: ログイン、ログアウト、直後の再ログインがすべて成功。これにより、電話認証の有効期間内であれば、ログアウト後すぐに再ログインが可能であることが確認されました。
+*   **TEST-004: タイムラグを伴ったログアウト後の再ログイン**: 
+    *   `auth_client_impl_test.go` に `TestAuthClientImpl_Sequence_LoginWaitLogoutLogin` を実装し、「ログイン → 5分待機 → ログアウト → 再ログイン」のシーケンスを単一のテストとして自動化しました。
+    *   実行結果、初回ログインとログアウトは成功しましたが、5分経過後の再ログインは `result code 10089` （電話認証の有効期間切れ）で失敗しました。
+    *   この結果から、電話認証の有効期間（3分）は再ログインの可否に強く影響するが、一度確立されたセッションのログアウトは時間経過後も可能であることが判明しました。
+*   **TEST-006: セッションの競合（二重ログイン）**: `auth_client_impl_test.go` に `TestAuthClientImpl_MultipleSessions` を実装し、複数のログインセッションの独立性を確認しました。結果、新しいログインが確立されると、それ以前のセッションはサーバー側で無効化されることが判明しました。常に最新のセッションのみが有効であるという前提でセッション管理を行う必要があります。
+
+### TEST-005 無通信タイムアウトテストの準備状況 (2025-12-20 追加)
+`TEST-005: 無通信タイムアウトの確認` のため、`price_info_client_impl_prod_test.go` に実装済みの `TestPriceInfo_Sequence_LoginWaitGetPrice` を実行する段階です。このテストは30分間の自動待機を含むため、コマンド実行後は手動監視なしで完了を待つことができます。
+
+### APIクライアントリファクタリングの完了 (2025-12-20 追加)
+`Session`オブジェクトの導入に伴うリファクタリングの最終作業として、`UseCase`層および`Handler`層の修正を完了し、ビルドが成功することを確認しました。
+
+*   **`UseCase`層の修正**: `balance`, `position`, `order`, `master` の各`UseCase`のインターフェースと実装を更新し、クライアントAPIを呼び出すメソッドが`Session`オブジェクトを引数として受け取るように変更しました。
+*   **`Handler`層の修正**: Goaで実装された各サービス（ハンドラ）が、起動時にDIされた`Session`オブジェクトを保持し、`UseCase`の呼び出し時に渡すように修正しました。
+*   **`UseCase`テストの修正**: `internal/app/tests`内の各テストコードを修正し、`Session`オブジェクトの変更に対応させました。
+*   **`main.go`の修正**: アプリケーション起動時に`LoginWithPost`で`Session`を生成し、各ハンドラに注入するよう修正しました。
+*   **ロガーの統一**: `log`と`slog`の混在によって発生したコンパイルエラーを、`slog`に統一することで解消しました。
+
 ---
 
 #### 次回のアクションプラン
 
-**最優先タスク: APIクライアントのリファクタリングの完了**
+**最優先タスク: ログイン仕様の未実施テストの完了**
 
-1.  **`DownloadMasterData`メソッドの修正**:
-    *   **内容**: 特殊なストリーミング処理を持つ`DownloadMasterData`メソッドを、`Session`オブジェクトを利用するように修正します。
-    *   **目的**: APIクライアントのリファクタリングを継続し、全てのAPI呼び出しで新しいセッション管理モデルを適用します。
-
-2.  **テストコードの全面的な修正**:
-    *   **内容**: 今回のリファクタリングで変更されたすべてのインターフェースと実装に合わせて、関連するテストコード（`auth_client_impl_test.go`など）を修正します。
-    *   **目的**: システム全体の動作を保証します。
+1.  **`TEST-005: 無通信タイムアウトの確認` の実行**:
+    *   **内容**: `price_info_client_impl_prod_test.go` に実装済みの `TestPriceInfo_Sequence_LoginWaitGetPrice` を `-timeout` フラグ付きで実行します。
+    *   **目的**: ログイン後、長時間の無通信（30分）があった場合にセッションが維持されるか、それともタイムアウトするかというAPIの仕様を解明します。
 
 ---
 

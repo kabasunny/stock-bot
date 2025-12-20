@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"stock-bot/internal/app"
+	"stock-bot/internal/infrastructure/client"
 	"stock-bot/internal/infrastructure/client/dto/balance/request"
 	"stock-bot/internal/infrastructure/client/dto/balance/response"
 	"testing"
@@ -18,80 +19,80 @@ type PositionUseCaseBalanceClientMock struct {
 	mock.Mock
 }
 
-func (m *PositionUseCaseBalanceClientMock) GetGenbutuKabuList(ctx context.Context) (*response.ResGenbutuKabuList, error) {
-	args := m.Called(ctx)
+func (m *PositionUseCaseBalanceClientMock) GetGenbutuKabuList(ctx context.Context, session *client.Session) (*response.ResGenbutuKabuList, error) {
+	args := m.Called(ctx, session)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResGenbutuKabuList), args.Error(1)
 }
 
-func (m *PositionUseCaseBalanceClientMock) GetShinyouTategyokuList(ctx context.Context) (*response.ResShinyouTategyokuList, error) {
-	args := m.Called(ctx)
+func (m *PositionUseCaseBalanceClientMock) GetShinyouTategyokuList(ctx context.Context, session *client.Session) (*response.ResShinyouTategyokuList, error) {
+	args := m.Called(ctx, session)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResShinyouTategyokuList), args.Error(1)
 }
 
-func (m *PositionUseCaseBalanceClientMock) GetZanKaiKanougaku(ctx context.Context, req request.ReqZanKaiKanougaku) (*response.ResZanKaiKanougaku, error) {
-	args := m.Called(ctx, req)
+func (m *PositionUseCaseBalanceClientMock) GetZanKaiKanougaku(ctx context.Context, session *client.Session, req request.ReqZanKaiKanougaku) (*response.ResZanKaiKanougaku, error) {
+	args := m.Called(ctx, session, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResZanKaiKanougaku), args.Error(1)
 }
 
-func (m *PositionUseCaseBalanceClientMock) GetZanKaiKanougakuSuii(ctx context.Context, req request.ReqZanKaiKanougakuSuii) (*response.ResZanKaiKanougakuSuii, error) {
-	args := m.Called(ctx, req)
+func (m *PositionUseCaseBalanceClientMock) GetZanKaiKanougakuSuii(ctx context.Context, session *client.Session, req request.ReqZanKaiKanougakuSuii) (*response.ResZanKaiKanougakuSuii, error) {
+	args := m.Called(ctx, session, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResZanKaiKanougakuSuii), args.Error(1)
 }
 
-func (m *PositionUseCaseBalanceClientMock) GetZanKaiSummary(ctx context.Context) (*response.ResZanKaiSummary, error) {
-	args := m.Called(ctx)
+func (m *PositionUseCaseBalanceClientMock) GetZanKaiSummary(ctx context.Context, session *client.Session) (*response.ResZanKaiSummary, error) {
+	args := m.Called(ctx, session)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResZanKaiSummary), args.Error(1)
 }
 
-func (m *PositionUseCaseBalanceClientMock) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, tradingDay int) (*response.ResZanKaiGenbutuKaitukeSyousai, error) {
-	args := m.Called(ctx, tradingDay)
+func (m *PositionUseCaseBalanceClientMock) GetZanKaiGenbutuKaitukeSyousai(ctx context.Context, session *client.Session, tradingDay int) (*response.ResZanKaiGenbutuKaitukeSyousai, error) {
+	args := m.Called(ctx, session, tradingDay)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResZanKaiGenbutuKaitukeSyousai), args.Error(1)
 }
 
-func (m *PositionUseCaseBalanceClientMock) GetZanKaiSinyouSinkidateSyousai(ctx context.Context, tradingDay int) (*response.ResZanKaiSinyouSinkidateSyousai, error) {
-	args := m.Called(ctx, tradingDay)
+func (m *PositionUseCaseBalanceClientMock) GetZanKaiSinyouSinkidateSyousai(ctx context.Context, session *client.Session, tradingDay int) (*response.ResZanKaiSinyouSinkidateSyousai, error) {
+	args := m.Called(ctx, session, tradingDay)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResZanKaiSinyouSinkidateSyousai), args.Error(1)
 }
 
-func (m *PositionUseCaseBalanceClientMock) GetZanRealHosyoukinRitu(ctx context.Context, req request.ReqZanRealHosyoukinRitu) (*response.ResZanRealHosyoukinRitu, error) {
-	args := m.Called(ctx, req)
+func (m *PositionUseCaseBalanceClientMock) GetZanRealHosyoukinRitu(ctx context.Context, session *client.Session, req request.ReqZanRealHosyoukinRitu) (*response.ResZanRealHosyoukinRitu, error) {
+	args := m.Called(ctx, session, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResZanRealHosyoukinRitu), args.Error(1)
 }
 
-func (m *PositionUseCaseBalanceClientMock) GetZanShinkiKanoIjiritu(ctx context.Context, req request.ReqZanShinkiKanoIjiritu) (*response.ResZanShinkiKanoIjiritu, error) {
-	args := m.Called(ctx, req)
+func (m *PositionUseCaseBalanceClientMock) GetZanShinkiKanoIjiritu(ctx context.Context, session *client.Session, req request.ReqZanShinkiKanoIjiritu) (*response.ResZanShinkiKanoIjiritu, error) {
+	args := m.Called(ctx, session, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResZanShinkiKanoIjiritu), args.Error(1)
 }
 
-func (m *PositionUseCaseBalanceClientMock) GetZanUriKanousuu(ctx context.Context, req request.ReqZanUriKanousuu) (*response.ResZanUriKanousuu, error) {
-	args := m.Called(ctx, req)
+func (m *PositionUseCaseBalanceClientMock) GetZanUriKanousuu(ctx context.Context, session *client.Session, req request.ReqZanUriKanousuu) (*response.ResZanUriKanousuu, error) {
+	args := m.Called(ctx, session, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
@@ -100,6 +101,7 @@ func (m *PositionUseCaseBalanceClientMock) GetZanUriKanousuu(ctx context.Context
 
 func TestListPositions_All(t *testing.T) {
 	ctx := context.Background()
+	session := &client.Session{}
 	balanceClientMock := new(PositionUseCaseBalanceClientMock)
 
 	// --- Mock Data ---
@@ -145,13 +147,13 @@ func TestListPositions_All(t *testing.T) {
 		},
 	}
 
-	balanceClientMock.On("GetGenbutuKabuList", ctx).Return(cashPositionsResponse, nil).Once()
-	balanceClientMock.On("GetShinyouTategyokuList", ctx).Return(marginPositionsResponse, nil).Once()
+	balanceClientMock.On("GetGenbutuKabuList", ctx, session).Return(cashPositionsResponse, nil).Once()
+	balanceClientMock.On("GetShinyouTategyokuList", ctx, session).Return(marginPositionsResponse, nil).Once()
 
 	uc := app.NewPositionUseCaseImpl(balanceClientMock)
 
 	// --- Execute ---
-	result, err := uc.ListPositions(ctx, "all")
+	result, err := uc.ListPositions(ctx, session, "all")
 
 	// --- Assert ---
 	assert.NoError(t, err)
@@ -183,16 +185,17 @@ func TestListPositions_All(t *testing.T) {
 
 func TestListPositions_ClientError(t *testing.T) {
 	ctx := context.Background()
+	session := &client.Session{}
 	balanceClientMock := new(PositionUseCaseBalanceClientMock)
 	expectedErr := errors.New("API error")
 
 	// Mock only one of the calls to fail
-	balanceClientMock.On("GetGenbutuKabuList", ctx).Return(nil, expectedErr).Once()
+	balanceClientMock.On("GetGenbutuKabuList", ctx, session).Return(nil, expectedErr).Once()
 
 	uc := app.NewPositionUseCaseImpl(balanceClientMock)
 
 	// --- Execute ---
-	result, err := uc.ListPositions(ctx, "all")
+	result, err := uc.ListPositions(ctx, session, "all")
 
 	// --- Assert ---
 	assert.Error(t, err)
@@ -200,7 +203,7 @@ func TestListPositions_ClientError(t *testing.T) {
 	assert.Contains(t, err.Error(), expectedErr.Error())
 
 	// Ensure the second client call was not made
-	balanceClientMock.AssertNotCalled(t, "GetShinyouTategyokuList", ctx)
+	balanceClientMock.AssertNotCalled(t, "GetShinyouTategyokuList", ctx, session)
 	balanceClientMock.AssertExpectations(t)
 }
 

@@ -7,8 +7,9 @@ import (
 	request_auth "stock-bot/internal/infrastructure/client/dto/auth/request"
 	"testing"
 
-	// timeパッケージをインポート
-	// "github.com/stretchr/testify/assert"
+	"time" // timeパッケージをインポート
+
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
@@ -275,35 +276,99 @@ func TestAuthClientImpl_LogoutOnly(t *testing.T) {
 	t.Logf("TestAuthClientImpl_LogoutOnly - ログアウト成功")
 }
 
-// // TestAuthClientImpl_Sequence_LoginWaitLogout は、ログイン、5分待機、ログアウトの一連のシーケンスをテストします。
-// // このテストは実行に5分以上かかります。
-// func TestAuthClientImpl_Sequence_LoginWaitLogout(t *testing.T) {
-// 	t.Log("【シーケンステスト開始】ログイン → 5分待機 → ログアウト")
+func TestAuthClientImpl_MultipleSessions(t *testing.T) {
+	c := client.CreateTestClient(t)
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
 
-// 	// 1. ログイン
-// 	c := client.CreateTestClient(t)
-// 	loginReq := request_auth.ReqLogin{
-// 		UserId:   c.GetUserIDForTest(),
-// 		Password: c.GetPasswordForTest(),
-// 	}
-// 	session, err := c.LoginWithPost(context.Background(), loginReq)
-// 	require.NoError(t, err, "シーケンステスト中のログインに失敗しました")
-// 	require.NotNil(t, session, "Session should not be nil")
-// 	require.Equal(t, "0", session.ResultCode, "ログインAPIからエラーが返されました")
-// 	t.Logf("ログイン成功。")
+	// 1. ログイン1 -> セッション1 を取得
+	t.Log("Executing Login 1...")
+	session1, err1 := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err1)
+	require.NotNil(t, session1)
+	require.Equal(t, "0", session1.ResultCode, "Login 1 failed. ResultCode: %s", session1.ResultCode)
+	t.Logf("Login 1 successful. Session1 ResultCode: %s", session1.ResultCode)
 
-// 	// 2. 5分間待機
-// 	const waitMinutes = 5
-// 	t.Logf("%d分間待機します...", waitMinutes)
-// 	time.Sleep(waitMinutes * time.Minute)
-// 	t.Log("待機完了。")
+	// 2. すぐにログイン2 -> セッション2 を取得
+	t.Log("Executing Login 2...")
+	session2, err2 := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err2)
+	require.NotNil(t, session2)
+	require.Equal(t, "0", session2.ResultCode, "Login 2 failed. ResultCode: %s", session2.ResultCode)
+	t.Logf("Login 2 successful. Session2 ResultCode: %s", session2.ResultCode)
 
-// 	// 3. ログアウト
-// 	// ここでは、新しくログインせず、既存のセッションを使ってログアウトのみを実行します。
-// 	logoutRes, err := c.LogoutWithPost(context.Background(), session, request_auth.ReqLogout{})
-// 	require.NoError(t, err, "ログアウトAPIの呼び出し自体に失敗しました")
-// 	require.NotNil(t, logoutRes, "ログアウトのレスポンスがnilです")
-// 	t.Logf("ログアウトAPIの応答: ResultCode=%s, ResultText=%s", logoutRes.ResultCode, logoutRes.ResultText)
+	// セッションオブジェクト自体が異なることを確認（念のため）
+	assert.NotSame(t, session1, session2, "Sessions should be different objects")
+	// Session内のpNoが異なることを確認 (atomic.Int32はポインタ比較では同じになる可能性があるため、具体的な値を確認)
+	// ただし、pNoは次のリクエストでインクリメントされるため、直後の比較は意味がない。
+	// APIから返される各Sessionは独立していることを期待するため、オブジェクト自体の比較で十分。
 
-// 	// このテストでは、ログアウトAPIがどのような結果を返すか（成功するのか、セッション切れエラーか）を観察します。
-// }
+	// 3. ログアウト1 (セッション1を使用)
+	t.Log("Executing Logout 1 with session 1...")
+	logoutRes1, err3 := c.LogoutWithPost(context.Background(), session1, request_auth.ReqLogout{})
+	require.NoError(t, err3)
+	require.NotNil(t, logoutRes1)
+	// ログイン2によってセッション1は無効化されているため、ResultCodeは"0"ではないことを期待する
+	assert.NotEqual(t, "0", logoutRes1.ResultCode, "Logout 1 with session 1 should have failed, but it succeeded.")
+	t.Logf("Logout 1 with invalidated session failed as expected. ResultCode: %s, ResultText: %s", logoutRes1.ResultCode, logoutRes1.ResultText)
+
+	// 4. ログアウト2 (セッション2を使用)
+	t.Log("Executing Logout 2 with session 2...")
+	logoutRes2, err4 := c.LogoutWithPost(context.Background(), session2, request_auth.ReqLogout{})
+	require.NoError(t, err4)
+	require.NotNil(t, logoutRes2)
+	assert.Equal(t, "0", logoutRes2.ResultCode, "Logout 2 failed with session 2. ResultCode: %s, ResultText: %s", logoutRes2.ResultCode, logoutRes2.ResultText)
+	t.Logf("Logout 2 Result (Session2): Code=%s, Text=%s", logoutRes2.ResultCode, logoutRes2.ResultText)
+}
+
+// go test -v ./internal/infrastructure/client/tests/auth_client_impl_test.go -run TestAuthClientImpl_MultipleSessions
+
+// TestAuthClientImpl_Sequence_LoginWaitLogoutLogin は、ログイン、5分待機、ログアウト、再ログインの一連のシーケンスをテストします。
+// このテストは実行に5分以上かかります。
+func TestAuthClientImpl_Sequence_LoginWaitLogoutLogin(t *testing.T) {
+	t.Log("【シーケンステスト開始】ログイン → 5分待機 → ログアウト → 再ログイン")
+
+	// 1. ログイン
+	c := client.CreateTestClient(t)
+	loginReq := request_auth.ReqLogin{
+		UserId:   c.GetUserIDForTest(),
+		Password: c.GetPasswordForTest(),
+	}
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err, "シーケンステスト中の初回ログインに失敗しました")
+	require.NotNil(t, session, "初回ログインのSessionがnilです")
+	require.Equal(t, "0", session.ResultCode, "初回ログインAPIからエラーが返されました")
+	t.Logf("ログイン成功。")
+
+	// 2. 5分間待機
+	const waitMinutes = 5
+	t.Logf("%d分間待機します...", waitMinutes)
+	time.Sleep(waitMinutes * time.Minute)
+	t.Log("待機完了。")
+
+	// 3. ログアウト
+	logoutRes, err := c.LogoutWithPost(context.Background(), session, request_auth.ReqLogout{})
+	require.NoError(t, err, "ログアウトAPIの呼び出し自体に失敗しました")
+	require.NotNil(t, logoutRes, "ログアウトのレスポンスがnilです")
+	t.Logf("ログアウトAPIの応答: ResultCode=%s, ResultText=%s", logoutRes.ResultCode, logoutRes.ResultText)
+	// ログアウト自体は成功することを期待
+	assert.Equal(t, "0", logoutRes.ResultCode, "5分後のログアウトが失敗しました")
+
+	// 4. 再ログイン
+	t.Log("再ログインを試みます...")
+	reloginSession, reloginErr := c.LoginWithPost(context.Background(), loginReq)
+
+	// 電話認証の有効期間(3分)が切れているため、再ログインは失敗することを期待する
+	// APIからエラーが返されるため、reloginErrがnilではないことを検証する
+	require.Error(t, reloginErr, "電話認証が切れているため、再ログインはエラーを返すはずでした")
+	// TEST-002の結果から、エラーメッセージに "10089" が含まれることを期待
+	assert.Contains(t, reloginErr.Error(), "10089", "エラーメッセージに result code 10089 が含まれていません")
+	// reloginSession はエラー時にはnilである可能性が高いため、nilであることを確認
+	assert.Nil(t, reloginSession, "再ログイン失敗時、セッションはnilであるはずです")
+
+	t.Logf("期待通り、再ログインに失敗しました。エラー: %v", reloginErr)
+}
+
+// go test -v ./internal/infrastructure/client/tests/auth_client_impl_test.go -run TestAuthClientImpl_Sequence_LoginWaitLogoutLogin

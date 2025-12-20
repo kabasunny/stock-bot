@@ -5,6 +5,7 @@ import (
 	"errors"
 	"stock-bot/domain/model"
 	"stock-bot/internal/app"
+	"stock-bot/internal/infrastructure/client"
 	"stock-bot/internal/infrastructure/client/dto/master/request"
 	"stock-bot/internal/infrastructure/client/dto/master/response"
 	"testing"
@@ -19,45 +20,45 @@ type MasterDataClientMock struct {
 }
 
 // Ensure all methods of client.MasterDataClient are implemented.
-func (m *MasterDataClientMock) DownloadMasterData(ctx context.Context, req request.ReqDownloadMaster) (*response.ResDownloadMaster, error) {
-	args := m.Called(ctx, req)
+func (m *MasterDataClientMock) DownloadMasterData(ctx context.Context, session *client.Session, req request.ReqDownloadMaster) (*response.ResDownloadMaster, error) {
+	args := m.Called(ctx, session, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResDownloadMaster), args.Error(1)
 }
-func (m *MasterDataClientMock) GetMasterDataQuery(ctx context.Context, req request.ReqGetMasterData) (*response.ResGetMasterData, error) {
-	args := m.Called(ctx, req)
+func (m *MasterDataClientMock) GetMasterDataQuery(ctx context.Context, session *client.Session, req request.ReqGetMasterData) (*response.ResGetMasterData, error) {
+	args := m.Called(ctx, session, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResGetMasterData), args.Error(1)
 }
-func (m *MasterDataClientMock) GetNewsHeader(ctx context.Context, req request.ReqGetNewsHead) (*response.ResGetNewsHeader, error) {
-	args := m.Called(ctx, req)
+func (m *MasterDataClientMock) GetNewsHeader(ctx context.Context, session *client.Session, req request.ReqGetNewsHead) (*response.ResGetNewsHeader, error) {
+	args := m.Called(ctx, session, req)
 	return nil, args.Error(1)
 }
-func (m *MasterDataClientMock) GetNewsBody(ctx context.Context, req request.ReqGetNewsBody) (*response.ResGetNewsBody, error) {
-	args := m.Called(ctx, req)
+func (m *MasterDataClientMock) GetNewsBody(ctx context.Context, session *client.Session, req request.ReqGetNewsBody) (*response.ResGetNewsBody, error) {
+	args := m.Called(ctx, session, req)
 	return nil, args.Error(1)
 }
-func (m *MasterDataClientMock) GetIssueDetail(ctx context.Context, req request.ReqGetIssueDetail) (*response.ResGetIssueDetail, error) {
-	args := m.Called(ctx, req)
+func (m *MasterDataClientMock) GetIssueDetail(ctx context.Context, session *client.Session, req request.ReqGetIssueDetail) (*response.ResGetIssueDetail, error) {
+	args := m.Called(ctx, session, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
 	return args.Get(0).(*response.ResGetIssueDetail), args.Error(1)
 }
-func (m *MasterDataClientMock) GetMarginInfo(ctx context.Context, req request.ReqGetMarginInfo) (*response.ResGetMarginInfo, error) {
-	args := m.Called(ctx, req)
+func (m *MasterDataClientMock) GetMarginInfo(ctx context.Context, session *client.Session, req request.ReqGetMarginInfo) (*response.ResGetMarginInfo, error) {
+	args := m.Called(ctx, session, req)
 	return nil, args.Error(1)
 }
-func (m *MasterDataClientMock) GetCreditInfo(ctx context.Context, req request.ReqGetCreditInfo) (*response.ResGetCreditInfo, error) {
-	args := m.Called(ctx, req)
+func (m *MasterDataClientMock) GetCreditInfo(ctx context.Context, session *client.Session, req request.ReqGetCreditInfo) (*response.ResGetCreditInfo, error) {
+	args := m.Called(ctx, session, req)
 	return nil, args.Error(1)
 }
-func (m *MasterDataClientMock) GetMarginPremiumInfo(ctx context.Context, req request.ReqGetMarginPremiumInfo) (*response.ResGetMarginPremiumInfo, error) {
-	args := m.Called(ctx, req)
+func (m *MasterDataClientMock) GetMarginPremiumInfo(ctx context.Context, session *client.Session, req request.ReqGetMarginPremiumInfo) (*response.ResGetMarginPremiumInfo, error) {
+	args := m.Called(ctx, session, req)
 	return nil, args.Error(1)
 }
 
@@ -171,6 +172,7 @@ func TestGetStock_RepoError(t *testing.T) {
 
 func TestDownloadAndStoreMasterData_Success(t *testing.T) {
 	ctx := context.Background()
+	session := &client.Session{}
 	masterClientMock := new(MasterDataClientMock)
 	masterRepoMock := new(MasterRepositoryMock)
 
@@ -228,7 +230,7 @@ func TestDownloadAndStoreMasterData_Success(t *testing.T) {
 	}
 
 	// --- Mock Setup ---
-	masterClientMock.On("DownloadMasterData", ctx, request.ReqDownloadMaster{}).Return(dummyMasterData, nil).Once()
+	masterClientMock.On("DownloadMasterData", ctx, session, request.ReqDownloadMaster{}).Return(dummyMasterData, nil).Once()
 
 	var capturedStocks []*model.StockMaster
 	masterRepoMock.On("UpsertStockMasters", ctx, mock.AnythingOfType("[]*model.StockMaster")).Run(func(args mock.Arguments) {
@@ -239,7 +241,7 @@ func TestDownloadAndStoreMasterData_Success(t *testing.T) {
 
 	// --- Execute ---
 	uc := app.NewMasterUseCaseImpl(masterClientMock, masterRepoMock)
-	err := uc.DownloadAndStoreMasterData(ctx)
+	err := uc.DownloadAndStoreMasterData(ctx, session)
 
 	// --- Assert ---
 	assert.NoError(t, err)

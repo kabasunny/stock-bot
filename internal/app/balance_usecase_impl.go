@@ -18,9 +18,9 @@ func NewBalanceUseCaseImpl(balanceClient client.BalanceClient) BalanceUseCase {
 }
 
 // GetBalance retrieves the account balance summary, parses it, and returns it.
-func (uc *balanceUseCaseImpl) GetBalance(ctx context.Context) (*BalanceResult, error) {
+func (uc *balanceUseCaseImpl) GetBalance(ctx context.Context, session *client.Session) (*BalanceResult, error) {
 	// Call the client to get the raw summary data
-	summary, err := uc.balanceClient.GetZanKaiSummary(ctx)
+	summary, err := uc.balanceClient.GetZanKaiSummary(ctx, session)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get balance summary from client: %w", err)
 	}

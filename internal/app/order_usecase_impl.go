@@ -26,7 +26,7 @@ func NewOrderUseCaseImpl(orderClient client.OrderClient, orderRepo repository.Or
 }
 
 // ExecuteOrder は注文を実行します
-func (uc *OrderUseCaseImpl) ExecuteOrder(ctx context.Context, params OrderParams) (*model.Order, error) {
+func (uc *OrderUseCaseImpl) ExecuteOrder(ctx context.Context, session *client.Session, params OrderParams) (*model.Order, error) {
 	// 1. 外部APIへのリクエストDTOに変換
 	// TradeType のマッピング
 	var baibaiKubun string
@@ -72,7 +72,7 @@ func (uc *OrderUseCaseImpl) ExecuteOrder(ctx context.Context, params OrderParams
 	}
 
 	// 2. 外部API（証券会社）を呼び出す
-	res, err := uc.orderClient.NewOrder(ctx, req) // No change in call, but req type changed
+	res, err := uc.orderClient.NewOrder(ctx, session, req) // No change in call, but req type changed
 	if err != nil {
 		return nil, fmt.Errorf("failed to execute order via client: %w", err)
 	}

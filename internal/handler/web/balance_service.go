@@ -5,19 +5,22 @@ import (
 	"log/slog"
 	"stock-bot/gen/balance" // This is the Goa-generated service interface and types
 	"stock-bot/internal/app" // This is our app-level use case interface and types
+	"stock-bot/internal/infrastructure/client"
 )
 
 // BalanceService implements the balance.Service interface.
 type BalanceService struct {
 	balanceUseCase app.BalanceUseCase
 	logger         *slog.Logger
+	session        *client.Session
 }
 
 // NewBalanceService creates a new BalanceService.
-func NewBalanceService(balanceUseCase app.BalanceUseCase, logger *slog.Logger) *BalanceService {
+func NewBalanceService(balanceUseCase app.BalanceUseCase, logger *slog.Logger, session *client.Session) *BalanceService {
 	return &BalanceService{
 		balanceUseCase: balanceUseCase,
 		logger:         logger,
+		session:        session,
 	}
 }
 
@@ -26,7 +29,7 @@ func (s *BalanceService) Get(ctx context.Context) (res *balance.StockbotBalance,
 	s.logger.Info("GetBalance called")
 
 	// Call the use case
-	balanceResult, err := s.balanceUseCase.GetBalance(ctx)
+	balanceResult, err := s.balanceUseCase.GetBalance(ctx, s.session)
 	if err != nil {
 		s.logger.Error("Failed to get balance from use case", slog.Any("error", err))
 		return nil, err

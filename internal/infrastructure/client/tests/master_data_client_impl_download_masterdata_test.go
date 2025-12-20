@@ -10,6 +10,7 @@ import (
 	"stock-bot/internal/infrastructure/client/dto/master/request"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require" // 追加
 
 	"testing"
 )
@@ -23,117 +24,118 @@ func TestMasterDataClientImpl_DownloadMasterDataWithPost(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.LoginWithPost(context.Background(), loginReq)
-	assert.NoError(t, err)
+	session, err := c.LoginWithPost(context.Background(), loginReq) // session を受け取るように変更
+	require.NoError(t, err)                                        // assert -> require
+	require.NotNil(t, session)                                     // session が nil でないことを確認
 
 	// 正常系: システムステータスのダウンロードが成功すること
-	// t.Run("正常系: 1.システムステータスのダウンロードが成功すること", func(t *testing.T) {
-	// 	// マスタ情報ダウンロードのリクエストデータを作成 (システムステータスのみ)
-	// 	downloadReq := request.ReqDownloadMaster{
-	// 		TargetCLMID: "CLMSystemStatus,CLMEventDownloadComplete", // システムステータスのみ
-	// 	}
+	t.Run("正常系: 1.システムステータスのダウンロードが成功すること", func(t *testing.T) {
+		// マスタ情報ダウンロードのリクエストデータを作成 (システムステータスのみ)
+		downloadReq := request.ReqDownloadMaster{
+			TargetCLMID: "CLMSystemStatus,CLMEventDownloadComplete", // システムステータスのみ
+		}
 
-	// 	// DownloadMasterData メソッドを実行
-	// 	res, err := c.DownloadMasterData(context.Background(), downloadReq)
+		// DownloadMasterData メソッドを実行
+		res, err := c.DownloadMasterData(context.Background(), session, downloadReq) // session引数を追加
 
-	// 	// レスポンスとエラーをチェック
-	// 	assert.NoError(t, err)
-	// 	assert.NotNil(t, res)
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
 
-	// 	// SystemStatus が取得できているかチェック
-	// 	if res != nil && res.SystemStatus.CLMID == "CLMSystemStatus" {
-	// 		assert.Equal(t, "CLMSystemStatus", res.SystemStatus.CLMID)
+		// SystemStatus が取得できているかチェック
+		if res != nil && res.SystemStatus.CLMID == "CLMSystemStatus" {
+			assert.Equal(t, "CLMSystemStatus", res.SystemStatus.CLMID)
 
-	// 		// 構造体を JSON 形式に変換して出力
-	// 		jsonData, err := json.MarshalIndent(res.SystemStatus, "", "  ") // インデント付きで出力
-	// 		if err != nil {
-	// 			t.Errorf("JSON 変換エラー: %v", err)
-	// 			return
-	// 		}
-	// 		fmt.Println("SystemStatus Data (JSON):")
-	// 		fmt.Println(string(jsonData))
+			// 構造体を JSON 形式に変換して出力
+			jsonData, err := json.MarshalIndent(res.SystemStatus, "", "  ") // インデント付きで出力
+			if err != nil {
+				t.Errorf("JSON 変換エラー: %v", err)
+				return
+			}
+			fmt.Println("SystemStatus Data (JSON):")
+			fmt.Println(string(jsonData))
 
-	// 	} else {
-	// 		t.Errorf("SystemStatus が取得できていません。レスポンス: %v", res)
-	// 	}
-	// })
+		} else {
+			t.Errorf("SystemStatus が取得できていません。レスポンス: %v", res)
+		}
+	})
 
 	// 正常系: DateInfo のダウンロードが成功すること
-	// t.Run("正常系: 2.DateInfo のダウンロードが成功すること", func(t *testing.T) {
-	// 	// マスタ情報ダウンロードのリクエストデータを作成 (DateInfoのみ)
-	// 	downloadReq := request.ReqDownloadMaster{
-	// 		TargetCLMID: "CLMDateZyouhou,CLMEventDownloadComplete", // DateInfo のみ
-	// 	}
+	t.Run("正常系: 2.DateInfo のダウンロードが成功すること", func(t *testing.T) {
+		// マスタ情報ダウンロードのリクエストデータを作成 (DateInfoのみ)
+		downloadReq := request.ReqDownloadMaster{
+			TargetCLMID: "CLMDateZyouhou,CLMEventDownloadComplete", // DateInfo のみ
+		}
 
-	// 	// DownloadMasterData メソッドを実行
-	// 	res, err := c.DownloadMasterData(context.Background(), downloadReq)
+		// DownloadMasterData メソッドを実行
+		res, err := c.DownloadMasterData(context.Background(), session, downloadReq) // session引数を追加
 
-	// 	// レスポンスとエラーをチェック
-	// 	assert.NoError(t, err)
-	// 	assert.NotNil(t, res)
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
 
-	// 	// DateInfo が取得できているかチェック
-	// 	if res != nil && res.DateInfo.CLMID == "CLMDateZyouhou" {
-	// 		assert.Equal(t, "CLMDateZyouhou", res.DateInfo.CLMID)
+		// DateInfo が取得できているかチェック
+		if res != nil && len(res.DateInfo) > 0 && res.DateInfo[0].CLMID == "CLMDateZyouhou" {
+			assert.Equal(t, "CLMDateZyouhou", res.DateInfo[0].CLMID)
 
-	// 		// 構造体を JSON 形式に変換して出力
-	// 		jsonData, err := json.MarshalIndent(res.DateInfo, "", "  ") // インデント付きで出力
-	// 		if err != nil {
-	// 			t.Errorf("JSON 変換エラー: %v", err)
-	// 			return
-	// 		}
-	// 		fmt.Println("DateInfo Data (JSON):")
-	// 		fmt.Println(string(jsonData))
+			// 構造体を JSON 形式に変換して出力
+			jsonData, err := json.MarshalIndent(res.DateInfo[0], "", "  ") // インデント付きで出力 (最初の要素のみ表示)
+			if err != nil {
+				t.Errorf("JSON 変換エラー: %v", err)
+				return
+			}
+			fmt.Println("DateInfo Data (JSON):")
+			fmt.Println(string(jsonData))
 
-	// 	} else {
-	// 		t.Errorf("DateInfo が取得できていません。レスポンス: %v", res)
-	// 	}
-	// })
+		} else {
+			t.Errorf("DateInfo が取得できていません。レスポンス: %v", res)
+		}
+	})
 
 	// 正常系: 呼値 (TickRule) のダウンロードが成功すること
-	// t.Run("正常系: 3.呼値 (TickRule) のダウンロードが成功すること", func(t *testing.T) {
-	// 	// マスタ情報ダウンロードのリクエストデータを作成 (TickRuleのみ)
-	// 	downloadReq := request.ReqDownloadMaster{
-	// 		TargetCLMID: "CLMYobine,CLMEventDownloadComplete", // TickRule のみ
-	// 	}
+	t.Run("正常系: 3.呼値 (TickRule) のダウンロードが成功すること", func(t *testing.T) {
+		// マスタ情報ダウンロードのリクエストデータを作成 (TickRuleのみ)
+		downloadReq := request.ReqDownloadMaster{
+			TargetCLMID: "CLMYobine,CLMEventDownloadComplete", // TickRule のみ
+		}
 
-	// 	// DownloadMasterData メソッドを実行
-	// 	res, err := c.DownloadMasterData(context.Background(), downloadReq)
+		// DownloadMasterData メソッドを実行
+		res, err := c.DownloadMasterData(context.Background(), session, downloadReq) // session引数を追加
 
-	// 	// レスポンスとエラーをチェック
-	// 	assert.NoError(t, err)
-	// 	assert.NotNil(t, res)
+		// レスポンスとエラーをチェック
+		assert.NoError(t, err)
+		assert.NotNil(t, res)
 
-	// 	// TickRule が取得できているかチェック
-	// 	if res != nil && len(res.TickRule) > 0 {
-	// 		found := false
-	// 		for _, tickRule := range res.TickRule {
-	// 			if tickRule.CLMID == "CLMYobine" && tickRule.TickUnitNumber == "101" {
-	// 				found = true
+		// TickRule が取得できているかチェック
+		if res != nil && len(res.TickRule) > 0 {
+			found := false
+			for _, tickRule := range res.TickRule {
+				if tickRule.CLMID == "CLMYobine" && tickRule.TickUnitNumber == "101" {
+					found = true
 
-	// 				// 構造体を JSON 形式に変換して出力
-	// 				jsonData, err := json.MarshalIndent(tickRule, "", "  ") // インデント付きで出力
-	// 				if err != nil {
-	// 					t.Errorf("JSON 変換エラー: %v", err)
-	// 					return
-	// 				}
-	// 				fmt.Println("TickRule Data (JSON):")
-	// 				fmt.Println(string(jsonData))
+					// 構造体を JSON 形式に変換して出力
+					jsonData, err := json.MarshalIndent(tickRule, "", "  ") // インデント付きで出力
+					if err != nil {
+						t.Errorf("JSON 変換エラー: %v", err)
+						return
+					}
+					fmt.Println("TickRule Data (JSON):")
+					fmt.Println(string(jsonData))
 
-	// 				// 必要に応じて、他のフィールドもチェック
-	// 				// assert.Equal(t, "20140101", tickRule.ApplicableDate) // 例: 適用日が 20140101 であることを確認
-	// 				break // "101" が見つかったらループを抜ける
-	// 			}
-	// 		}
+					// 必要に応じて、他のフィールドもチェック
+					// assert.Equal(t, "20140101", tickRule.ApplicableDate) // 例: 適用日が 20140101 であることを確認
+					break // "101" が見つかったらループを抜ける
+				}
+			}
 
-	// 		if !found {
-	// 			t.Errorf("sYobineTaniNumber が 101 の TickRule が見つかりませんでした。レスポンス: %v", res)
-	// 		}
+			if !found {
+				t.Errorf("sYobineTaniNumber が 101 の TickRule が見つかりませんでした。レスポンス: %v", res)
+			}
 
-	// 	} else {
-	// 		t.Errorf("TickRule が取得できていません。レスポンス: %v", res)
-	// 	}
-	// })
+		} else {
+			t.Errorf("TickRule が取得できていません。レスポンス: %v", res)
+		}
+	})
 
 	// 正常系: 全マスタ情報のダウンロードが成功すること (TargetCLMID 未指定)
 	t.Run("正常系: 4.全マスタ情報のダウンロードが成功すること (TargetCLMID 未指定)", func(t *testing.T) {
@@ -141,7 +143,7 @@ func TestMasterDataClientImpl_DownloadMasterDataWithPost(t *testing.T) {
 		downloadReq := request.ReqDownloadMaster{}
 
 		// DownloadMasterData メソッドを実行
-		res, err := c.DownloadMasterData(context.Background(), downloadReq)
+		res, err := c.DownloadMasterData(context.Background(), session, downloadReq) // session引数を追加
 
 		// レスポンスとエラーをチェック
 		assert.NoError(t, err)
