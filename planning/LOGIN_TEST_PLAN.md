@@ -95,7 +95,7 @@
   2. 電話認証を行う。
   3. 追加したテストを実行する。このテストは完了まで30分以上かかる。
      ```bash
-     go test -v ./internal/infrastructure/client/tests/price_info_client_impl_prod_test.go -run TestPriceInfo_Sequence_LoginWaitGetPrice
+     go test -v ./internal/infrastructure/client/tests/price_info_client_impl_prod_test.go -run TestPriceInfo_Sequence_LoginWaitGetPrice -timeout 40m
      ```
 - **期待される結果**: もし無通信タイムアウトの仕様があれば、30分後の株価照会はセッションエラーとなり失敗する。もし無ければ成功する。どちらの結果になるかを確認することが目的。
 - **実行結果**:

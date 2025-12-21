@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
+	"stock-bot/internal/agent"
 	"stock-bot/internal/app"
 	"stock-bot/internal/config"
 	"stock-bot/internal/handler/web"
@@ -20,14 +21,14 @@ import (
 
 	_ "stock-bot/internal/logger" // loggerパッケージをインポートし、slog.Default()を初期化
 
-	ordersvr "stock-bot/gen/http/order/server"
 	balance "stock-bot/gen/balance"
 	balancesvr "stock-bot/gen/http/balance/server"
+	mastersvr "stock-bot/gen/http/master/server" // New import
+	ordersvr "stock-bot/gen/http/order/server"
 	positionsvr "stock-bot/gen/http/position/server" // New import
+	mastergen "stock-bot/gen/master"                 // New import
 	order "stock-bot/gen/order"
 	positiongen "stock-bot/gen/position" // New import
-	mastersvr "stock-bot/gen/http/master/server" // New import
-	mastergen "stock-bot/gen/master"               // New import
 
 	goahttp "goa.design/goa/v3/http"
 	"goa.design/goa/v3/http/middleware"
@@ -88,17 +89,14 @@ func main() {
 		slog.Default().Error("failed to login", slog.Any("error", err))
 		os.Exit(1)
 	}
-    if appSession.ResultCode != "0" {
-        slog.Default().Error("failed to login: API returned error", slog.String("code", appSession.ResultCode), slog.String("text", appSession.ResultText))
-        os.Exit(1)
-    }
+	if appSession.ResultCode != "0" {
+		slog.Default().Error("failed to login: API returned error", slog.String("code", appSession.ResultCode), slog.String("text", appSession.ResultText))
+		os.Exit(1)
+	}
 	slog.Default().Info("login successful")
 
 	// 4-2. リポジトリを初期化
 	orderRepo := repository_impl.NewOrderRepository(db)
-	// NOTE: 他のリポジトリやユースケースも今後同様に初期化する
-	// positionRepo := repository_impl.NewPositionRepositoryImpl(db)
-	// signalRepo := repository_impl.NewSignalRepositoryImpl(db)
 	masterRepo := repository_impl.NewMasterRepository(db)
 
 	// 4-3. ユースケースを初期化
@@ -119,6 +117,14 @@ func main() {
 		slog.Default().Info("Skipping initial master data synchronization.")
 	}
 
+	// 4-Y. エージェント用トレードサービスの初期化
+	goaTradeService := agent.NewGoaTradeService(
+		tachibanaClient, // tachibanaClient は BalanceClient インターフェースを実装
+		tachibanaClient, // tachibanaClient は OrderClient インターフェースを実装
+		appSession,
+		slog.Default(),
+	)
+
 	// 5. Goaサービスの実装を初期化
 	orderSvc := web.NewOrderService(orderUsecase, slog.Default(), appSession)
 	balanceSvc := web.NewBalanceService(balanceUsecase, slog.Default(), appSession)
@@ -132,25 +138,24 @@ func main() {
 	orderEndpoints := order.NewEndpoints(orderSvc)
 	balanceEndpoints := balance.NewEndpoints(balanceSvc)
 	positionEndpoints := positiongen.NewEndpoints(positionSvc)
-	masterEndpoints := mastergen.NewEndpoints(masterSvc) // New line
+	masterEndpoints := mastergen.NewEndpoints(masterSvc)
 
 	mux := goahttp.NewMuxer()
 
 	server := ordersvr.New(orderEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
 	balanceserver := balancesvr.New(balanceEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
 	positionserver := positionsvr.New(positionEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
-	masterserver := mastersvr.New(masterEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil) // New line
+	masterserver := mastersvr.New(masterEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
 
 	ordersvr.Mount(mux, server)
 	balancesvr.Mount(mux, balanceserver)
 	positionsvr.Mount(mux, positionserver)
-	mastersvr.Mount(mux, masterserver) // New line
+	mastersvr.Mount(mux, masterserver)
 
-	// OpenAPI仕様配信用に静的ファイルサーバーをマウント
 	fs := http.FileServer(http.Dir("./gen/http/openapi"))
 	mux.Handle("GET", "/swagger/", http.HandlerFunc(http.StripPrefix("/swagger/", fs).ServeHTTP))
 
-	// 7. HTTPサーバーの起動
+	// 7. HTTPサーバーとエージェントの起動
 	addr := fmt.Sprintf("http://localhost:%d", cfg.HTTPPort)
 	u, err := url.Parse(addr)
 	if err != nil {
@@ -158,6 +163,20 @@ func main() {
 		os.Exit(1)
 	}
 
+	// 7-1. エージェントの初期化と起動
+	agentConfigPath := "agent_config.yaml" // TODO: コマンドライン引数で渡せるようにする
+	stockAgent, err := agent.NewAgent(agentConfigPath, goaTradeService)
+	if err != nil {
+		slog.Default().Error("failed to create agent", "config", agentConfigPath, slog.Any("error", err))
+		os.Exit(1)
+	}
+	wg.Add(1)
+	go func() {
+		defer wg.Done()
+		stockAgent.Start()
+	}()
+
+	// 7-2. HTTPサーバーの起動
 	srv := &http.Server{
 		Addr:    u.Host,
 		Handler: middleware.Log(goaLogger)(mux),
@@ -183,6 +202,10 @@ func main() {
 		slog.Default().Info(fmt.Sprintf("received signal %s, shutting down", sig))
 	}
 
+	// エージェントを停止
+	stockAgent.Stop()
+
+	// サーバーを停止
 	shutdownCtx, shutdownCancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer shutdownCancel()
 	if err := srv.Shutdown(shutdownCtx); err != nil {

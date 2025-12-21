@@ -1,0 +1,17 @@
+agent:
+  strategy: swingtrade
+  execution_interval: 10s # 動作確認しやすいように短くする
+  log_level: info
+  timezone: "Asia/Tokyo"
+strategy_settings:
+  swingtrade:
+    target_symbols:
+      - "7203"
+      - "9984"
+    lot_size: 100
+    profit_take_rate: 5.0
+    stop_loss_rate: 2.0
+    signal_file_pattern: "./signals/*.bin"
+api:
+  go_wrapper_url: "http://localhost:8080"
+  python_signal_url: "http://localhost:5000"
