@@ -10,7 +10,7 @@ import (
 // PriceInfoClient は、時価情報関連の API を扱うインターフェース
 type PriceInfoClient interface {
 	// GetPriceInfo は、指定した銘柄の時価情報を取得
-	GetPriceInfo(ctx context.Context, req request.ReqGetPriceInfo) (*response.ResGetPriceInfo, error)
+	GetPriceInfo(ctx context.Context, session *Session, req request.ReqGetPriceInfo) (*response.ResGetPriceInfo, error)
 	// GetPriceInfoHistory は、指定した銘柄の過去の時価情報（四本値、出来高など）を取得
-	GetPriceInfoHistory(ctx context.Context, req request.ReqGetPriceInfoHistory) (*response.ResGetPriceInfoHistory, error)
+	GetPriceInfoHistory(ctx context.Context, session *Session, req request.ReqGetPriceInfoHistory) (*response.ResGetPriceInfoHistory, error)
 }

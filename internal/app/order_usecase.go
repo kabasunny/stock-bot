@@ -4,14 +4,18 @@ package app
 import (
 	"context"
 	"stock-bot/domain/model"
+	"stock-bot/internal/infrastructure/client"
 )
 
 type OrderUseCase interface {
-	ExecuteOrder(ctx context.Context, orderParams OrderParams) (*model.Order, error)
+	ExecuteOrder(ctx context.Context, session *client.Session, orderParams OrderParams) (*model.Order, error)
 }
 
 type OrderParams struct {
 	Symbol    string
 	TradeType model.TradeType
-	// 他の注文に必要なパラメータ
+	OrderType model.OrderType
+	Quantity  uint64
+	Price     float64
+	IsMargin  bool
 }

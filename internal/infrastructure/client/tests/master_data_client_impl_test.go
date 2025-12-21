@@ -9,6 +9,7 @@ import (
 	"testing"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require" // 追加
 )
 
 func TestGetMasterDataQuery(t *testing.T) {
@@ -20,8 +21,9 @@ func TestGetMasterDataQuery(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.Login(context.Background(), loginReq)
-	assert.NoError(t, err)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	// リクエストパラメータの設定
 	req := request.ReqGetMasterData{
@@ -30,7 +32,7 @@ func TestGetMasterDataQuery(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetMasterDataQuery(context.Background(), req)
+	res, err := c.GetMasterDataQuery(context.Background(), session, req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -61,8 +63,9 @@ func TestGetNewsHeader(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.Login(context.Background(), loginReq)
-	assert.NoError(t, err)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	// リクエストパラメータの設定 (必須パラメータのみ)
 	req := request.ReqGetNewsHead{
@@ -71,7 +74,7 @@ func TestGetNewsHeader(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetNewsHeader(context.Background(), req)
+	res, err := c.GetNewsHeader(context.Background(), session, req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -100,17 +103,19 @@ func TestGetNewsBody(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.Login(context.Background(), loginReq)
-	assert.NoError(t, err)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	// リクエストパラメータの設定 (必須パラメータのみ)
+	// TODO: 実際に存在するニュースIDを設定する必要がある
 	newsID := "20230315121900_NYU8165"
 	req := request.ReqGetNewsBody{
 		NewsID: newsID, // 適切なニュースIDを設定
 	}
 
 	// API呼び出し
-	res, err := c.GetNewsBody(context.Background(), req)
+	res, err := c.GetNewsBody(context.Background(), session, req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -141,8 +146,9 @@ func TestGetIssueDetail(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.Login(context.Background(), loginReq)
-	assert.NoError(t, err)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	// リクエストパラメータの設定
 	targetIssueCode := "6501,7203" // 銘柄コード指定
@@ -151,7 +157,7 @@ func TestGetIssueDetail(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetIssueDetail(context.Background(), req)
+	res, err := c.GetIssueDetail(context.Background(), session, req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -179,8 +185,9 @@ func TestGetMarginInfo(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.Login(context.Background(), loginReq)
-	assert.NoError(t, err)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	// リクエストパラメータの設定
 	targetIssueCode := "6501,7203" // 銘柄コード指定
@@ -189,7 +196,7 @@ func TestGetMarginInfo(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetMarginInfo(context.Background(), req)
+	res, err := c.GetMarginInfo(context.Background(), session, req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -217,8 +224,9 @@ func TestGetCreditInfo(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.Login(context.Background(), loginReq)
-	assert.NoError(t, err)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	// リクエストパラメータの設定
 	targetIssueCode := "6501,7203" // 銘柄コード指定
@@ -227,7 +235,7 @@ func TestGetCreditInfo(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetCreditInfo(context.Background(), req)
+	res, err := c.GetCreditInfo(context.Background(), session, req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}
@@ -255,8 +263,9 @@ func TestGetMarginPremiumInfo(t *testing.T) {
 		UserId:   c.GetUserIDForTest(),
 		Password: c.GetPasswordForTest(),
 	}
-	_, err := c.Login(context.Background(), loginReq)
-	assert.NoError(t, err)
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+	require.NoError(t, err)
+	require.NotNil(t, session)
 
 	// リクエストパラメータの設定
 	targetIssueCode := "6501,7203" // 銘柄コード指定
@@ -265,7 +274,7 @@ func TestGetMarginPremiumInfo(t *testing.T) {
 	}
 
 	// API呼び出し
-	res, err := c.GetMarginPremiumInfo(context.Background(), req)
+	res, err := c.GetMarginPremiumInfo(context.Background(), session, req)
 	if err != nil {
 		t.Fatalf("API呼び出しエラー: %v", err)
 	}

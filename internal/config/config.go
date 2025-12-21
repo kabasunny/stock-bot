@@ -2,7 +2,9 @@
 package config
 
 import (
+	"encoding/csv"
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"strconv"
@@ -26,6 +28,7 @@ type Config struct {
 	DBName            string `env:"DB_NAME"`            // データベース名
 	LogLevel          string `env:"LOG_LEVEL"`          // ログレベル (debug, info, warn, error など)
 	HTTPPort          int    `env:"HTTP_PORT"`          // HTTPサーバーポート番号
+	WatchedStocks     []string
 }
 
 // LoadConfig は .env ファイルと環境変数から設定を読み込み、Config 構造体を返す
@@ -63,6 +66,12 @@ func LoadConfig(envPath string) (*Config, error) {
 	httpPort := GetInt("HTTP_PORT", 8080)
 	logLevel := GetString("LOG_LEVEL", "info")
 
+	// 監視銘柄リストの読み込み
+	watchedStocks, err := loadWatchedStocks("watched_stocks.csv")
+	if err != nil {
+		return nil, fmt.Errorf("failed to load watched stocks: %w", err)
+	}
+
 	return &Config{
 		TachibanaBaseURL:  baseURLStr, // stringのまま
 		TachibanaUserID:   userID,
@@ -78,8 +87,50 @@ func LoadConfig(envPath string) (*Config, error) {
 		DBName:            GetString("DB_NAME", ""),     // デフォルト値は空文字列
 		LogLevel:          logLevel,
 		HTTPPort:          httpPort,
+		WatchedStocks:     watchedStocks,
 	}, nil
 }
+
+// loadWatchedStocks はCSVファイルから監視銘柄のリストを読み込む
+func loadWatchedStocks(filePath string) ([]string, error) {
+	file, err := os.Open(filePath)
+	if err != nil {
+		// ファイルが存在しない場合はエラーとせず、空のリストを返す
+		if os.IsNotExist(err) {
+			fmt.Printf("Warning: %s not found, loading empty list of watched stocks\n", filePath)
+			return []string{}, nil
+		}
+		return nil, err
+	}
+	defer file.Close()
+
+	reader := csv.NewReader(file)
+	// ヘッダー行を読み飛ばす
+	if _, err := reader.Read(); err != nil {
+		if err == io.EOF {
+			return []string{}, nil // 空のファイル
+		}
+		return nil, err
+	}
+
+	var stocks []string
+	for {
+		record, err := reader.Read()
+		if err != nil {
+			if err == io.EOF {
+				break
+			}
+			return nil, err
+		}
+		if len(record) > 0 && record[0] != "" {
+			stocks = append(stocks, record[0])
+		}
+	}
+
+	fmt.Printf("Loaded %d watched stocks from %s\n", len(stocks), filePath)
+	return stocks, nil
+}
+
 
 // GetInt は、環境変数から整数値を取得するヘルパー関数
 func GetInt(key string, defaultValue int) int {
