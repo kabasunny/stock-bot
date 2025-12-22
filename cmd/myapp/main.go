@@ -26,9 +26,11 @@ import (
 	mastersvr "stock-bot/gen/http/master/server" // New import
 	ordersvr "stock-bot/gen/http/order/server"
 	positionsvr "stock-bot/gen/http/position/server" // New import
+	pricesvr "stock-bot/gen/http/price/server" // New import
 	mastergen "stock-bot/gen/master"                 // New import
 	order "stock-bot/gen/order"
 	positiongen "stock-bot/gen/position" // New import
+	pricegen "stock-bot/gen/price" // New import
 
 	goahttp "goa.design/goa/v3/http"
 	"goa.design/goa/v3/http/middleware"
@@ -104,6 +106,7 @@ func main() {
 	balanceUsecase := app.NewBalanceUseCaseImpl(tachibanaClient)
 	positionUsecase := app.NewPositionUseCaseImpl(tachibanaClient)
 	masterUsecase := app.NewMasterUseCaseImpl(tachibanaClient, masterRepo)
+	priceUsecase := app.NewPriceUseCaseImpl(tachibanaClient, appSession)
 
 	if !*skipSync {
 		slog.Default().Info("Starting initial master data synchronization...")
@@ -130,6 +133,7 @@ func main() {
 	balanceSvc := web.NewBalanceService(balanceUsecase, slog.Default(), appSession)
 	positionSvc := web.NewPositionService(positionUsecase, slog.Default(), appSession)
 	masterSvc := web.NewMasterService(masterUsecase, slog.Default(), appSession)
+	priceSvc := web.NewPriceService(priceUsecase, slog.Default(), appSession)
 
 	// 6. GoaのエンドポイントとHTTPハンドラを構築
 	wg := &sync.WaitGroup{}
@@ -139,6 +143,7 @@ func main() {
 	balanceEndpoints := balance.NewEndpoints(balanceSvc)
 	positionEndpoints := positiongen.NewEndpoints(positionSvc)
 	masterEndpoints := mastergen.NewEndpoints(masterSvc)
+	priceEndpoints := pricegen.NewEndpoints(priceSvc)
 
 	mux := goahttp.NewMuxer()
 
@@ -146,11 +151,13 @@ func main() {
 	balanceserver := balancesvr.New(balanceEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
 	positionserver := positionsvr.New(positionEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
 	masterserver := mastersvr.New(masterEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
+	priceserver := pricesvr.New(priceEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil)
 
 	ordersvr.Mount(mux, server)
 	balancesvr.Mount(mux, balanceserver)
 	positionsvr.Mount(mux, positionserver)
 	mastersvr.Mount(mux, masterserver)
+	pricesvr.Mount(mux, priceserver)
 
 	fs := http.FileServer(http.Dir("./gen/http/openapi"))
 	mux.Handle("GET", "/swagger/", http.HandlerFunc(http.StripPrefix("/swagger/", fs).ServeHTTP))

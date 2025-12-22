@@ -172,26 +172,37 @@ Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Con
 
 ---
 
+
+
 ## 開発進捗（2025-12-22）
 
-### 発注後のエージェント内部状態更新
-- **状態更新ロジックの実装**: `agent.go`の`tick`メソッドにおいて、`tradeService.PlaceOrder`が成功した直後に、返された`order`オブジェクトをエージェントの内部状態（`a.state`）に即座に追加する処理を実装しました。
-- **スレッドセーフな状態変更**: `state.go`に、Mutex（ロック）を利用して安全に単一の注文情報を追加するための`AddOrder`メソッドを新規に実装しました。
-- **目的達成**: これにより、エージェントは自身で発行した注文（未約定注文）を次の`tick`を待たずに即座に認識し、その後の意思決定（例: 同一銘柄への連続発注防止など）に正しく反映できるようになりました。
+### 価格情報取得サービス (`price`) の実装と環境構築
+-   **Goaサービス定義の追加とコード生成**:
+    -   `design/design.go` に `price` サービス（`GET /price/{symbol}`）と `StockbotPrice` 型を定義しました。
+    -   `goa gen stock-bot/design` コマンドを実行し、`price` サービスに対応するGoaクライアント、サーバー、ユースケースのボイラープレートコードを自動生成しました。
+-   **`price` ユースケースの実装とテスト**:
+    -   `internal/app/price_usecase.go` で `PriceUseCase` インターフェースを定義しました。
+    -   `mockery` をインストールし、`internal/infrastructure/client/PriceInfoClient` のモックを生成しました。
+    -   `internal/app/price_usecase_impl_test.go` で `PriceUseCase` のテスト（成功ケース、複数のエラーケース）を定義し、パスすることを確認しました。
+    -   `internal/app/price_usecase_impl.go` で `PriceUseCaseImpl` を実装し、全てのテストがパスすることを確認しました。実装には、`PriceInfoClient` からのデータ取得、文字列からfloat64への変換、エラーハンドリングを含みます。
+-   **Goaハンドラの実装**:
+    -   `internal/handler/web/price_service.go` でGoaハンドラ `PriceService` を実装し、`PriceUseCase` を呼び出すようにしました。
+-   **アプリケーション起動時の依存性注入 (DI)**:
+    -   `cmd/myapp/main.go` を修正し、`price` サービス関連の依存性注入（`PriceUseCase`、`web.PriceService` の初期化とGoaサーバーへのマウント）を組み込みました。
+-   **環境セットアップ**:
+    -   `docker compose up -d` コマンドでデータベースコンテナを含むDocker環境を起動しました。
+    -   `go run ./cmd/migrator/main.go` でデータベースのマイグレーションを正常に適用しました。
+    -   `go run ./cmd/myapp/main.go` でアプリケーションがコンパイルエラーなく起動することを確認しました（ユーザーによるキャンセル）。
 
 ---
 
 #### 次回のアクションプラン
 
-**最優先タスク: リスク管理ロジック（自動利確・損切り）の実装に向けたGoaサービス定義（継続）**
+**最優先タスク: 注文リクエスト生成ロジックの実装**
 
-1.  **Goaサービス定義の修正と再試行**:
-    *   **内容**: `design/design.go`に`price`サービスを定義する際に、前回の置換操作が失敗しました。これは、置換対象のテキスト（`old_string`）の指定が正確でなかったためです。次回は、ファイルの内容を正確に特定し、`PriceResult`と`price`サービス（`GET /price/{symbol}`）の定義を`design/design.go`の適切な位置（例えば、`balance`サービスの定義の後）に追記する形で再試行します。
-    *   **目的**: エージェントが保有ポジションのリスク管理を行うために必要な、銘柄の現在価格を取得するためのAPIエンドポイントをGoaで定義する。
-
-2.  **Goaコードの自動生成**:
-    *   **内容**: `design/design.go`の修正が完了したら、`goa gen stockbot`コマンドを実行し、`price`サービスに対応するGoaクライアント、サーバー、ユースケースのボイラープレートコードを自動生成します。
-    *   **目的**: `price`サービスの実装を進めるための基盤を構築する。
+1.  **意思決定ロジックの強化**:
+    *   **内容**: `agent.go`の`tick`メソッド内で、読み込んだシグナルと、同期済みの内部状態（ポジション、残高）に基づき、具体的な注文リクエスト（`PlaceOrderRequest`）を生成するロジックを実装します。これには、注文数量の決定（例: 設定ファイルの`lot_size`を使用）、注文種別の決定（例: まずは成行注文に固定）などが含まれます。
+    *   **目的**: エージェントがシグナルと自身の状態に基づき、実行可能な注文内容を組み立てられるようにする。
 
 ---
 

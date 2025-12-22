@@ -92,6 +92,35 @@ var _ = Service("balance", func() {
     })
 })
 
+// Goa Type for Stock Price Result
+var PriceResult = ResultType("application/vnd.stockbot.price", func() {
+    Description("The current price information for a stock.")
+    Attribute("symbol", String, "銘柄コード")
+    Attribute("price", Float64, "現在値")
+    Attribute("timestamp", String, "価格取得日時 (RFC3339)")
+    Required("symbol", "price", "timestamp")
+})
+
+// 価格サービス(Price)の定義
+var _ = Service("price", func() {
+    Description("The price service provides current stock price information.")
+
+    // GET /price/{symbol}
+    Method("get", func() {
+        Description("Get the current price for a specified stock symbol.")
+        Payload(func() {
+            Attribute("symbol", String, "Stock symbol to look up")
+            Required("symbol")
+        })
+        Result(PriceResult)
+
+        HTTP(func() {
+            GET("/price/{symbol}")
+            Response(StatusOK)
+        })
+    })
+})
+
 // Goa Type for a single Position
 var PositionResult = Type("PositionResult", func() {
     Description("A single trading position.")
