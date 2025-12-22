@@ -1,3 +1,11 @@
+## 開発進捗（2025-12-22）
+
+### 発注後のエージェント内部状態更新
+- **状態更新ロジックの実装**: `agent.go`の`tick`メソッドにおいて、`tradeService.PlaceOrder`が成功した直後に、返された`order`オブジェクトをエージェントの内部状態（`a.state`）に即座に追加する処理を実装しました。
+- **スレッドセーフな状態変更**: `state.go`に、Mutex（ロック）を利用して安全に単一の注文情報を追加するための`AddOrder`メソッドを新規に実装しました。
+- **目的達成**: これにより、エージェントは自身で発行した注文（未約定注文）を次の`tick`を待たずに即座に認識し、その後の意思決定（例: 同一銘柄への連続発注防止など）に正しく反映できるようになりました。
+
+---
 # 開発ログ
 
 **注意**: このファイルは、プロジェクトの詳細な開発経緯、デバッグの記録、および過去の決定事項を時系列で記録するものです。現在のプロジェクトの全体像や次のアクションプランについては、`@planning/SYSTEM_DESIGN_MEMO.md` を参照してください。
@@ -265,7 +273,7 @@ GoaでAPIサービスを実装する際の標準的な手順を以下に定め�
 
 
 
-Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Content-Type"="application/json"} -Body '{"symbol":"6658","trade_type":"BUY","order_type":"MARKET","quantity":100}'
+Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Content-Type"="application/json"} -Body '{"symbol": "7203", "trade_type": "BUY", "order_type": "MARKET", "quantity": 100}'
 
 ### 開発進捗 (2025-12-08)
 
@@ -403,7 +411,7 @@ Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Con
 
 1.  **WebSocket接続テストの再開 (最優先)**:
     *   **対象:** `TestEventClient_ConnectReadMessagesWithDemoAPI`
-    *   **内容:** 平日の取引時間中に `websocket: bad handshake` エラーのデバッグを再開する。
+    *   **内容:** 平日の取引時間中に `websocket: bad handshake`エラーのデバッグを再開する。
     *   **目的:** リアルタイムの株価・約定情報を受信する機能を確立する。
 
 2.  **Goaサービスの追加開発:**
@@ -474,7 +482,7 @@ Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Con
 
 1.  **WebSocket接続テストの再開 (最優先)**:
     *   **対象:** `TestEventClient_ConnectReadMessagesWithDemoAPI`
-    *   **内容:** `websocket: bad handshake`エラーのデバッグを、平日の取引時間中に再度実施する。
+    *   **内容:** 平日の取引時間中に `websocket: bad handshake`エラーのデバッグを再開する。
     *   **目的:** リアルタイムの株価・約定情報を受信する機能を確立する。
 
 2.  **API統合テストの拡充**:

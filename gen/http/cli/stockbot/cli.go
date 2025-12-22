@@ -16,6 +16,7 @@ import (
 	masterc "stock-bot/gen/http/master/client"
 	orderc "stock-bot/gen/http/order/client"
 	positionc "stock-bot/gen/http/position/client"
+	pricec "stock-bot/gen/http/price/client"
 
 	goahttp "goa.design/goa/v3/http"
 	goa "goa.design/goa/v3/pkg"
@@ -28,6 +29,7 @@ func UsageCommands() []string {
 	return []string{
 		"order create",
 		"balance get",
+		"price get",
 		"position list",
 		"master (get-stock|update)",
 	}
@@ -35,10 +37,11 @@ func UsageCommands() []string {
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "order create --body '{\n      \"is_margin\": false,\n      \"order_type\": \"STOP\",\n      \"price\": 0.6001029154831115,\n      \"quantity\": 8413881200764235548,\n      \"symbol\": \"Soluta perferendis nostrum.\",\n      \"trade_type\": \"SELL\"\n   }'" + "\n" +
+	return os.Args[0] + " " + "order create --body '{\n      \"is_margin\": true,\n      \"order_type\": \"STOP\",\n      \"price\": 0.4518777138956951,\n      \"quantity\": 15444783396623686298,\n      \"symbol\": \"A ut.\",\n      \"trade_type\": \"BUY\"\n   }'" + "\n" +
 		os.Args[0] + " " + "balance get" + "\n" +
-		os.Args[0] + " " + "position list --type \"all\"" + "\n" +
-		os.Args[0] + " " + "master get-stock --symbol \"Rerum sequi.\"" + "\n" +
+		os.Args[0] + " " + "price get --symbol \"Blanditiis voluptatibus dolores quia facilis.\"" + "\n" +
+		os.Args[0] + " " + "position list --type \"margin\"" + "\n" +
+		os.Args[0] + " " + "master get-stock --symbol \"Eligendi voluptatem officia vel.\"" + "\n" +
 		""
 }
 
@@ -61,6 +64,11 @@ func ParseEndpoint(
 
 		balanceGetFlags = flag.NewFlagSet("get", flag.ExitOnError)
 
+		priceFlags = flag.NewFlagSet("price", flag.ContinueOnError)
+
+		priceGetFlags      = flag.NewFlagSet("get", flag.ExitOnError)
+		priceGetSymbolFlag = priceGetFlags.String("symbol", "REQUIRED", "Stock symbol to look up")
+
 		positionFlags = flag.NewFlagSet("position", flag.ContinueOnError)
 
 		positionListFlags    = flag.NewFlagSet("list", flag.ExitOnError)
@@ -78,6 +86,9 @@ func ParseEndpoint(
 
 	balanceFlags.Usage = balanceUsage
 	balanceGetFlags.Usage = balanceGetUsage
+
+	priceFlags.Usage = priceUsage
+	priceGetFlags.Usage = priceGetUsage
 
 	positionFlags.Usage = positionUsage
 	positionListFlags.Usage = positionListUsage
@@ -105,6 +116,8 @@ func ParseEndpoint(
 			svcf = orderFlags
 		case "balance":
 			svcf = balanceFlags
+		case "price":
+			svcf = priceFlags
 		case "position":
 			svcf = positionFlags
 		case "master":
@@ -135,6 +148,13 @@ func ParseEndpoint(
 			switch epn {
 			case "get":
 				epf = balanceGetFlags
+
+			}
+
+		case "price":
+			switch epn {
+			case "get":
+				epf = priceGetFlags
 
 			}
 
@@ -188,6 +208,13 @@ func ParseEndpoint(
 			case "get":
 				endpoint = c.Get()
 			}
+		case "price":
+			c := pricec.NewClient(scheme, host, doer, enc, dec, restore)
+			switch epn {
+			case "get":
+				endpoint = c.Get()
+				data, err = pricec.BuildGetPayload(*priceGetSymbolFlag)
+			}
 		case "position":
 			c := positionc.NewClient(scheme, host, doer, enc, dec, restore)
 			switch epn {
@@ -238,7 +265,7 @@ func orderCreateUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"is_margin\": false,\n      \"order_type\": \"STOP\",\n      \"price\": 0.6001029154831115,\n      \"quantity\": 8413881200764235548,\n      \"symbol\": \"Soluta perferendis nostrum.\",\n      \"trade_type\": \"SELL\"\n   }'")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"is_margin\": true,\n      \"order_type\": \"STOP\",\n      \"price\": 0.4518777138956951,\n      \"quantity\": 15444783396623686298,\n      \"symbol\": \"A ut.\",\n      \"trade_type\": \"BUY\"\n   }'")
 }
 
 // balanceUsage displays the usage of the balance command and its subcommands.
@@ -267,6 +294,34 @@ func balanceGetUsage() {
 	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "balance get")
 }
 
+// priceUsage displays the usage of the price command and its subcommands.
+func priceUsage() {
+	fmt.Fprintln(os.Stderr, `The price service provides current stock price information.`)
+	fmt.Fprintf(os.Stderr, "Usage:\n    %s [globalflags] price COMMAND [flags]\n\n", os.Args[0])
+	fmt.Fprintln(os.Stderr, "COMMAND:")
+	fmt.Fprintln(os.Stderr, `    get: Get the current price for a specified stock symbol.`)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Additional help:")
+	fmt.Fprintf(os.Stderr, "    %s price COMMAND --help\n", os.Args[0])
+}
+func priceGetUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] price get", os.Args[0])
+	fmt.Fprint(os.Stderr, " -symbol STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Get the current price for a specified stock symbol.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -symbol STRING: Stock symbol to look up`)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get --symbol \"Blanditiis voluptatibus dolores quia facilis.\"")
+}
+
 // positionUsage displays the usage of the position command and its subcommands.
 func positionUsage() {
 	fmt.Fprintln(os.Stderr, `The position service provides information about current holdings.`)
@@ -292,7 +347,7 @@ func positionListUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "position list --type \"all\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "position list --type \"margin\"")
 }
 
 // masterUsage displays the usage of the master command and its subcommands.
@@ -321,7 +376,7 @@ func masterGetStockUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master get-stock --symbol \"Rerum sequi.\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master get-stock --symbol \"Eligendi voluptatem officia vel.\"")
 }
 
 func masterUpdateUsage() {
