@@ -6,6 +6,7 @@ import (
 	"log/slog"
 	"os"
 	"path/filepath"
+	"stock-bot/domain/model"
 	"time"
 )
 
@@ -145,26 +146,68 @@ func (a *Agent) tick() {
 	a.logger.Info("signals loaded", "count", len(signals))
 	for _, s := range signals {
 		a.logger.Info("signal detail", "symbol", s.Symbol, "signal", s.Signal)
+		symbolStr := fmt.Sprintf("%d", s.Symbol)
 
-		// 意思決定ロジックの初期段階：ポジション重複チェック
+		// 意思決定ロジック
 		if s.Signal == BuySignal {
-			if _, ok := a.state.GetPosition(fmt.Sprintf("%d", s.Symbol)); ok { // Symbolはuint16なのでstringに変換
-				a.logger.Info("skipping buy signal for already held position", "symbol", s.Symbol)
+			if _, ok := a.state.GetPosition(symbolStr); ok {
+				a.logger.Info("skipping buy signal for already held position", "symbol", symbolStr)
 				continue
 			}
-			a.logger.Info("preparing to place buy order", "symbol", s.Symbol)
-			// TODO: 実際の注文処理
+			a.logger.Info("preparing to place buy order", "symbol", symbolStr)
+
+			// 注文リクエストを作成
+			req := &PlaceOrderRequest{
+				Symbol:    symbolStr,
+				TradeType: model.TradeTypeBuy,
+				OrderType: model.OrderTypeMarket,
+				Quantity:  a.config.StrategySettings.Swingtrade.LotSize,
+				Price:     0, // 成行注文のため価格は0
+			}
+
+			// 注文を発行
+			// TODO: このコンテキストはループの外でタイムアウト付きで生成した方が良いかもしれない
+			ctx, cancel := context.WithTimeout(a.ctx, 10*time.Second)
+			defer cancel()
+
+			order, err := a.tradeService.PlaceOrder(ctx, req)
+			if err != nil {
+				a.logger.Error("failed to place buy order", "symbol", symbolStr, "error", err)
+				continue // 次のシグナルへ
+			}
+			a.logger.Info("successfully placed buy order", "symbol", symbolStr, "order_id", order.OrderID)
+			a.state.AddOrder(order) // 発注成功後、内部状態を更新する
+
 		} else if s.Signal == SellSignal {
-			if _, ok := a.state.GetPosition(fmt.Sprintf("%d", s.Symbol)); !ok {
-				a.logger.Info("skipping sell signal for non-held position", "symbol", s.Symbol)
+			position, ok := a.state.GetPosition(symbolStr)
+			if !ok {
+				a.logger.Info("skipping sell signal for non-held position", "symbol", symbolStr)
 				continue
 			}
-			a.logger.Info("preparing to place sell order", "symbol", s.Symbol)
-			// TODO: 実際の注文処理
+			a.logger.Info("preparing to place sell order", "symbol", symbolStr, "quantity", position.Quantity)
+
+			// 注文リクエストを作成
+			req := &PlaceOrderRequest{
+				Symbol:    symbolStr,
+				TradeType: model.TradeTypeSell,
+				OrderType: model.OrderTypeMarket,
+				Quantity:  position.Quantity, // 保有する全数量を売却
+				Price:     0,                 // 成行注文のため価格は0
+			}
+
+			// 注文を発行
+			ctx, cancel := context.WithTimeout(a.ctx, 10*time.Second)
+			defer cancel()
+
+			order, err := a.tradeService.PlaceOrder(ctx, req)
+			if err != nil {
+				a.logger.Error("failed to place sell order", "symbol", symbolStr, "error", err)
+				continue // 次のシグナルへ
+			}
+			a.logger.Info("successfully placed sell order", "symbol", symbolStr, "order_id", order.OrderID)
+			a.state.AddOrder(order) // 発注成功後、内部状態を更新する
 		}
 	}
-
-	// TODO: 読み込んだシグナルに基づいて意思決定と注文実行
 }
 
 // FindSignalFile は指定されたパターンに一致するシグナルファイルを探す
