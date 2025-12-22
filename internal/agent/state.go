@@ -73,6 +73,14 @@ func (s *State) GetOrder(orderID string) (*model.Order, bool) {
 	return ord, ok
 }
 
+// AddOrder は新しい注文を一件追加する
+func (s *State) AddOrder(order *model.Order) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	s.orders[order.OrderID] = order
+}
+
 // UpdateBalance は口座残高の情報を更新する
 func (s *State) UpdateBalance(balance *Balance) {
 	s.mutex.Lock()
