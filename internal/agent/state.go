@@ -96,3 +96,27 @@ func (s *State) GetBalance() *Balance {
 	b := *s.balance
 	return &b
 }
+
+// GetPositions は現在の保有ポジションのリストをコピーして取得する
+func (s *State) GetPositions() []*model.Position {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	positions := make([]*model.Position, 0, len(s.positions))
+	for _, p := range s.positions {
+		positions = append(positions, p)
+	}
+	return positions
+}
+
+// GetOrders は現在の発注中注文のリストをコピーして取得する
+func (s *State) GetOrders() []*model.Order {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+
+	orders := make([]*model.Order, 0, len(s.orders))
+	for _, o := range s.orders {
+		orders = append(orders, o)
+	}
+	return orders
+}

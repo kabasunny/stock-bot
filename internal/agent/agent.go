@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"math"
 	"os"
 	"path/filepath"
 	"stock-bot/domain/model"
@@ -118,10 +119,25 @@ func (a *Agent) syncInitialState() { // <<<<<<<<<<<<<<<< 追加
 func (a *Agent) tick() {
 	a.logger.Info("agent tick")
 
+	// 注文処理用のコンテキストをここで一度生成する
+	// ループ内で毎回生成するのではなく、tick全体で共有する
+	// TODO: tick()の実行時間全体にタイムアウトを設定するべきか検討 (現状はPlaceOrderごとに設定)
+	orderCtx, orderCancel := context.WithTimeout(a.ctx, 10*time.Second)
+	defer orderCancel() // tick関数が終了する際にコンテキストをキャンセル
+
 	// 状態の確認（ログ出力のみ）
 	balance := a.state.GetBalance()
 	a.logger.Info("current balance", "cash", balance.Cash, "buying_power", balance.BuyingPower)
-	// TODO: ポジションや注文のログ出力も追加
+	positions := a.state.GetPositions()
+	a.logger.Info("current positions", "count", len(positions))
+	for _, p := range positions {
+		a.logger.Info("  position detail", "symbol", p.Symbol, "quantity", p.Quantity, "average_price", p.AveragePrice)
+	}
+	orders := a.state.GetOrders()
+	a.logger.Info("current orders", "count", len(orders))
+	for _, o := range orders {
+		a.logger.Info("  order detail", "order_id", o.OrderID, "symbol", o.Symbol, "trade_type", o.TradeType, "status", o.OrderStatus)
+	}
 
 	// TODO: シグナルファイルが複数見つかった場合の処理 (最新のものを一つ選ぶなど)
 	// 現状はFindSignalFileが一つだけ返すことを期待
@@ -156,21 +172,43 @@ func (a *Agent) tick() {
 			}
 			a.logger.Info("preparing to place buy order", "symbol", symbolStr)
 
+			// 買付余力と現在価格を取得
+			balance := a.state.GetBalance()
+			currentPrice, err := a.tradeService.GetPrice(orderCtx, symbolStr)
+			if err != nil {
+				a.logger.Error("failed to get price for sizing", "symbol", symbolStr, "error", err)
+				continue
+			}
+			if currentPrice == 0 {
+				a.logger.Warn("skipping buy signal because current price is zero", "symbol", symbolStr)
+				continue
+			}
+
+			// リスクベースで注文数量を計算
+			riskPercentage := a.config.StrategySettings.Swingtrade.TradeRiskPercentage
+			unitSize := float64(a.config.StrategySettings.Swingtrade.UnitSize)
+			
+			tradeValue := balance.BuyingPower * riskPercentage
+			quantity := math.Floor(tradeValue/currentPrice/unitSize) * unitSize
+
+			a.logger.Info("calculated order quantity", "symbol", symbolStr, "buying_power", balance.BuyingPower, "risk_percentage", riskPercentage, "current_price", currentPrice, "calculated_quantity", quantity)
+
+			if quantity <= 0 {
+				a.logger.Info("skipping buy signal due to zero calculated quantity", "symbol", symbolStr)
+				continue
+			}
+
 			// 注文リクエストを作成
 			req := &PlaceOrderRequest{
 				Symbol:    symbolStr,
 				TradeType: model.TradeTypeBuy,
 				OrderType: model.OrderTypeMarket,
-				Quantity:  a.config.StrategySettings.Swingtrade.LotSize,
+				Quantity:  int(quantity),
 				Price:     0, // 成行注文のため価格は0
 			}
 
 			// 注文を発行
-			// TODO: このコンテキストはループの外でタイムアウト付きで生成した方が良いかもしれない
-			ctx, cancel := context.WithTimeout(a.ctx, 10*time.Second)
-			defer cancel()
-
-			order, err := a.tradeService.PlaceOrder(ctx, req)
+			order, err := a.tradeService.PlaceOrder(orderCtx, req)
 			if err != nil {
 				a.logger.Error("failed to place buy order", "symbol", symbolStr, "error", err)
 				continue // 次のシグナルへ
@@ -196,10 +234,7 @@ func (a *Agent) tick() {
 			}
 
 			// 注文を発行
-			ctx, cancel := context.WithTimeout(a.ctx, 10*time.Second)
-			defer cancel()
-
-			order, err := a.tradeService.PlaceOrder(ctx, req)
+			order, err := a.tradeService.PlaceOrder(orderCtx, req)
 			if err != nil {
 				a.logger.Error("failed to place sell order", "symbol", symbolStr, "error", err)
 				continue // 次のシグナルへ
@@ -210,20 +245,37 @@ func (a *Agent) tick() {
 	}
 }
 
-// FindSignalFile は指定されたパターンに一致するシグナルファイルを探す
-// 今は単純に最初に見つかったファイルを返す
+// FindSignalFile は指定されたパターンに一致するシグナルファイルを探し、最も新しい更新日時を持つファイルを返す
 func FindSignalFile(pattern string) (string, error) {
-	// globはパターンに一致するファイル名のスライスを返す
-	// ファイルは辞書順でソートされる
 	files, err := filepath.Glob(pattern)
 	if err != nil {
-		return "", err
+		return "", fmt.Errorf("failed to glob pattern %q: %w", pattern, err)
 	}
 	if len(files) == 0 {
 		return "", nil // ファイルが見つからなくてもエラーではない
 	}
-	// TODO: 複数のファイルが見つかった場合に、どれを使うべきか決定するロジックが必要
-	// (例: 最も新しいタイムスタンプを持つファイルを選ぶ)
-	// 今回は簡単のため、最初に見つかったファイルを返す
-	return files[0], nil
+
+	var latestFile string
+	var latestModTime time.Time
+
+	for _, file := range files {
+		info, err := os.Stat(file)
+		if err != nil {
+			// ファイルが見つからない、またはアクセスできない場合はスキップ
+			// ただし、エラーとしてログに出力する方が良い場合もあるが、ここでは堅牢性を優先しスキップ
+			continue
+		}
+
+		if latestFile == "" || info.ModTime().After(latestModTime) {
+			latestModTime = info.ModTime()
+			latestFile = file
+		}
+	}
+
+	if latestFile == "" {
+		// globでファイルが見つかったが、os.Statで全て失敗した場合
+		return "", fmt.Errorf("no accessible signal files found matching pattern %q", pattern)
+	}
+
+	return latestFile, nil
 }

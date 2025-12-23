@@ -13,6 +13,8 @@ type TradeService interface {
 	GetOrders(ctx context.Context) ([]*model.Order, error)
 	// GetBalance は口座残高を取得する
 	GetBalance(ctx context.Context) (*Balance, error) // agent.Balance型を使用
+	// GetPrice は指定した銘柄の現在価格を取得する
+	GetPrice(ctx context.Context, symbol string) (float64, error)
 	// PlaceOrder は注文を発行する
 	PlaceOrder(ctx context.Context, req *PlaceOrderRequest) (*model.Order, error)
 	// CancelOrder は注文をキャンセルする

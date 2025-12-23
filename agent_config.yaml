@@ -8,7 +8,8 @@ strategy_settings:
     target_symbols:
       - "7203"
       - "9984"
-    lot_size: 100
+    trade_risk_percentage: 0.25 # 1回の取引に利用する買付余力の割合
+    unit_size: 100 # 1単元の株数
     profit_take_rate: 5.0
     stop_loss_rate: 2.0
     signal_file_pattern: "./signals/*.bin"

@@ -24,7 +24,8 @@ strategy_settings:
     target_symbols:
       - "AAPL"
       - "GOOG"
-    lot_size: 10
+    trade_risk_percentage: 0.15
+    unit_size: 50
     profit_take_rate: 3.5
     stop_loss_rate: 1.0
     signal_file_pattern: "./test_signals/*.bin"
@@ -50,7 +51,8 @@ api:
 	assert.Equal(t, "America/New_York", cfg.Agent.Timezone)
 
 	assert.ElementsMatch(t, []string{"AAPL", "GOOG"}, cfg.StrategySettings.Swingtrade.TargetSymbols)
-	assert.Equal(t, 10, cfg.StrategySettings.Swingtrade.LotSize)
+	assert.Equal(t, 0.15, cfg.StrategySettings.Swingtrade.TradeRiskPercentage)
+	assert.Equal(t, 50, cfg.StrategySettings.Swingtrade.UnitSize)
 	assert.Equal(t, 3.5, cfg.StrategySettings.Swingtrade.ProfitTakeRate)
 	assert.Equal(t, 1.0, cfg.StrategySettings.Swingtrade.StopLossRate)
 	assert.Equal(t, "./test_signals/*.bin", cfg.StrategySettings.Swingtrade.SignalFilePattern)
@@ -71,10 +73,11 @@ strategy_settings:
   swingtrade:
     target_symbols:
       - "MSFT"
-    lot_size: 5
     # profit_take_rate は省略
     # stop_loss_rate は省略
     # signal_file_pattern は省略
+    # trade_risk_percentage は省略
+    # unit_size は省略
 api:
   go_wrapper_url: "http://localhost:8080"
   # python_signal_url は省略
@@ -95,7 +98,8 @@ api:
 	assert.Equal(t, "Asia/Tokyo", cfg.Agent.Timezone)         // デフォルト値
 
 	assert.ElementsMatch(t, []string{"MSFT"}, cfg.StrategySettings.Swingtrade.TargetSymbols)
-	assert.Equal(t, 5, cfg.StrategySettings.Swingtrade.LotSize)
+	assert.Equal(t, 0.25, cfg.StrategySettings.Swingtrade.TradeRiskPercentage) // デフォルト値
+	assert.Equal(t, 100, cfg.StrategySettings.Swingtrade.UnitSize)           // デフォルト値
 	// float64のデフォルト値は0.0なので、ここではテストしないか、初期化された構造体の値を期待する
 	assert.Equal(t, 0.0, cfg.StrategySettings.Swingtrade.ProfitTakeRate)
 	assert.Equal(t, 0.0, cfg.StrategySettings.Swingtrade.StopLossRate)

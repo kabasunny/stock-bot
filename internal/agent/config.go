@@ -19,7 +19,8 @@ type AgentConfig struct {
 	StrategySettings struct {
 		Swingtrade struct {
 			TargetSymbols     []string  `yaml:"target_symbols"`
-			LotSize           int       `yaml:"lot_size"`
+			TradeRiskPercentage float64 `yaml:"trade_risk_percentage"`
+			UnitSize          int       `yaml:"unit_size"`
 			ProfitTakeRate    float64   `yaml:"profit_take_rate"`
 			StopLossRate      float64   `yaml:"stop_loss_rate"`
 			SignalFilePattern string    `yaml:"signal_file_pattern"` // シグナルファイルのパターンを追加
@@ -59,6 +60,12 @@ func LoadAgentConfig(configPath string) (*AgentConfig, error) {
 	if cfg.StrategySettings.Swingtrade.SignalFilePattern == "" {
 		// デフォルトのシグナルファイルパターン
 		cfg.StrategySettings.Swingtrade.SignalFilePattern = "./signals/*.bin"
+	}
+	if cfg.StrategySettings.Swingtrade.TradeRiskPercentage == 0 {
+		cfg.StrategySettings.Swingtrade.TradeRiskPercentage = 0.25 // デフォルトは25%
+	}
+	if cfg.StrategySettings.Swingtrade.UnitSize == 0 {
+		cfg.StrategySettings.Swingtrade.UnitSize = 100 // デフォルトは100株
 	}
 
 

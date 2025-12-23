@@ -124,6 +124,8 @@ func main() {
 	goaTradeService := agent.NewGoaTradeService(
 		tachibanaClient, // tachibanaClient は BalanceClient インターフェースを実装
 		tachibanaClient, // tachibanaClient は OrderClient インターフェースを実装
+		tachibanaClient, // tachibanaClient は PriceInfoClient インターフェースを実装
+		orderRepo,
 		appSession,
 		slog.Default(),
 	)
