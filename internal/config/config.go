@@ -17,6 +17,7 @@ type Config struct {
 	TachibanaBaseURL  string `env:"TACHIBANA_BASE_URL"` // 立花証券APIベースURL
 	TachibanaUserID   string `env:"TACHIBANA_USER_ID"`  // 立花証券ユーザーID
 	TachibanaPassword string `env:"TACHIBANA_PASSWORD"` // 立花証券パスワード
+	TachibanaSecondPassword string `env:"TACHIBANA_SECOND_PASSWORD"` // 立花証券第二パスワード
 	EventRid          string `env:"EVENT_RID"`          // EVENT I/F p_rid
 	EventBoardNo      string `env:"EVENT_BOARD_NO"`     // EVENT I/F p_board_no
 	EventNo           string `env:"EVENT_NO"`           // EVENT I/F p_e_no
@@ -61,6 +62,11 @@ func LoadConfig(envPath string) (*Config, error) {
 		return nil, fmt.Errorf("TACHIBANA_PASSWORD is required")
 	}
 
+	secondPassword := os.Getenv("TACHIBANA_SECOND_PASSWORD")
+	if secondPassword == "" {
+		return nil, fmt.Errorf("TACHIBANA_SECOND_PASSWORD is required")
+	}
+
 	// オプションの設定項目 (デフォルト値)
 	dbPort := GetInt("DB_PORT", 5432)
 	httpPort := GetInt("HTTP_PORT", 8080)
@@ -76,6 +82,7 @@ func LoadConfig(envPath string) (*Config, error) {
 		TachibanaBaseURL:  baseURLStr, // stringのまま
 		TachibanaUserID:   userID,
 		TachibanaPassword: password,
+		TachibanaSecondPassword: secondPassword,
 		EventRid:          GetString("EVENT_RID", ""),      // デフォルト値は空文字列
 		EventBoardNo:      GetString("EVENT_BOARD_NO", ""), // デフォルト値は空文字列
 		EventNo:           GetString("EVENT_NO", ""),       // デフォルト値は空文字列
