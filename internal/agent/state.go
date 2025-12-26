@@ -51,6 +51,7 @@ func (s *State) GetPosition(symbol string) (*model.Position, bool) {
 	return pos, ok
 }
 
+
 // UpdateOrders は発注中注文の情報を更新する
 func (s *State) UpdateOrders(orders []*model.Order) {
 	s.mutex.Lock()

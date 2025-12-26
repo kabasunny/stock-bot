@@ -63,8 +63,13 @@ func LoadConfig(envPath string) (*Config, error) {
 	}
 
 	secondPassword := os.Getenv("TACHIBANA_SECOND_PASSWORD")
+	// If TACHIBANA_SECOND_PASSWORD is not explicitly set, use TACHIBANA_PASSWORD
 	if secondPassword == "" {
-		return nil, fmt.Errorf("TACHIBANA_SECOND_PASSWORD is required")
+		secondPassword = password
+	}
+	// If after attempting to set from TACHIBANA_PASSWORD, it's still empty, then it's an error.
+	if secondPassword == "" {
+		return nil, fmt.Errorf("TACHIBANA_SECOND_PASSWORD or TACHIBANA_PASSWORD is required")
 	}
 
 	// オプションの設定項目 (デフォルト値)

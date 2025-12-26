@@ -1,630 +1,330 @@
-## 開発進捗（2025年12月23日）
+## �J���i���i2025-12-26�j
 
-### エージェントの主要機能拡張とデータベース永続化の強化
-本日は、エージェントの取引判断ロジックを強化し、その活動をデータベースに永続化する基盤を整備しました。これには、動的なポジションサイジングの導入、トレードサービスにおける現在価格取得機能の統合、および注文の永続化実装が含まれます。
+### �t�w�l�����@�\�̎�����API�G���[�i11018�j�̉���
 
-1.  **動的ポジションサイジングロジックの実装（第一段階）**:
-    *   **目的**: 固定ロット数による注文を、口座の資金状況とリスク許容度を考慮した動的な数量決定ロジックに置き換えました。
-    *   **実装内容**:
-        *   `agent_config.yaml`と`internal/agent/config.go`に`trade_risk_percentage`と`unit_size`の新しい設定パラメータを追加しました。
-        *   `internal/agent/agent.go`の`tick`メソッド内で、買付余力と現在価格、設定ファイルのリスク許容度に基づき、動的に注文数量を計算するロジックを実装しました。
-2.  **トレードサービスにおける現在価格取得機能の統合**:
-    *   **目的**: エージェントが最新の市場価格を取得し、サイジングロジックに利用できるようにしました。
-    *   **実装内容**:
-        *   `internal/agent/trade_service.go`の`TradeService`インターフェースに`GetPrice`メソッドを追加しました。
-        *   `internal/agent/goa_trade_service.go`に`GetPrice`メソッドの実装を追加し、`priceClient`を通じて外部APIから現在価格を取得するようにしました。これに伴い、`cmd/myapp/main.go`で`GoaTradeService`に`priceClient`を注入するように修正しました。
-3.  **`GoaTradeService.PlaceOrder` の実装と注文の永続化**:
-    *   **目的**: エージェントが発行する注文を実際に証券会社APIに送信し、その注文情報をデータベースに永続化する仕組みを構築しました。
-    *   **実装内容**:
-        *   `internal/agent/goa_trade_service.go`の`PlaceOrder`メソッドを実装し、実際のAPI呼び出しと`orderRepo`を使用したDB保存を行うようにしました。
-        *   `GoaTradeService`に`orderRepo`を注入するため、構造体とコンストラクタを修正し、`cmd/myapp/main.go`での注入も行いました。
-        *   注文に必要な第二パスワード(`TachibanaSecondPassword`)を`internal/config/config.go`に追加し、`LoginWithPost`で設定される`session.SecondPassword`から取得できるようにしました。
-4.  **テストとデバッグ**:
-    *   `FindSignalFile`関数の改善のため、`internal/agent/agent_test.go`を新規作成し、単体テストを追加しました。
-    *   ログ出力修正に伴う`internal/agent/state.go`のゲッターメソッド欠落、`agent.go`でのフィールドアクセス誤りなどのビルドエラーを解決しました。
-    *   `GetPrice`実装時のAPIクライアント使用方法の誤りに起因するビルドエラーを修正しました。
-    *   設定構造体変更に伴い`internal/agent/config_test.go`を更新しました。
-    *   最終的に`internal/agent`パッケージ内の全てのテストがパスすることを確認しました。
+SYSTEM_DESIGN_MEMO.md�ɋL�ڂ��ꂽ�ŗD��^�X�N�ł���u�t�w�l�����@�\�̍Ď����v���������܂����B���̉ߒ��Ŕ�������API�G���[11018�̃f�o�b�O��ʂ��AAPI�̎d�l�Ɋւ���d�v�Ȓm���𓾂܂����B
 
-### 第二パスワードに関するユーザーからの情報:
--   `TACHIBANA_SECOND_PASSWORD` の値は `TACHIBANA_PASSWORD` と同じ値である。この情報は、今後のアプリケーション実行時および環境設定のガイダンスに利用します。
+1.  **�t�w�l�������W�b�N�̎���**:
+    *   **�ړI**: ���蒍���ɑ΂��āA���؂�i�X�g�b�v���X�j�̂��߂̋t�w�l�����iStop-Market Order�j�𐶐��E���s����@�\����������B
+    *   **�������e**:
+        *   internal/agent/goa_trade_service.go��PlaceOrder���\�b�h���C�����AOrderType��STOP�̏ꍇ�ɋt�w�l�����p�̃p�����[�^��API���N�G�X�g�ɐݒ肷�郍�W�b�N��ǉ����܂����B
+        *   �e�X�g�̂��߁Ainternal/agent/agent.go��	ick���\�b�h���ꎞ�I�ɕύX���ASellSignal�����m�����ۂɋt�w�l���蒍���𐶐�����悤�ɂ��܂����B
+
+2.  **API�G���[ 11018 �̃f�o�b�O�Ɖ���**:
+    *   **��蔭��**: �t�w�l�����𔭍s�����Ƃ���AAPI����G���[�R�[�h11018���Ԃ���A�����Ɏ��s���܂����B�G���[���b�Z�[�W�̃e�L�X�g�����͕����������Ă���A�����̓��肪����ł����B
+    *   **��������**:
+        *   �����A�����G���R�[�f�B���O�̖����^���A���X�|���X�{�f�B�̃f�R�[�h�������ڍׂɃ��O�o�͂��܂������A�����ɂ͎���܂���ł����B
+        *   ���[�U�[����̏������󂯁A@internal/infrastructure/client/tests/�ɂ���P�̃e�X�g�A����order_client_impl_cancelorder_test.go���Q�Ƃ��܂����B
+        *   ���̃e�X�g�R�[�h����A�t�w�l�����̃p�����[�^�ݒ���@�����̎����ƈقȂ��Ă��邱�Ƃ��������܂����B
+            *   **���������**: GyakusasiPrice�Ƀg���K�[���i��ݒ肵�Ă����B
+            *   **�������d�l**: GyakusasiZyouken�Ƀg���K�[���i��ݒ肵�AGyakusasiPrice�͎��s���i�i���s�̏ꍇ��"0"�j��ݒ肷��K�v������܂����B�܂��A���C����OrderPrice��"*"�ɐݒ肷��K�v������܂����B
+    *   **����**: ��L�̐������d�l�Ɋ�Â��Agoa_trade_service.go�̃p�����[�^�}�b�s���O���C���B����ɁA�e�X�g�R�[�h�ŉ��i�������Ŏw�肳��Ă������Ƃ���Agent.go�̃e�X�g���W�b�N�Ńg���K�[���i�𐮐��Ɋۂ߂鏈����ǉ����܂����B
+    *   **����**: �C����A�A�v���P�[�V�������Ď��s�����Ƃ���A�G���[11018�͉�������A�t�w�l���蒍��������ɔ��s����邱�Ƃ��m�F���܂����B
+
+3.  **�N���[���A�b�v**:
+    *   �@�\���؂������������߁A�f�o�b�O�̂��߂ɒǉ��������ׂẴ��O�o�́iutil.go, state.go, main.go�j�ƁAgent.go�̈ꎞ�I�ȃe�X�g���W�b�N���폜���A�R�[�h�����̏�Ԃɕ������܂����B
+
+**���_**:
+�t�w�l�����@�\�́AAPI�d�l�ɏ��������`�Ő�������������܂����B����̃f�o�b�O����AAPI�̋����𗝉������ŁA�����̒P�̃e�X�g���ɂ߂ďd�v�ȏ�񌹂ł��邱�Ƃ��Ċm�F����܂����B
 
 ---
-## 開発進捗（2025年12月23日）
-
-### エージェントの現時点での実装フローと今後の展望
-
-**現時点での実装フロー:**
-
-*   **シグナル取得**: 最新のシグナルファイルを特定し、内容（銘柄コード、売買区分）を読み込む。
-*   **ポジション計算 (サイジング)**:
-    *   **買い注文**: `trade_risk_percentage` に基づき、買付余力と現在価格から動的に注文数量を算出。
-    *   **売り注文**: 保有ポジションの全数量を売却対象とする。
-*   **売買可否判断**:
-    *   買い注文: 既存ポジションの重複買い防止。
-    *   売り注文: ポジションがない銘柄への売り防止。
-    *   計算結果が0株以下の注文は実行しない。
-*   **注文発行**: 算出した内容で注文を証券会社APIに発行。
-*   **記録**:
-    *   発行した注文情報を`orders`テーブルにデータベース記録。
-    *   発行した注文をエージェントのメモリ上の「発注中リスト」に追加。
-
-**今後の主要なアクションプラン:**
-
-1.  **約定情報の取り込みとデータベース更新**:
-    *   **現状**: エージェントは注文を発行しデータベースに記録するが、その注文が「約定したか」「約定しなかったか」をリアルタイムに把握する仕組みがない。
-    *   **次段階**: `GoaTradeService` に約定済み注文リストを取得する機能を追加し、エージェントのメモリ上およびデータベースの注文・ポジションの状態を更新するロジックを実装する。これにより、エージェントは自身の実際の保有状況を正確に把握できるようになる。
-2.  **自動損切り・利確ロジックの実装**:
-    *   **現状**: シグナルに従った売買判断のみ。
-    *   **次段階**: `agent_config.yaml` で設定された損切り率・利確率に基づき、保有ポジションの価格を監視し、自動で決済注文を出すリスク管理機能を実装する。
-3.  **取引実績の可視化ツールの開発**:
-    *   **現状**: 取引データはデータベースに記録されるが、これらを分析・表示する手段がない。
-    *   **次段階**: データベースから取引履歴を集計し、損益、勝率、資産推移などを確認できるシンプルなCLIツールまたはAPIエンドポイントを作成する。「DBの整備」の最終的な目的を達成する。
-4.  **高度なポジションサイジング (ATRモデル) の導入**:
-    *   **現状**: 買付余力と現在価格に基づく動的なサイジング（第一段階）は実装済み。
-    *   **次段階**: `AGENT_REQUIREMENTS.md` に記載の `ATR` (Average True Range) を利用した、銘柄のボラティリティを考慮したより洗練されたポジションサイジングモデルを導入する。これには、履歴価格データの取得機能が必要となる。
-
+## 開発進捗！E025年12朁E3日�E�E
+### エージェント�E主要機�E拡張とチE�Eタベ�Eス永続化の強匁E本日は、エージェント�E取引判断ロジチE��を強化し、その活動をチE�Eタベ�Eスに永続化する基盤を整備しました。これには、動皁E��ポジションサイジングの導�E、トレードサービスにおける現在価格取得機�Eの統合、およ�E注斁E�E永続化実裁E��含まれます、E
+1.  **動的ポジションサイジングロジチE��の実裁E��第一段階！E*:
+    *   **目皁E*: 固定ロチE��数による注斁E��、口座の賁E��状況とリスク許容度を老E�Eした動的な数量決定ロジチE��に置き換えました、E    *   **実裁E�E容**:
+        *   `agent_config.yaml`と`internal/agent/config.go`に`trade_risk_percentage`と`unit_size`の新しい設定パラメータを追加しました、E        *   `internal/agent/agent.go`の`tick`メソチE��冁E��、買付余力と現在価格、設定ファイルのリスク許容度に基づき、動皁E��注斁E��量を計算するロジチE��を実裁E��ました、E2.  **トレードサービスにおける現在価格取得機�Eの統吁E*:
+    *   **目皁E*: エージェントが最新の市場価格を取得し、サイジングロジチE��に利用できるようにしました、E    *   **実裁E�E容**:
+        *   `internal/agent/trade_service.go`の`TradeService`インターフェースに`GetPrice`メソチE��を追加しました、E        *   `internal/agent/goa_trade_service.go`に`GetPrice`メソチE��の実裁E��追加し、`priceClient`を通じて外部APIから現在価格を取得するよぁE��しました。これに伴ぁE��`cmd/myapp/main.go`で`GoaTradeService`に`priceClient`を注入するように修正しました、E3.  **`GoaTradeService.PlaceOrder` の実裁E��注斁E�E永続化**:
+    *   **目皁E*: エージェントが発行する注斁E��実際に証券会社APIに送信し、その注斁E��報をデータベ�Eスに永続化する仕絁E��を構築しました、E    *   **実裁E�E容**:
+        *   `internal/agent/goa_trade_service.go`の`PlaceOrder`メソチE��を実裁E��、実際のAPI呼び出しと`orderRepo`を使用したDB保存を行うようにしました、E        *   `GoaTradeService`に`orderRepo`を注入するため、構造体とコンストラクタを修正し、`cmd/myapp/main.go`での注入も行いました、E        *   注斁E��忁E��な第二パスワーチE`TachibanaSecondPassword`)を`internal/config/config.go`に追加し、`LoginWithPost`で設定される`session.SecondPassword`から取得できるようにしました、E4.  **チE��トとチE��チE��**:
+    *   `FindSignalFile`関数の改喁E�Eため、`internal/agent/agent_test.go`を新規作�Eし、単体テストを追加しました、E    *   ログ出力修正に伴ぁEinternal/agent/state.go`のゲチE��ーメソチE��欠落、`agent.go`でのフィールドアクセス誤りなどのビルドエラーを解決しました、E    *   `GetPrice`実裁E��のAPIクライアント使用方法�E誤りに起因するビルドエラーを修正しました、E    *   設定構造体変更に伴い`internal/agent/config_test.go`を更新しました、E    *   最終的に`internal/agent`パッケージ冁E�E全てのチE��トがパスすることを確認しました、E
+### 第二パスワードに関するユーザーからの惁E��:
+-   `TACHIBANA_SECOND_PASSWORD` の値は `TACHIBANA_PASSWORD` と同じ値である。この惁E��は、今後�Eアプリケーション実行時および環墁E��定�Eガイダンスに利用します、E
 ---
-## 開発進捗（2025-12-22）
+## 開発進捗！E025年12朁E3日�E�E
+### エージェント�E現時点での実裁E��ローと今後�E展望
 
-### 発注後のエージェント内部状態更新
-- **状態更新ロジックの実装**: `agent.go`の`tick`メソッドにおいて、`tradeService.PlaceOrder`が成功した直後に、返された`order`オブジェクトをエージェントの内部状態（`a.state`）に即座に追加する処理を実装しました。
-- **スレッドセーフな状態変更**: `state.go`に、Mutex（ロック）を利用して安全に単一の注文情報を追加するための`AddOrder`メソッドを新規に実装しました。
-- **目的達成**: これにより、エージェントは自身で発行した注文（未約定注文）を次の`tick`を待たずに即座に認識し、その後の意思決定（例: 同一銘柄への連続発注防止など）に正しく反映できるようになりました。
+**現時点での実裁E��ロー:**
 
+*   **シグナル取征E*: 最新のシグナルファイルを特定し、�E容�E�銘柁E��ード、売買区刁E��を読み込む、E*   **ポジション計箁E(サイジング)**:
+    *   **買ぁE��斁E*: `trade_risk_percentage` に基づき、買付余力と現在価格から動的に注斁E��量を算�E、E    *   **売り注斁E*: 保有ポジションの全数量を売却対象とする、E*   **売買可否判断**:
+    *   買ぁE��斁E 既存�Eジションの重褁E��ぁE��止、E    *   売り注斁E ポジションがなぁE��柁E��の売り防止、E    *   計算結果ぁE株以下�E注斁E�E実行しなぁE��E*   **注斁E��衁E*: 算�Eした冁E��で注斁E��証券会社APIに発行、E*   **記録**:
+    *   発行した注斁E��報を`orders`チE�EブルにチE�Eタベ�Eス記録、E    *   発行した注斁E��エージェント�Eメモリ上�E「発注中リスト」に追加、E
+**今後�E主要なアクションプラン:**
+
+1.  **紁E��情報の取り込みとチE�Eタベ�Eス更新**:
+    *   **現状**: エージェント�E注斁E��発行しチE�Eタベ�Eスに記録するが、その注斁E��「紁E��したか」「紁E��しなかったか」をリアルタイムに把握する仕絁E��がなぁE��E    *   **次段隁E*: `GoaTradeService` に紁E��済み注斁E��ストを取得する機�Eを追加し、エージェント�Eメモリ上およ�EチE�Eタベ�Eスの注斁E�Eポジションの状態を更新するロジチE��を実裁E��る。これにより、エージェント�E自身の実際の保有状況を正確に把握できるようになる、E2.  **自動損刁E��・利確ロジチE��の実裁E*:
+    *   **現状**: シグナルに従った売買判断のみ、E    *   **次段隁E*: `agent_config.yaml` で設定された損�Eり率・利確玁E��基づき、保有ポジションの価格を監視し、�E動で決済注斁E��出すリスク管琁E���Eを実裁E��る、E3.  **取引実績の可視化チE�Eルの開発**:
+    *   **現状**: 取引データはチE�Eタベ�Eスに記録されるが、これらを�E析�E表示する手段がなぁE��E    *   **次段隁E*: チE�Eタベ�Eスから取引履歴を集計し、損益、勝玁E��賁E��推移などを確認できるシンプルなCLIチE�Eルまた�EAPIエンド�Eイントを作�Eする。「DBの整備」�E最終的な目皁E��達�Eする、E4.  **高度なポジションサイジング (ATRモチE��) の導�E**:
+    *   **現状**: 買付余力と現在価格に基づく動皁E��サイジング�E�第一段階）�E実裁E��み、E    *   **次段隁E*: `AGENT_REQUIREMENTS.md` に記載�E `ATR` (Average True Range) を利用した、E��柁E�EボラチE��リチE��を老E�Eしたより洗練された�EジションサイジングモチE��を導�Eする。これには、履歴価格チE�Eタの取得機�Eが忁E��となる、E
+---
+## 開発進捗！E025-12-22�E�E
+### 発注後�Eエージェント�E部状態更新
+- **状態更新ロジチE��の実裁E*: `agent.go`の`tick`メソチE��において、`tradeService.PlaceOrder`が�E功した直後に、返された`order`オブジェクトをエージェント�E冁E��状態！Ea.state`�E�に即座に追加する処琁E��実裁E��ました、E- **スレチE��セーフな状態変更**: `state.go`に、Mutex�E�ロチE���E�を利用して安�Eに単一の注斁E��報を追加するための`AddOrder`メソチE��を新規に実裁E��ました、E- **目皁E��戁E*: これにより、エージェント�E自身で発行した注斁E��未紁E��注斁E��を次の`tick`を征E��ずに即座に認識し、その後�E意思決定（侁E 同一銘柄への連続発注防止など�E�に正しく反映できるようになりました、E
 ---
 # 開発ログ
 
-**注意**: このファイルは、プロジェクトの詳細な開発経緯、デバッグの記録、および過去の決定事項を時系列で記録するものです。現在のプロジェクトの全体像や次のアクションプランについては、`@planning/SYSTEM_DESIGN_MEMO.md` を参照してください。
-
+**注愁E*: こ�Eファイルは、�Eロジェクト�E詳細な開発経緯、デバッグの記録、およ�E過去の決定事頁E��時系列で記録するも�Eです。現在のプロジェクト�E全体像めE��のアクションプランにつぁE��は、`@planning/SYSTEM_DESIGN_MEMO.md` を参照してください、E
 ---
-## 開発進捗（2025-12-22）
-
-### 注文リクエスト生成ロジックの実装
-- **意思決定ロジックの実装**: `agent.go` の `tick` メソッド内に、シグナルファイルから読み込んだ売買指示（BUY/SELL）に基づき、注文リクエストを生成するロジックを実装しました。
-- **注文内容の決定**:
-    - **BUYシグナル**: `agent_config.yaml` で設定された `lot_size` に基づいて注文数量を決定します。重複買いを避けるため、すでにポジションを保有している銘柄の買いシグナルは無視します。
-    - **SELLシグナル**: 保有しているポジションの全数量を売却するリクエストを生成します。ポジションがない銘柄の売りシグナルは無視します。
-- **注文実行**: 生成されたリクエストを `tradeService.PlaceOrder` メソッドに渡し、注文を発行します。成功・失敗の結果はログに出力されます。
-- **ビルド確認**: 上記の変更後、`go build ./...` を実行し、コンパイルエラーや依存関係の問題がないことを確認しました。
-
+## 開発進捗！E025-12-22�E�E
+### 注斁E��クエスト生成ロジチE��の実裁E- **意思決定ロジチE��の実裁E*: `agent.go` の `tick` メソチE��冁E��、シグナルファイルから読み込んだ売買持E���E�EUY/SELL�E�に基づき、注斁E��クエストを生�EするロジチE��を実裁E��ました、E- **注斁E�E容の決宁E*:
+    - **BUYシグナル**: `agent_config.yaml` で設定された `lot_size` に基づぁE��注斁E��量を決定します。重褁E��ぁE��避けるため、すでにポジションを保有してぁE��銘柄の買ぁE��グナルは無視します、E    - **SELLシグナル**: 保有してぁE��ポジションの全数量を売却するリクエストを生�Eします。�EジションがなぁE��柁E�E売りシグナルは無視します、E- **注斁E��衁E*: 生�Eされたリクエストを `tradeService.PlaceOrder` メソチE��に渡し、注斁E��発行します。�E功�E失敗�E結果はログに出力されます、E- **ビルド確誁E*: 上記�E変更後、`go build ./...` を実行し、コンパイルエラーめE��存関係�E問題がなぁE��とを確認しました、E
 ---
-## 開発進捗（2025-12-21）
-
-### `TEST-005` の保留とエージェント開発への移行
-本番環境におけるセッションの無通信タイムアウト仕様を解明するテスト(`TEST-005`)は、原因不明の失敗が続いたため一旦保留としました。
-これに伴い、次の開発フェーズである **エージェント(Agent)の要件定義と実装** に着手しました。
-
-### エージェントの要件定義と骨格実装
-- **要件定義**: エージェントが利用するツール群（モデルメーカー、シグナルメーカー等）とその役割を`planning/AGENT_REQUIREMENTS.md`に定義し、アーキテクチャの共通認識を確立しました。
-- **設定/シグナル読込実装**: `agent_config.yaml`とバイナリ形式のシグナルファイルを読み込む機能を実装し、テストを完了しました。
-- **実行ループ実装と動作確認**: エージェントのメインループを実装し、`main.go`から起動・安全に停止する仕組みを構築。ダミーデータを用いて、定期的な実行とファイル読み込みが成功することを確認しました。
-- **状態管理機能とサービス連携**: エージェントが保有ポジションや残高等の内部状態をスレッドセーフに管理する機能を実装しました。また、外部APIクライアントとの連携を抽象化する`TradeService`インターフェースを導入し、エージェント起動時に実際の口座情報を取得して内部状態を同期する機能の実装と動作確認を完了しました。
-
+## 開発進捗！E025-12-21�E�E
+### `TEST-005` の保留とエージェント開発への移衁E本番環墁E��おけるセチE��ョンの無通信タイムアウト仕様を解明するテスチE`TEST-005`)は、原因不�Eの失敗が続いたため一旦保留としました、Eこれに伴ぁE��次の開発フェーズである **エージェンチEAgent)の要件定義と実裁E* に着手しました、E
+### エージェント�E要件定義と骨格実裁E- **要件定義**: エージェントが利用するチE�Eル群�E�モチE��メーカー、シグナルメーカー等）とそ�E役割を`planning/AGENT_REQUIREMENTS.md`に定義し、アーキチE��チャの共通認識を確立しました、E- **設宁Eシグナル読込実裁E*: `agent_config.yaml`とバイナリ形式�Eシグナルファイルを読み込む機�Eを実裁E��、テストを完亁E��ました、E- **実行ループ実裁E��動作確誁E*: エージェント�Eメインループを実裁E��、`main.go`から起動�E安�Eに停止する仕絁E��を構築。ダミ�EチE�Eタを用ぁE��、定期皁E��実行とファイル読み込みが�E功することを確認しました、E- **状態管琁E���Eとサービス連携**: エージェントが保有ポジションめE��高等�E冁E��状態をスレチE��セーフに管琁E��る機�Eを実裁E��ました。また、外部APIクライアントとの連携を抽象化する`TradeService`インターフェースを導�Eし、エージェント起動時に実際の口座惁E��を取得して冁E��状態を同期する機�Eの実裁E��動作確認を完亁E��ました、E
 ---
-## 開発進捗（2025-12-17）
-
-### Goaサービスの追加開発 - master.update の進捗
-本日は、`master` サービスの `update` メソッドの追加開発を進めました。
-1.  **ユースケーステストの確認と修正**: `GetStock` メソッドのテスト（`TestGetStock_Success`, `TestGetStock_NotFound`, `TestGetStock_RepoError`）が、実装の変更（ローカルDBからの取得）に合わせて更新されていなかった問題を修正しました。`DownloadAndStoreMasterData` のユースケースとテストは既に存在し、正常に機能することを確認しました。
-2.  **DI設定の確認**: `cmd/myapp/main.go` における `master` サービスの依存性注入（DI）設定は正しく、変更は不要であることを確認しました。
-3.  **ハンドラの実装と修正**: `internal/handler/web/master_service.go` に `Update` メソッドを追加しましたが、Goaが `Payload(Empty)` で生成するインターフェースとの不一致によりコンパイルエラーが発生しました。これを修正し、正しいメソッドシグネチャに調整しました。
-4.  **Goaコードの再生成**: 上記の修正を反映させるため `goa gen` を実行し、Goa生成コードを最新の状態に更新しました。
-
-### APIログイン問題の発生
-上記作業完了後、統合テストのためにアプリケーションサーバーを起動しようとした際に、APIログインエラーが発生しました。
-*   **エラー内容**: `result code 10033: 電話番号認証が認証されない、ユーザID、暗証番号のご入力間違いが弊社規程回数を超えたため、現在ログイン停止中です。(ログイン停止の解除は、コールセンターまでお電話下さい。)`
-*   **影響**: Tachibana APIアカウントがロックされているため、現在、本番環境およびデモ環境へのログインができません。これにより、`POST /master/update` エンドポイントの統合テストを含め、APIとの連携が必要な機能のテストをこれ以上進めることができません。
-*   **今後の対応**: ユーザー様より、明日以降に証券会社のコールセンターに連絡してログイン停止の解除を依頼する予定であるとのご指示がありました。アカウントロックが解除され次第、統合テストを再開します。
-
+## 開発進捗！E025-12-17�E�E
+### Goaサービスの追加開発 - master.update の進捁E本日は、`master` サービスの `update` メソチE��の追加開発を進めました、E1.  **ユースケースチE��ト�E確認と修正**: `GetStock` メソチE��のチE��ト！ETestGetStock_Success`, `TestGetStock_NotFound`, `TestGetStock_RepoError`�E�が、実裁E�E変更�E�ローカルDBからの取得）に合わせて更新されてぁE��かった問題を修正しました。`DownloadAndStoreMasterData` のユースケースとチE��ト�E既に存在し、正常に機�Eすることを確認しました、E2.  **DI設定�E確誁E*: `cmd/myapp/main.go` におけめE`master` サービスの依存性注入�E�EI�E�設定�E正しく、変更は不要であることを確認しました、E3.  **ハンドラの実裁E��修正**: `internal/handler/web/master_service.go` に `Update` メソチE��を追加しましたが、GoaぁE`Payload(Empty)` で生�Eするインターフェースとの不一致によりコンパイルエラーが発生しました。これを修正し、正しいメソチE��シグネチャに調整しました、E4.  **Goaコード�E再生戁E*: 上記�E修正を反映させるためE`goa gen` を実行し、Goa生�Eコードを最新の状態に更新しました、E
+### APIログイン問題�E発甁E上記作業完亁E��、統合テスト�Eためにアプリケーションサーバ�Eを起動しようとした際に、APIログインエラーが発生しました、E*   **エラー冁E��**: `result code 10033: 電話番号認証が認証されなぁE��ユーザID、暗証番号のご�E力間違いが弊社規程回数を趁E��たため、現在ログイン停止中です、Eログイン停止の解除は、コールセンターまでお電話下さぁE��E`
+*   **影響**: Tachibana APIアカウントがロチE��されてぁE��ため、現在、本番環墁E��よ�EチE��環墁E��のログインができません。これにより、`POST /master/update` エンド�Eイント�E統合テストを含め、APIとの連携が忁E��な機�EのチE��トをこれ以上進めることができません、E*   **今後�E対忁E*: ユーザー様より、�E日以降に証券会社のコールセンターに連絡してログイン停止の解除を依頼する予定であるとのご指示がありました。アカウントロチE��が解除され次第、統合テストを再開します、E
 ---
-### 開発進捗 (2025-12-16)
+### 開発進捁E(2025-12-16)
 
-#### API統合テストの実施とそれに伴うデバッグ
-`SYSTEM_DESIGN_MEMO.md`のアクションプランに基づき、実装済みAPIエンドポイントの統合テストを実施した。この過程で複数のバグが顕在化し、それらを段階的に修正した。
-
-1.  **APIのデモ環境と本番環境の仕様調査**:
-    *   **本番環境の2FA**: `price_info_client`のテストを本番環境に対して実行した結果、`result code 10088`エラーによりログインに失敗。これがAPIの仕様である「電話番号認証」によるものであることを特定した。認証用の電話番号等の詳細情報を`SYSTEM_DESIGN_MEMO.md`に記録した。
-    *   **手動テスト用のヘルパー実装**: 本番環境でのテストを可能にするため、手動で取得したセッション情報（Cookie等）をクライアントに設定するヘルパー関数 `SetLoginStateForTest` と、それを使用するテストファイル `price_info_client_impl_prod_test.go` を作成した。
-
-2.  **`/master/stocks/{symbol}` エンドポイントのデバッグ**:
-    *   **バグ1（データソースの誤り）**: `GET /master/stocks/7203` を実行したところ、`Stock master not found` エラーが発生。調査の結果、`GetStock`ユースケースがローカルDBではなく、毎回外部APIを呼び出しているという根本的なバグを発見し、ローカルDB (`masterRepo`) を参照するように修正した。
-    *   **バグ2（GORMリレーションエラー）**: 上記修正後、`invalid field found for struct ... TickRules` というGORMのエラーに遭遇。`StockMaster`モデルと`TickRule`モデルの関連付け定義が不適切であることが原因であったため、`StockMaster`の`TickRules`フィールドに`gorm:"-"`タグを追加し、DB読み込み時にこのリレーションを一旦無視することで問題を解決した。
-    *   **問題3（文字化け）**: APIからの応答で日本語が文字化けする問題が発生。当初はAPIのエンコーディングが`EUC-JP`であると仮説を立て修正したが解決せず。最終的に、`curl -o`でファイルに出力し、それをテキストエディタで確認することで、サーバーからの応答（UTF-8）は正しく、ターミナルの表示に問題があったことを切り分けた。
-
-3.  **開発効率の改善**:
-    *   開発中に毎回マスターデータを同期する非効率性を解消するため、`cmd/myapp/main.go`に`-skip-sync`コマンドラインフラグを追加。これにより、開発時のサーバー起動時間を大幅に短縮した。
-
-4.  **統合テストの完了**:
-    *   上記デバッグを経て、`/master/stocks/{symbol}`、`/balance`、`/positions`、`/order` の4つのエンドポイント全てで、`200 OK` または `201 Created` が返却され、期待通りのJSONデータ（または`order_id`）が得られることを確認。「API統合テストの拡充」タスクを完了した。
-
+#### API統合テスト�E実施とそれに伴ぁE��バッグ
+`SYSTEM_DESIGN_MEMO.md`のアクションプランに基づき、実裁E��みAPIエンド�Eイント�E統合テストを実施した。この過程で褁E��のバグが顕在化し、それらを段階的に修正した、E
+1.  **APIのチE��環墁E��本番環墁E�E仕様調査**:
+    *   **本番環墁E�E2FA**: `price_info_client`のチE��トを本番環墁E��対して実行した結果、`result code 10088`エラーによりログインに失敗。これがAPIの仕様である「電話番号認証」によるも�Eであることを特定した。認証用の電話番号等�E詳細惁E��を`SYSTEM_DESIGN_MEMO.md`に記録した、E    *   **手動チE��ト用のヘルパ�E実裁E*: 本番環墁E��のチE��トを可能にするため、手動で取得したセチE��ョン惁E���E�Eookie等）をクライアントに設定する�Eルパ�E関数 `SetLoginStateForTest` と、それを使用するチE��トファイル `price_info_client_impl_prod_test.go` を作�Eした、E
+2.  **`/master/stocks/{symbol}` エンド�Eイント�EチE��チE��**:
+    *   **バグ1�E�データソースの誤り！E*: `GET /master/stocks/7203` を実行したところ、`Stock master not found` エラーが発生。調査の結果、`GetStock`ユースケースがローカルDBではなく、毎回外部APIを呼び出してぁE��とぁE��根本皁E��バグを発見し、ローカルDB (`masterRepo`) を参照するように修正した、E    *   **バグ2�E�EORMリレーションエラー�E�E*: 上記修正後、`invalid field found for struct ... TickRules` とぁE��GORMのエラーに遭遁E��`StockMaster`モチE��と`TickRule`モチE��の関連付け定義が不適刁E��あることが原因であったため、`StockMaster`の`TickRules`フィールドに`gorm:"-"`タグを追加し、DB読み込み時にこ�Eリレーションを一旦無視することで問題を解決した、E    *   **問顁E�E�文字化け！E*: APIからの応答で日本語が斁E��化けする問題が発生。当�EはAPIのエンコーチE��ングが`EUC-JP`であると仮説を立て修正したが解決せず。最終的に、`curl -o`でファイルに出力し、それをチE��ストエチE��タで確認することで、サーバ�Eからの応答！ETF-8�E��E正しく、ターミナルの表示に問題があったことを�Eり�Eけた、E
+3.  **開発効玁E�E改喁E*:
+    *   開発中に毎回マスターチE�Eタを同期する非効玁E��を解消するため、`cmd/myapp/main.go`に`-skip-sync`コマンドラインフラグを追加。これにより、E��発時�Eサーバ�E起動時間を大幁E��短縮した、E
+4.  **統合テスト�E完亁E*:
+    *   上記デバッグを経て、`/master/stocks/{symbol}`、`/balance`、`/positions`、`/order` の4つのエンド�Eイント�Eてで、`200 OK` また�E `201 Created` が返却され、期征E��りのJSONチE�Eタ�E�また�E`order_id`�E�が得られることを確認。「API統合テスト�E拡允E��タスクを完亁E��た、E
 ---
 
-## 6. 調査と決定事項 (2025-12-02)
+## 6. 調査と決定事頁E(2025-12-02)
 
-### Issue 1: リアルタイムイベントの受信方式の特定
--   **調査**: 立花証券APIのドキュメントおよび公式GitHubリポジトリ(`e-shiten-jp/e_api_websocket_receive_tel.py`)のサンプルコードを調査・解析した。
--   **結論**: APIはリアルタイム配信用に **WebSocket (`EVENT I/F`)** を提供している。リアルタイム性と効率性を考慮し、本システムではこのWebSocket方式を採用する。
-
-#### WebSocket (`EVENT I/F`) の仕様
--   **接続URL**:
-    1.  通常のログインAPI(`auth_client`)を呼び出し、認証を行う。
-    2.  レスポンスに含まれるWebSocket専用の **仮想URL (`sUrlEventWebSocket`)** を取得する。
-    3.  この仮想URLに対し、購読したい銘柄コードや情報種別(`p_evt_cmd=FD`等)をクエリパラメータとして付加し、接続する。
--   **データ形式**:
-    -   一般的なJSONではなく、**特殊な制御文字で区切られた独自のテキスト形式**である。
-    -   `\x01` (`^A`): 項目全体の区切り
-    -   `\x02` (`^B`): 項目名と値の区切り
-    -   `\x03` (`^C`): 項目内で複数の値を区切る
-    -   この仕様に基づき、Go側で専用のパーサーを実装する必要がある。
-
-### Issue 2: Go-Python間の連携インターフェース設計
--   **方針**: 上記WebSocketの採用に伴い、シグナル系統の連携方式を具体化する。
--   **Go -> Python**: GoのWebSocketクライアントがリアルタイムデータを受信する都度、パース処理を行い、案2の通りPython側のWeb APIエンドポイント (例: `POST /api/signal`) へHTTP POSTでプッシュ通知する。
--   **Python -> Go**: 従来の方針通り、Go側で注文受付用のHTTP API (例: `POST /api/order`) を用意する。
-
-### 次のアクション: GoによるWebSocketクライアントの実装
-上記方針に基づき、Go側で `EVENT I/F` をハンドリングするクライアントの実装に着手する。
-
-1.  **ファイル作成**:
+### Issue 1: リアルタイムイベント�E受信方式�E特宁E-   **調査**: 立花証券APIのドキュメントおよ�E公式GitHubリポジトリ(`e-shiten-jp/e_api_websocket_receive_tel.py`)のサンプルコードを調査・解析した、E-   **結諁E*: APIはリアルタイム配信用に **WebSocket (`EVENT I/F`)** を提供してぁE��。リアルタイム性と効玁E��を老E�Eし、本シスチE��ではこ�EWebSocket方式を採用する、E
+#### WebSocket (`EVENT I/F`) の仕槁E-   **接続URL**:
+    1.  通常のログインAPI(`auth_client`)を呼び出し、認証を行う、E    2.  レスポンスに含まれるWebSocket専用の **仮想URL (`sUrlEventWebSocket`)** を取得する、E    3.  こ�E仮想URLに対し、購読したぁE��柁E��ードや惁E��種別(`p_evt_cmd=FD`筁Eをクエリパラメータとして付加し、接続する、E-   **チE�Eタ形弁E*:
+    -   一般皁E��JSONではなく、E*特殊な制御斁E��で区刁E��れた独自のチE��スト形弁E*である、E    -   `\x01` (`^A`): 頁E��全体�E区刁E��
+    -   `\x02` (`^B`): 頁E��名と値の区刁E��
+    -   `\x03` (`^C`): 頁E��冁E��褁E��の値を区刁E��
+    -   こ�E仕様に基づき、Go側で専用のパ�Eサーを実裁E��る忁E��がある、E
+### Issue 2: Go-Python間�E連携インターフェース設訁E-   **方釁E*: 上記WebSocketの採用に伴ぁE��シグナル系統の連携方式を具体化する、E-   **Go -> Python**: GoのWebSocketクライアントがリアルタイムチE�Eタを受信する都度、パース処琁E��行い、桁Eの通りPython側のWeb APIエンド�EインチE(侁E `POST /api/signal`) へHTTP POSTでプッシュ通知する、E-   **Python -> Go**: 従来の方針通り、Go側で注斁E��付用のHTTP API (侁E `POST /api/order`) を用意する、E
+### 次のアクション: GoによるWebSocketクライアント�E実裁E上記方針に基づき、Go側で `EVENT I/F` をハンドリングするクライアント�E実裁E��着手する、E
+1.  **ファイル作�E**:
     *   `internal/infrastructure/client/event_client.go` (インターフェース)
-    *   `internal/infrastructure/client/event_client_impl.go` (実装)
-2.  **接続処理の実装**: ログイン機能と連携し、取得した仮想URLを使ってWebSocketサーバーに接続する処理を実装する。
-3.  **パーサーの実装**: 受信した独自形式のメッセージを制御文字で分割・解析し、Goのデータ構造（`map`や`struct`）に変換するパーサーを実装する。
-4.  **イベントループの実装**: サーバーから継続的にメッセージを受信し、パーサーを通して処理するイベントループを実装する。
-5.  **アプリケーションへの統合**: 実装したクライアントをアプリケーション全体に組み込み、受信データを後続処理（Pythonへの通知など）へ連携させる。
+    *   `internal/infrastructure/client/event_client_impl.go` (実裁E
+2.  **接続�E琁E�E実裁E*: ログイン機�Eと連携し、取得した仮想URLを使ってWebSocketサーバ�Eに接続する�E琁E��実裁E��る、E3.  **パ�Eサーの実裁E*: 受信した独自形式�EメチE��ージを制御斁E��で刁E��・解析し、GoのチE�Eタ構造�E�Emap`や`struct`�E�に変換するパ�Eサーを実裁E��る、E4.  **イベントループ�E実裁E*: サーバ�Eから継続的にメチE��ージを受信し、パーサーを通して処琁E��るイベントループを実裁E��る、E5.  **アプリケーションへの統吁E*: 実裁E��たクライアントをアプリケーション全体に絁E��込み、受信チE�Eタを後続�E琁E��Eythonへの通知など�E�へ連携させる、E
+### 開発進捁E(2025-12-02)
 
-### 開発進捗 (2025-12-02)
-
-#### Issue 1: リアルタイムイベントの受信方式の特定 (進捗)
--   GoによるWebSocketクライアント (`EventClient`) の実装に着手し、`event_client.go` および `event_client_impl.go` を作成した。
--   WebSocketメッセージの独自形式を解析するパーサー (`ParseMessage`) の単体テストは**PASS**した。
--   デモAPIへのWebSocket接続テスト (`TestEventClient_ConnectReadMessagesWithDemoAPI`) を実装したが、依然として `websocket: bad handshake` エラーで**FAIL**している。
--   これまでに `Origin` ヘッダーと `User-Agent` ヘッダーの追加を試みたが、エラーは解消されていない。
-
-#### 次のステップ (2025-12-03 以降)
--   引き続き `websocket: bad handshake` エラーの原因を詳細に調査する。APIドキュメントの再確認、Pythonサンプルコードのより深い分析、または`gorilla/websocket`とAPIサーバー間の通信プロトコルの詳細な比較が必要となる可能性がある。
-
-### 開発進捗 (2025-12-03)
+#### Issue 1: リアルタイムイベント�E受信方式�E特宁E(進捁E
+-   GoによるWebSocketクライアンチE(`EventClient`) の実裁E��着手し、`event_client.go` および `event_client_impl.go` を作�Eした、E-   WebSocketメチE��ージの独自形式を解析するパーサー (`ParseMessage`) の単体テスト�E**PASS**した、E-   チE��APIへのWebSocket接続テスチE(`TestEventClient_ConnectReadMessagesWithDemoAPI`) を実裁E��たが、依然として `websocket: bad handshake` エラーで**FAIL**してぁE��、E-   これまでに `Origin` ヘッダーと `User-Agent` ヘッダーの追加を試みたが、エラーは解消されてぁE��ぁE��E
+#### 次のスチE��チE(2025-12-03 以陁E
+-   引き続き `websocket: bad handshake` エラーの原因を詳細に調査する、EPIドキュメント�E再確認、Pythonサンプルコード�Eより深ぁE�E析、また�E`gorilla/websocket`とAPIサーバ�E間�E通信プロトコルの詳細な比輁E��忁E��となる可能性がある、E
+### 開発進捁E(2025-12-03)
 
 #### `websocket: bad handshake` エラーの深掘り調査
 
--   **問題**: `Subprotocol`ヘッダーを追加後も、依然として `websocket: bad handshake` エラーが解消しない。
--   **仮説1: 認証Cookieの欠落**:
-    -   **調査**: 公式PythonサンプルおよびGoの参考実装(`tsuchinaga/go-tachibana-e-api`)を再度調査。ログイン時に取得した認証情報(`Cookie`)が、後続のWebSocketハンドシェイクリクエストに含まれていないことが原因である可能性が高いと判断。
-    -   **修正**: `TachibanaClientImpl`が`CookieJar`を持つ共有の`http.Client`インスタンスを一元管理するよう、大規模なリファクタリングを実施。
-        1.  `tachibana_client.go`: `TachibanaClientImpl`に`httpClient *http.Client`フィールドを追加し、`NewTachibanaClient`で`CookieJar`と共に初期化するよう修正。
-        2.  `util.go`: `SendRequest`, `SendPostRequest`が、引数で渡された共有`http.Client`インスタンスを使用するよう修正。
-        3.  `auth_client_impl.go`, `balance_client_impl.go`, `master_data_client_impl.go`, `order_client_impl.go`, `price_info_client_impl.go`: `SendRequest`等の呼び出し時に、共有`httpClient`を渡すよう全ファイルを修正。
-        4.  `event_client_impl.go`: WebSocket接続時に`CookieJar`を`websocket.Dialer`に設定するよう修正。
--   **仮説2: `Origin`ヘッダーの形式不備**:
-    -   **調査**: 上記修正後もエラーが解消せず。公式Pythonサンプルの`Origin`ヘッダーがパス情報を含まない (`https://<hostname>`) のに対し、こちらの実装ではパス情報まで含めてしまっている (`https://<hostname>/<path>`) ことを発見。これが原因である可能性を特定。
-    -   **修正**: `event_client_impl.go`を修正し、`Origin`ヘッダーが`scheme`と`host`のみで構成されるよう修正。
--   **結果**: 上記2つの仮説に基づき大規模な修正を行ったが、テスト結果は変わらず `websocket: bad handshake` エラーが継続。
+-   **問顁E*: `Subprotocol`ヘッダーを追加後も、依然として `websocket: bad handshake` エラーが解消しなぁE��E-   **仮説1: 認証Cookieの欠落**:
+    -   **調査**: 公式PythonサンプルおよびGoの参老E��裁E`tsuchinaga/go-tachibana-e-api`)を�E度調査。ログイン時に取得した認証惁E��(`Cookie`)が、後続�EWebSocketハンドシェイクリクエストに含まれてぁE��ぁE��とが原因である可能性が高いと判断、E    -   **修正**: `TachibanaClientImpl`が`CookieJar`を持つ共有�E`http.Client`インスタンスを一允E��琁E��るよぁE��大規模なリファクタリングを実施、E        1.  `tachibana_client.go`: `TachibanaClientImpl`に`httpClient *http.Client`フィールドを追加し、`NewTachibanaClient`で`CookieJar`と共に初期化するよぁE��正、E        2.  `util.go`: `SendRequest`, `SendPostRequest`が、引数で渡された�E有`http.Client`インスタンスを使用するよう修正、E        3.  `auth_client_impl.go`, `balance_client_impl.go`, `master_data_client_impl.go`, `order_client_impl.go`, `price_info_client_impl.go`: `SendRequest`等�E呼び出し時に、�E有`httpClient`を渡すよぁE�Eファイルを修正、E        4.  `event_client_impl.go`: WebSocket接続時に`CookieJar`を`websocket.Dialer`に設定するよぁE��正、E-   **仮説2: `Origin`ヘッダーの形式不備**:
+    -   **調査**: 上記修正後もエラーが解消せず。�E式Pythonサンプルの`Origin`ヘッダーがパス惁E��を含まなぁE(`https://<hostname>`) のに対し、こちら�E実裁E��はパス惁E��まで含めてしまってぁE�� (`https://<hostname>/<path>`) ことを発見。これが原因である可能性を特定、E    -   **修正**: `event_client_impl.go`を修正し、`Origin`ヘッダーが`scheme`と`host`のみで構�EされるよぁE��正、E-   **結果**: 上訁Eつの仮説に基づき大規模な修正を行ったが、テスト結果は変わらず `websocket: bad handshake` エラーが継続、E
+#### 新たな可能性と今後�Eアクション
 
-#### 新たな可能性と今後のアクション
+-   **新たな可能性�E�EPI稼働時間！E*: ユーザーからの持E��により、エラーの根本原因が技術的な問題ではなく、E*APIの稼働時間（取引時間外！E*である可能性が浮上した。リアルタイムAPIは、市場が閉まってぁE��時間帯には接続を拒否する仕様であることが多い、E-   **次のアクションプラン**:
+    1.  **最優先事頁E*: 平日の取引時間中�E�侁E 9:00、E5:00 JST�E�に、現在のコード�Eまま再度チE��チE`TestEventClient_ConnectReadMessagesWithDemoAPI`)を実行し、接続が成功するかどぁE��を確認する、E    2.  **次喁E���E�取引時間中でも失敗した場合！E*: もし取引時間中でも`bad handshake`エラーが解消されなぁE��合�E、原因の刁E��刁E��のため、「Cookieが本当に忁E��か」を再検証する。�E体的には、`eventClient.Connect`に`nil`の`CookieJar`を渡してチE��トを実行し、挙動�E変化を確認する、E
+### 開発進捁E(2025-12-06)
 
--   **新たな可能性（API稼働時間）**: ユーザーからの指摘により、エラーの根本原因が技術的な問題ではなく、**APIの稼働時間（取引時間外）**である可能性が浮上した。リアルタイムAPIは、市場が閉まっている時間帯には接続を拒否する仕様であることが多い。
--   **次のアクションプラン**:
-    1.  **最優先事項**: 平日の取引時間中（例: 9:00〜15:00 JST）に、現在のコードのまま再度テスト(`TestEventClient_ConnectReadMessagesWithDemoAPI`)を実行し、接続が成功するかどうかを確認する。
-    2.  **次善手（取引時間中でも失敗した場合）**: もし取引時間中でも`bad handshake`エラーが解消されない場合は、原因の切り分けのため、「Cookieが本当に必要か」を再検証する。具体的には、`eventClient.Connect`に`nil`の`CookieJar`を渡してテストを実行し、挙動の変化を確認する。
+#### アーキチE��チャの再定義とGoa導�E
+- **アーキチE��チャの再定義**: 議論を経て、シスチE��全体�E設計を「エージェント中忁E��チE��」に更新、Eo APIラチE��ー、Pythonシグナル生�Eサービス、そして全体�E司令塔となるエージェント�E3層構造を定義した。短期計画としてエージェントをGoで実裁E��、E��期目標としてRustへの移行を目持E��方針を固めた、E- **ドキュメント更新**: 上記�E新アーキチE��チャに合わせて、`SYSTEM_DESIGN_MEMO.md`および`README.md`を�E面皁E��更新した、E- **チE��レクトリ構造の変更**: 新しいアーキチE��チャの責務を明確にするため、`internal/interface`チE��レクトリを廁E��し、`internal/handler`�E�Eebリクエスト�E琁E���E�と`internal/agent`�E�エージェントロジチE��層�E�に再編成した、E- **Goaフレームワーク導�E**:
+    1. GoaチE�Eルをインスト�Eル、E    2. APIの設計図として`design/design.go`を作�E、E    3. `goa gen`コマンドでコードを自動生成、E    4. サービス実裁E�E雛形として`internal/handler/web/order_service.go`を作�E、E    5. アプリケーションのエントリーポイントとして`cmd/myapp/main.go`を作�E、E- **サーバ�E起動とAPIチE��チE*:
+    - 褁E��回にわたるコンパイルエラーのチE��チE���E�Eimport`パス、`WaitGroup`の使用法、Goaの`Logger`インターフェース、`Muxer`の`Handle`メソチE��など�E�を経て、`go run ./cmd/myapp/main.go`による**サーバ�E起動に成功**した、E    - `Invoke-WebRequest`コマンドを使用し、`POST /order`エンド�Eイント�EチE��トを実施、ETTPスチE�Eタス`201 Created`とダミ�Eの注文ID `{"order_id":"order-12345"}`が返却されることを確認し、E*APIが正常に動作してぁE��ことを確認しぁE*、E
+#### 次回�Eアクションプラン (2025-12-07 以陁E
+1.  **つなぎこみ実裁E*: `order_service.go`のダミ�E処琁E��、実際の`OrderUsecase`を呼び出すロジチE��に置き換える、E2.  **WebSocket接続テスチE*: `websocket: bad handshake`エラーのチE��チE��を、平日の取引時間中に実施する、E
+### 開発進捁E(2025-12-07)
 
-### 開発進捗 (2025-12-06)
-
-#### アーキテクチャの再定義とGoa導入
-- **アーキテクチャの再定義**: 議論を経て、システム全体の設計を「エージェント中心モデル」に更新。Go APIラッパー、Pythonシグナル生成サービス、そして全体の司令塔となるエージェントの3層構造を定義した。短期計画としてエージェントをGoで実装し、長期目標としてRustへの移行を目指す方針を固めた。
-- **ドキュメント更新**: 上記の新アーキテクチャに合わせて、`SYSTEM_DESIGN_MEMO.md`および`README.md`を全面的に更新した。
-- **ディレクトリ構造の変更**: 新しいアーキテクチャの責務を明確にするため、`internal/interface`ディレクトリを廃止し、`internal/handler`（Webリクエスト処理層）と`internal/agent`（エージェントロジック層）に再編成した。
-- **Goaフレームワーク導入**:
-    1. Goaツールをインストール。
-    2. APIの設計図として`design/design.go`を作成。
-    3. `goa gen`コマンドでコードを自動生成。
-    4. サービス実装の雛形として`internal/handler/web/order_service.go`を作成。
-    5. アプリケーションのエントリーポイントとして`cmd/myapp/main.go`を作成。
-- **サーバー起動とAPIテスト**:
-    - 複数回にわたるコンパイルエラーのデバッグ（`import`パス、`WaitGroup`の使用法、Goaの`Logger`インターフェース、`Muxer`の`Handle`メソッドなど）を経て、`go run ./cmd/myapp/main.go`による**サーバー起動に成功**した。
-    - `Invoke-WebRequest`コマンドを使用し、`POST /order`エンドポイントのテストを実施。HTTPステータス`201 Created`とダミーの注文ID `{"order_id":"order-12345"}`が返却されることを確認し、**APIが正常に動作していることを確認した**。
-
-#### 次回のアクションプラン (2025-12-07 以降)
-1.  **つなぎこみ実装**: `order_service.go`のダミー処理を、実際の`OrderUsecase`を呼び出すロジックに置き換える。
-2.  **WebSocket接続テスト**: `websocket: bad handshake`エラーのデバッグを、平日の取引時間中に実施する。
-
-### 開発進捗 (2025-12-07)
-
-#### `Order` サービスのバックエンド実装
-TDD（テスト駆動開発）に基づく標準手順に沿って、`POST /order` APIのバックエンド実装を推進した。
-
-1.  **開発標準手順の策定:**
-    *   TDDに基づいたGoaサービス実装の標準手順を新たに策定し、本ドキュメントに追記した。今後、他のGoaサービスを実装する際もこの手順に統一する。
-
-2.  **ユースケースの実装と単体テスト:**
-    *   `OrderUseCase` の振る舞いを定義する単体テスト (`order_usecase_impl_test.go`) を先行して作成した。
-    *   コンパイルエラーとテスト失敗を段階的に修正し、テストをすべてパスする `OrderUseCase` の実装 (`order_usecase_impl.go`) を完了させた (`go test ./internal/app/...` は `PASS`)。
-
+#### `Order` サービスのバックエンド実裁ETDD�E�テスト駁E��開発�E�に基づく標準手頁E��沿って、`POST /order` APIのバックエンド実裁E��推進した、E
+1.  **開発標準手頁E�E策宁E**
+    *   TDDに基づぁE��Goaサービス実裁E�E標準手頁E��新たに策定し、本ドキュメントに追記した。今後、他�EGoaサービスを実裁E��る際もこの手頁E��統一する、E
+2.  **ユースケースの実裁E��単体テスチE**
+    *   `OrderUseCase` の振る�EぁE��定義する単体テスチE(`order_usecase_impl_test.go`) を�E行して作�Eした、E    *   コンパイルエラーとチE��ト失敗を段階的に修正し、テストをすべてパスする `OrderUseCase` の実裁E(`order_usecase_impl.go`) を完亁E��せた (`go test ./internal/app/...` は `PASS`)、E
 3.  **依存性注入 (DI) とハンドラのつなぎこみ:**
-    *   `cmd/myapp/main.go` を修正し、`OrderClient` → `OrderUseCase` → `OrderService` (ハンドラ) の依存関係を正しく注入した。
-    *   `internal/handler/web/order_service.go` を修正し、APIリクエストを `OrderUseCase` に連携するようにした。
+    *   `cmd/myapp/main.go` を修正し、`OrderClient` ↁE`OrderUseCase` ↁE`OrderService` (ハンドラ) の依存関係を正しく注入した、E    *   `internal/handler/web/order_service.go` を修正し、APIリクエストを `OrderUseCase` に連携するようにした、E
+4.  **統合テストと課題�E特宁E**
+    *   サーバ�Eを起動し、`POST /order` API の統合テストを実施、E    *   結果、`TachibanaClient` が未ログイン状態だったため、「`not logged in`」エラーが発生することを確認。アプリケーションのライフサイクルにおけるログイン状態管琁E�E忁E��性が�Eらかになった、E
+#### 次回�Eアクションプラン (2025-12-08 以陁E
 
-4.  **統合テストと課題の特定:**
-    *   サーバーを起動し、`POST /order` API の統合テストを実施。
-    *   結果、`TachibanaClient` が未ログイン状態だったため、「`not logged in`」エラーが発生することを確認。アプリケーションのライフサイクルにおけるログイン状態管理の必要性が明らかになった。
-
-#### 次回のアクションプラン (2025-12-08 以降)
-
-1.  **最優先: 起動時ログイン処理の実装**
+1.  **最優允E 起動時ログイン処琁E�E実裁E*
     *   **対象ファイル:** `cmd/myapp/main.go`
-    *   **内容:** `TachibanaClient` の初期化後、サーバーがリクエストの受付を開始する前に `tachibanaClient.Login()` を呼び出す処理を追加する。ログインに失敗した場合は、エラーをログに出力してアプリケーションを終了させる。
-    *   **目的:** 「`not logged in`」エラーを解消し、統合テストを成功させる。
+    *   **冁E��:** `TachibanaClient` の初期化後、サーバ�Eがリクエスト�E受付を開始する前に `tachibanaClient.Login()` を呼び出す�E琁E��追加する。ログインに失敗した場合�E、エラーをログに出力してアプリケーションを終亁E��せる、E    *   **目皁E** 「`not logged in`」エラーを解消し、統合テストを成功させる、E
+2.  **統合テスト�E再実衁E*
+    *   上記修正後、�E度 `go run ./cmd/myapp/main.go` でサーバ�Eを起動し、`POST /order` API を呼び出して、HTTPスチE�Eタス `201` が返ってくることを確認する、E
+3.  **新規タスクの起票: `TachibanaClient` のセチE��ョン自動管琁E���Eの実裁E*
+    *   アプリケーションの長期的な安定稼働�Eため、より堁E��なセチE��ョン管琁E��カニズムを実裁E��る忁E��がある、E    *   **具体的な検討事頁E**
+        *   セチE��ョンの有効期限が�Eれる前�E定期皁E��再ログイン処琁E��E        *   API呼び出し時に認証エラーが返された場合�E、動皁E��再ログインとリクエスト�Eリトライ処琁E��E    *   こ�Eタスクは、本件の完亁E��、新たなIssueとして計画・管琁E��る、E
+### 開発標準手頁E
+### リファクタリング標準手頁E(2025-12-09 追訁E
+レイヤー間�E責務移動など、アーキチE��チャの健全性を維持するため�Eリファクタリングは、以下�E手頁E��に従って実施する、E- **`planning/REFACTORING_PROCEDURE.md`**
 
-2.  **統合テストの再実行**
-    *   上記修正後、再度 `go run ./cmd/myapp/main.go` でサーバーを起動し、`POST /order` API を呼び出して、HTTPステータス `201` が返ってくることを確認する。
+### 共通操作におけるユーザーとの連携方釁E
+プロジェクト�Eビルド、アプリケーションサーバ�Eの起動、およ�E `curl` コマンドなどによるAPIエンド�Eイント�EチE��トとぁE��た、シスチE��の状態を変更したり、外部との連携を伴ぁE�E通操作につぁE��は、以下�E原則に基づきユーザーに実行を依頼する、E
+-   **ビルド操佁E*: `go build` 等�Eビルドコマンド、E-   **アプリケーションサーバ�Eの起勁E*: `go run` めE��ンパイル済みバイナリの実行など、E-   **外部連携コマンチE*: `curl`, `Invoke-WebRequest` など、APIエンド�Eイントへのリクエスト送信、E
+これは、ユーザー環墁E��の影響を最小限に抑え、各スチE��プにおいてユーザーの明示皁E��承認を得るためのも�Eである、E
+### Goaサービス実裁E�E標準手頁E(2025-12-07 追訁E
 
-3.  **新規タスクの起票: `TachibanaClient` のセッション自動管理機能の実装**
-    *   アプリケーションの長期的な安定稼働のため、より堅牢なセッション管理メカニズムを実装する必要がある。
-    *   **具体的な検討事項:**
-        *   セッションの有効期限が切れる前の定期的な再ログイン処理。
-        *   API呼び出し時に認証エラーが返された場合の、動的な再ログインとリクエストのリトライ処理。
-    *   このタスクは、本件の完了後、新たなIssueとして計画・管理する。
-
-### 開発標準手順
-
-### リファクタリング標準手順 (2025-12-09 追記)
-レイヤー間の責務移動など、アーキテクチャの健全性を維持するためのリファクタリングは、以下の手順書に従って実施する。
-- **`planning/REFACTORING_PROCEDURE.md`**
-
-### 共通操作におけるユーザーとの連携方針
-
-プロジェクトのビルド、アプリケーションサーバーの起動、および `curl` コマンドなどによるAPIエンドポイントのテストといった、システムの状態を変更したり、外部との連携を伴う共通操作については、以下の原則に基づきユーザーに実行を依頼する。
-
--   **ビルド操作**: `go build` 等のビルドコマンド。
--   **アプリケーションサーバーの起動**: `go run` やコンパイル済みバイナリの実行など。
--   **外部連携コマンド**: `curl`, `Invoke-WebRequest` など、APIエンドポイントへのリクエスト送信。
-
-これは、ユーザー環境への影響を最小限に抑え、各ステップにおいてユーザーの明示的な承認を得るためのものである。
-
-### Goaサービス実装の標準手順 (2025-12-07 追記)
-
-GoaでAPIサービスを実装する際の標準的な手順を以下に定める。これは、テスト駆動開発(TDD)のアプローチを取り入れ、堅牢なシステム構築を目指すものである。すべてのGoaサービス実装において、この手順に統一して開発を進めること。
-
-**ゴール**: 特定のAPIエンドポイントが、クライアントから受け取った情報に基づき、インフラ層のクライアントを呼び出し、必要な処理を実行して、その結果を返す。
-
-**前提**: Goaの設計ファイル (`design/design.go`) にAPI定義が完了しており、`goa gen` によってコードが自動生成されていること。また、インフラ層の外部APIクライアントは単体テストが完了していること。
-
-#### ステップ1: ユースケースの「振る舞い」をテストで定義する (TDD)
-目的: `UseCase` が持つべき振る舞いをテストで定義する。
-
-1.  **テストファイル作成**: `internal/app/<service_name>_usecase_impl_test.go` を新規作成。
-2.  **テスト内容**:
-    *   モック（例: `OrderRepository`, `TachibanaOrderClient`）を準備し、`UseCase` が依存するコンポーネントが期待通りに呼び出されることを検証する。
-    *   成功ケース、失敗ケース、バリデーションエラーなど、主要なシナリオに対するテストケースを記述する。
-3.  **実行**: `go test ./internal/app/...` を実行。テストはコンパイルエラーまたは失敗するはず。これが、次の実装の明確なゴールとなる。
-
-#### ステップ2: テストをパスさせるユースケースを実装する
-目的: ステップ1で書いたテストをパスさせる。
-
-1.  **実装ファイル作成**: `internal/app/<service_name>_usecase_impl.go` を新規作成。
-2.  **実装内容**:
-    *   `<Service>UseCaseImpl` 構造体を定義し、依存する `Repository` や `Client` をフィールドに持つ。
-    *   `Execute<Service>` メソッド（または対応するメソッド）を実装する。この中で、インフラ層のクライアントを呼び出し、ビジネスロジックを実行する。
-3.  **実行**: `go test ./internal/app/...` を実行し、**ステップ1のテストがすべてパスする**まで実装を修正する。
-
-#### ステップ3: アプリケーション起動時の依存性注入 (DI)
-目的: アプリケーション起動時に、各コンポーネントを正しく組み立てる。
-
-1.  **ファイル修正**: `cmd/myapp/main.go` を修正。
-2.  **実装内容**:
-    *   インフラ層のクライアント、リポジトリのインスタンスを作成。
-    *   上記を `New<Service>UseCaseImpl` に渡して `UseCase` のインスタンスを作成。
-    *   作成した `UseCase` を `web.New<Service>Service` に渡して `Service` (ハンドラ) のインスタンスを作成。
-    *   Goaサーバーに `Service` を登録する。
-3.  **実行**: `go run ./cmd/myapp/main.go` を実行し、コンパイルエラーや起動時エラーが出ないことを確認する。
-
-#### ステップ4: ハンドラとユースケースのつなぎこみ
-目的: APIハンドラから、DIされたユースケースを呼び出す。
-
-1.  **ファイル修正**: `internal/handler/web/<service_name>_service.go` を修正。
-2.  **実装内容**:
-    *   Goaの `Payload` を `app.Params` に変換する。
-    *   `s.usecase.Execute<Service>(...)` を呼び出す。
-    *   結果をGoaの `Result` に変換して返す。
-
-#### ステップ5: 統合テスト
-目的: APIエンドポイントを実際に呼び出し、システム全体が正しく連携して動作することを確認する。
-
-1.  **実行**:
-    1.  `go run ./cmd/myapp/main.go` でサーバーを起動。
-    2.  `curl` などのツールで対象のAPIエンドポイントを呼び出す。
-2.  **確認**:
-    *   期待通りのHTTPステータスコードとレスポンスボディが返ってくること。
-    *   (必要に応じて) データベースや外部システムのログなどで、処理が正しく行われたことを確認する。
-
+GoaでAPIサービスを実裁E��る際の標準的な手頁E��以下に定める。これ�E、テスト駁E��開発(TDD)のアプローチを取り入れ、堁E��なシスチE��構築を目持E��も�Eである。すべてのGoaサービス実裁E��おいて、この手頁E��統一して開発を進めること、E
+**ゴール**: 特定�EAPIエンド�Eイントが、クライアントから受け取った情報に基づき、インフラ層のクライアントを呼び出し、忁E��な処琁E��実行して、その結果を返す、E
+**前提**: Goaの設計ファイル (`design/design.go`) にAPI定義が完亁E��ており、`goa gen` によってコードが自動生成されてぁE��こと。また、インフラ層の外部APIクライアント�E単体テストが完亁E��てぁE��こと、E
+#### スチE��チE: ユースケースの「振る�EぁE��をチE��トで定義する (TDD)
+目皁E `UseCase` が持つべき振る�EぁE��チE��トで定義する、E
+1.  **チE��トファイル作�E**: `internal/app/<service_name>_usecase_impl_test.go` を新規作�E、E2.  **チE��ト�E容**:
+    *   モチE���E�侁E `OrderRepository`, `TachibanaOrderClient`�E�を準備し、`UseCase` が依存するコンポ�Eネントが期征E��りに呼び出されることを検証する、E    *   成功ケース、失敗ケース、バリチE�Eションエラーなど、主要なシナリオに対するチE��トケースを記述する、E3.  **実衁E*: `go test ./internal/app/...` を実行。テスト�Eコンパイルエラーまた�E失敗する�Eず。これが、次の実裁E�E明確なゴールとなる、E
+#### スチE��チE: チE��トをパスさせるユースケースを実裁E��めE目皁E スチE��チEで書ぁE��チE��トをパスさせる、E
+1.  **実裁E��ァイル作�E**: `internal/app/<service_name>_usecase_impl.go` を新規作�E、E2.  **実裁E�E容**:
+    *   `<Service>UseCaseImpl` 構造体を定義し、依存すめE`Repository` めE`Client` をフィールドに持つ、E    *   `Execute<Service>` メソチE���E�また�E対応するメソチE���E�を実裁E��る。この中で、インフラ層のクライアントを呼び出し、ビジネスロジチE��を実行する、E3.  **実衁E*: `go test ./internal/app/...` を実行し、E*スチE��チEのチE��トがすべてパスする**まで実裁E��修正する、E
+#### スチE��チE: アプリケーション起動時の依存性注入 (DI)
+目皁E アプリケーション起動時に、各コンポ�Eネントを正しく絁E��立てる、E
+1.  **ファイル修正**: `cmd/myapp/main.go` を修正、E2.  **実裁E�E容**:
+    *   インフラ層のクライアント、リポジトリのインスタンスを作�E、E    *   上記を `New<Service>UseCaseImpl` に渡して `UseCase` のインスタンスを作�E、E    *   作�Eした `UseCase` めE`web.New<Service>Service` に渡して `Service` (ハンドラ) のインスタンスを作�E、E    *   Goaサーバ�Eに `Service` を登録する、E3.  **実衁E*: `go run ./cmd/myapp/main.go` を実行し、コンパイルエラーめE��動時エラーが�EなぁE��とを確認する、E
+#### スチE��チE: ハンドラとユースケースのつなぎこみ
+目皁E APIハンドラから、DIされたユースケースを呼び出す、E
+1.  **ファイル修正**: `internal/handler/web/<service_name>_service.go` を修正、E2.  **実裁E�E容**:
+    *   Goaの `Payload` めE`app.Params` に変換する、E    *   `s.usecase.Execute<Service>(...)` を呼び出す、E    *   結果をGoaの `Result` に変換して返す、E
+#### スチE��チE: 統合テスチE目皁E APIエンド�Eイントを実際に呼び出し、シスチE��全体が正しく連携して動作することを確認する、E
+1.  **実衁E*:
+    1.  `go run ./cmd/myapp/main.go` でサーバ�Eを起動、E    2.  `curl` などのチE�Eルで対象のAPIエンド�Eイントを呼び出す、E2.  **確誁E*:
+    *   期征E��りのHTTPスチE�Eタスコードとレスポンスボディが返ってくること、E    *   (忁E��に応じて) チE�Eタベ�EスめE��部シスチE��のログなどで、�E琁E��正しく行われたことを確認する、E
 
 
 Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Content-Type"="application/json"} -Body '{"symbol": "7203", "trade_type": "BUY", "order_type": "MARKET", "quantity": 100}'
 
-### 開発進捗 (2025-12-08)
+### 開発進捁E(2025-12-08)
 
-#### `POST /order` APIの統合テスト成功とデバッグの軌跡
-`not logged in`エラーの解消から始まり、`order failed with result code : `という500エラーの解決まで、段階的なデバッグを経て`POST /order` APIの統合テストを成功させた。
+#### `POST /order` APIの統合テスト�E功とチE��チE��の軌跡
+`not logged in`エラーの解消から始まり、`order failed with result code : `とぁE��500エラーの解決まで、段階的なチE��チE��を経て`POST /order` APIの統合テストを成功させた、E
+1.  **起動時ログイン処琁E�E実裁E**
+    *   `main.go`に`tachibanaClient.Login()`を呼び出す�E琁E��追加し、「`not logged in`」エラーを解消、E    *   `config.Config`のフィールド名�E�EUserID` -> `TachibanaUserID`�E��E不整合を修正し、ログイン処琁E��正常に完亁E��せた、E
+2.  **注文API (500エラー) のチE��チE��:**
+    *   `order_client_impl_neworder_test.go`が�E功することから、APIサーバ�E経由のリクエストとチE��ト�Eリクエスト�E容の差異を調査、E    *   **原因1 (SecondPasswordの欠落):** `order_usecase_impl.go`で第二パスワードが設定されてぁE��かったため、テストコードに倣ぁE��グインパスワードを渡すよぁE��修正。しかし、エラーは解消しなかった、E    *   **原因2 (忁E��フィールド�E不足):** さらに比輁E��た結果、E��E��値関連の褁E��のフィールド！EGyakusasiOrderType`など�E�がリクエストに不足してぁE��ことが根本原因であると特定。`order_usecase_impl.go`でこれら�EフィールドにチE��トコードと同じチE��ォルト値を設定したところ、E*API呼び出しが成功し、HTTPスチE�Eタス `201` と注文IDが返却されることを確認した、E*
 
-1.  **起動時ログイン処理の実装:**
-    *   `main.go`に`tachibanaClient.Login()`を呼び出す処理を追加し、「`not logged in`」エラーを解消。
-    *   `config.Config`のフィールド名（`UserID` -> `TachibanaUserID`）の不整合を修正し、ログイン処理を正常に完了させた。
+#### 次回�Eアクションプラン (2025-12-09 以陁E
 
-2.  **注文API (500エラー) のデバッグ:**
-    *   `order_client_impl_neworder_test.go`が成功することから、APIサーバー経由のリクエストとテストのリクエスト内容の差異を調査。
-    *   **原因1 (SecondPasswordの欠落):** `order_usecase_impl.go`で第二パスワードが設定されていなかったため、テストコードに倣いログインパスワードを渡すように修正。しかし、エラーは解消しなかった。
-    *   **原因2 (必須フィールドの不足):** さらに比較した結果、逆指値関連の複数のフィールド（`GyakusasiOrderType`など）がリクエストに不足していることが根本原因であると特定。`order_usecase_impl.go`でこれらのフィールドにテストコードと同じデフォルト値を設定したところ、**API呼び出しが成功し、HTTPステータス `201` と注文IDが返却されることを確認した。**
-
-#### 次回のアクションプラン (2025-12-09 以降)
-
-`POST /order` APIの基本的なE2Eテストが成功したため、次の実装フェーズに進む。
-
-1.  **リポジトリ層の実装:**
+`POST /order` APIの基本皁E��E2EチE��トが成功したため、次の実裁E��ェーズに進む、E
+1.  **リポジトリ層の実裁E**
     *   **対象:** `internal/infrastructure/repository`
-    *   **内容:** 現在ダミー実装となっている`OrderRepository`を、PostgreSQLと`gorm`を使用して永続化する実装に置き換える。データベース接続のセットアップも含む。
-    *   **目的:** 注文情報をデータベースに保存し、システムの永続化基盤を構築する。
-
-2.  **WebSocket接続テストの再開:**
+    *   **冁E��:** 現在ダミ�E実裁E��なってぁE��`OrderRepository`を、PostgreSQLと`gorm`を使用して永続化する実裁E��置き換える。データベ�Eス接続�EセチE��アチE�Eも含む、E    *   **目皁E** 注斁E��報をデータベ�Eスに保存し、シスチE��の永続化基盤を構築する、E
+2.  **WebSocket接続テスト�E再開:**
     *   **対象:** `TestEventClient_ConnectReadMessagesWithDemoAPI`
-    *   **内容:** `websocket: bad handshake`エラーのデバッグを、平日の取引時間中に再度実施する。
-    *   **目的:** リアルタイムの株価・約定情報を受信する機能を確立する。
-
+    *   **冁E��:** `websocket: bad handshake`エラーのチE��チE��を、平日の取引時間中に再度実施する、E    *   **目皁E** リアルタイムの株価・紁E��情報を受信する機�Eを確立する、E
 3.  **Goaサービスの追加開発:**
-    *   **対象:** `Balance`, `Position`などの未実装サービス
-    *   **内容:** `SYSTEM_DESIGN_MEMO.md`に記載した「Goaサービス実装の標準手順」に従い、他のサービスの開発に着手する。
-    *   **目的:** アプリケーションのコア機能を拡充する。
+    *   **対象:** `Balance`, `Position`などの未実裁E��ービス
+    *   **冁E��:** `SYSTEM_DESIGN_MEMO.md`に記載した「Goaサービス実裁E�E標準手頁E��に従い、他�Eサービスの開発に着手する、E    *   **目皁E** アプリケーションのコア機�Eを拡允E��る、E
 
+まずユースケースがセカンドパスワードを扱ぁE��E��があるのか？行き当たり�Eったりで流E�Eかな解決に走り、アーキチE��チャの基本から外れてぁE��ぁE��
 
-まずユースケースがセカンドパスワードを扱う必要があるのか？行き当たりばったりで浅はかな解決に走り、アーキテクチャの基本から外れていないか
-
-非常に鋭いご指摘です。そして、その疑問はアーキテクチャを考える上で極めて重要です。
-
-  結論から言うと、理想的な設計では、ユースケースがパスワードのようなインフラ層の詳細を直接扱うべきでは
-  ありません。
-
-  ご指摘の通り、UseCaseはアプリケーションのビジネスルールを記述する層であり、「パスワードを使ってAPIリ
-  クエストを組み立てる」という処理は、本来インフラ層が担当すべき責務です。
-
-  では、なぜ今回はパスワードを渡す形になったのか
-
-  これは、APIを早期に動作させることを優先し、変更範囲を最小限に抑えた結果、アーキテクチャ的な理想から
-  は少し妥協した形になっているためです。
-
-  現状の設計では、UseCaseが「証券会社APIのリクエストDTO（ReqNewOrder）を組み立てる」という責務を持って
-  います。そして、そのリクエストの一部としてSecondPasswordが必須であるため、UseCaseはどうしてもパスワ
-  ードを知る必要がありました。
-
-  より良い設計（今後のリファクタリング案）
-
-  本来あるべき姿は、OrderClientインターフェースの抽象度を上げ、パスワードを完全にインフラ層に隠蔽する
-  ことです。
-
-  例えば、OrderClientのNewOrderメソッドが、UseCaseからOrderParamsのようなビジネス的な情報だけを受け取
-  ります。
-   1 // in OrderClient interface
+非常に鋭ぁE��持E��です。そして、その疑問はアーキチE��チャを老E��る上で極めて重要です、E
+  結論から言ぁE��、理想皁E��設計では、ユースケースがパスワード�Eようなインフラ層の詳細を直接扱ぁE��きでは
+  ありません、E
+  ご指摘�E通り、UseCaseはアプリケーションのビジネスルールを記述する層であり、「パスワードを使ってAPIリ
+  クエストを絁E��立てる」とぁE��処琁E�E、本来インフラ層が担当すべき責務です、E
+  では、なぜ今回はパスワードを渡す形になった�EぁE
+  これは、APIを早期に動作させることを優先し、変更篁E��を最小限に抑えた結果、アーキチE��チャ皁E��琁E��から
+  は少し妥協した形になってぁE��ためです、E
+  現状の設計では、UseCaseが「証券会社APIのリクエスチETO�E�EeqNewOrder�E�を絁E��立てる」とぁE��責務を持って
+  ぁE��す。そして、そのリクエスト�E一部としてSecondPasswordが忁E��であるため、UseCaseはどぁE��てもパスワ
+  ードを知る忁E��がありました、E
+  より良ぁE��計（今後�Eリファクタリング案！E
+  本来あるべき姿は、OrderClientインターフェースの抽象度を上げ、パスワードを完�Eにインフラ層に隠蔽する
+  ことです、E
+  例えば、OrderClientのNewOrderメソチE��が、UseCaseからOrderParamsのようなビジネス皁E��惁E��だけを受け叁E  ります、E   1 // in OrderClient interface
    2 NewOrder(ctx context.Context, params app.OrderParams) (*response.ResNewOrder, error)
-  そして、OrderClientの実装（order_client_impl.go）の中で、paramsと、設定ファイルから取得したSecondPas
-  swordを組み合わせて、実際のAPIリクエスト（ReqNewOrder）を組み立てます。
-
-  こうすれば、UseCaseはパスワードの存在を一切知ることなく、自身のビジネスロジックに集中できます。
-
-  結論
-
-  あなたの「ユースケースがパスワードを扱うべきか」という問いは正しく、現在の実装はその点で改善の余地が
-  あります。
-  今回の修正は、まずエラーを解消するための現実的な一歩と捉えていただければ幸いです。将来的には、この部
-  分をリファクタリングして、よりクリーンな関心の分離を目指すべきだと考えています。
-
+  そして、OrderClientの実裁E��Erder_client_impl.go�E��E中で、paramsと、設定ファイルから取得したSecondPas
+  swordを絁E��合わせて、実際のAPIリクエスト！EeqNewOrder�E�を絁E��立てます、E
+  こうすれば、UseCaseはパスワード�E存在を一刁E��ることなく、�E身のビジネスロジチE��に雁E��できます、E
+  結諁E
+  あなた�E「ユースケースがパスワードを扱ぁE��きか」とぁE��問いは正しく、現在の実裁E�Eそ�E点で改喁E�E余地ぁE  あります、E  今回の修正は、まずエラーを解消するため�E現実的な一歩と捉えてぁE��だければ幸ぁE��す。封E��皁E��は、この部
+  刁E��リファクタリングして、よりクリーンな関忁E�E刁E��を目持E��べきだと老E��てぁE��す、E
 ---
 
-### 開発進捗 (2025-12-09)
+### 開発進捁E(2025-12-09)
 
-#### アーキテクチャ改善計画：責務の分離リファクタリング
+#### アーキチE��チャ改喁E��画�E�責務�E刁E��リファクタリング
 
-- **課題の特定**: `POST /order` APIのデバッグ過程で、`OrderUseCase` がインフラ層の詳細である `SecondPassword` を扱っている問題が明らかになった。これは「関心の分離」の原則に反しており、技術的負債となる。
-- **標準手順の策定**: このようなレイヤー間の責務移動を伴うリファクタリングを安全かつ一貫して行うため、新たに `planning/REFACTORING_PROCEDURE.md` を作成した。
+- **課題�E特宁E*: `POST /order` APIのチE��チE��過程で、`OrderUseCase` がインフラ層の詳細である `SecondPassword` を扱ってぁE��問題が明らかになった。これ�E「関忁E�E刁E��」�E原則に反しており、技術的負債となる、E- **標準手頁E�E策宁E*: こ�Eようなレイヤー間�E責務移動を伴ぁE��ファクタリングを安�Eかつ一貫して行うため、新たに `planning/REFACTORING_PROCEDURE.md` を作�Eした、E
+### 開発進捁E(2025-12-11)
 
-### 開発進捗 (2025-12-11)
-
-#### `OrderClient` 関連テストの修正
-- **課題**: `SecondPassword` の責務を `UseCase` 層から `Infrastructure` 層へ移譲するリファクタリング (`2025-12-09` 実施) の影響で、`OrderClient` を利用している複数のテスト (`cancelorder`, `cancelorderall`, `correctorder`) でコンパイルエラーが発生していた。
-- **修正**:
-    1. `NewOrder` メソッドの呼び出し部分を、新しい `client.NewOrderParams` 構造体を使うように修正し、すべてのコンパイルエラーを解消。
-    2. `order_client_impl_cancelorder_test.go` で発生していた実行時エラー（APIエラーコード `13001`, `11121`）を調査。原因が逆指値注文のパラメータにあると特定。
-    3. ユーザーの指示に基づき、テストの意図（特定のリクエストを生成すること）を維持するため、`NewOrderParams` の値は元のテストコードの値を保持するように最終調整。これにより、テストはコンパイル可能だが、APIの仕様により実行時には失敗する可能性がある状態となった。
-- **結論**: `OrderClient` に関連するテストは、リファクタリング後のインターフェースに準拠した形に修正され、コンパイル可能な状態に復旧した。
-
-#### `OrderClient` メソッドの SecondPassword 責務移譲の完了
-- **課題**: `NewOrder` メソッドに適用した `SecondPassword` の責務移譲が、`OrderClient` の他のメソッド (`CorrectOrder`, `CancelOrder`, `CancelOrderAll`) に対して未完了であった。
-- **修正**:
-    1. `internal/infrastructure/client/order_client.go` 内の `OrderClient` インターフェースを更新し、`CorrectOrderParams`, `CancelOrderParams`, `CancelOrderAllParams` の各構造体を定義し、対応するメソッドのシグネチャを変更。
-    2. `internal/infrastructure/client/order_client_impl.go` 内で、変更されたインターフェースに合わせて `CorrectOrder`, `CancelOrder`, `CancelOrderAll` の実装を修正し、`SecondPassword` の扱いを内部にカプセル化。
-    3. 関連するテストファイル (`order_client_impl_cancelorder_test.go`, `order_client_impl_correctorder_test.go`, `order_client_impl_cancelorderall_test.go`) を更新されたインターフェースに合わせるように修正。
-    4. `internal/app/order_usecase_impl.go` はこれらのメソッドを使用していないため、変更は不要であることを確認。
-- **結論**: `OrderClient` のすべての関連メソッドにおいて `SecondPassword` の管理責務が `Infrastructure` 層に完全に移譲され、リファクタリングが完了した。
-
-#### リポジトリ層の静的コードレビュー完了
-- **課題**: リポジトリ層の実装が `gorm` を使用して適切に行われているか、静的に確認する必要があった。
-- **レビュー結果**:
-    1. `OrderRepository` (`domain/repository/order_repository.go`, `domain/model/order.go`, `internal/infrastructure/repository/order_repository_impl.go`) をレビューし、インターフェース、`gorm` タグ付きモデル、`gorm` ベースの実装が適切であることを確認。
-    2. `PositionRepository` (`domain/repository/position_repository.go`, `domain/model/position.go`, `internal/infrastructure/repository/position_repository_impl.go`) をレビューし、同様に適切であることを確認。
-    3. `SignalRepository` (`domain/repository/signal_repository.go`, `domain/model/signal.go`, `internal/infrastructure/repository/signal_repository_impl.go`) をレビューし、同様に適切であることを確認。
-    4. `MasterRepository` (`domain/repository/master_repository.go`, `domain/model/master_*.go`, `internal/infrastructure/repository/master_repository_impl.go`) をレビューし、同様に適切であることを確認。`FindByIssueCode` メソッドは `entityType` に基づいて適切なモデルを検索する汎用的な実装であり、既存コードに修正すべき論理的欠陥はなかった。
-- **結論**: すべてのリポジトリコンポーネント（インターフェース、`gorm` タグ付きモデル、`gorm` ベースの実装）は、静的コードの観点から完成していると判断される。
-
-### 開発進捗 (2025-12-12)
+#### `OrderClient` 関連チE��ト�E修正
+- **課顁E*: `SecondPassword` の責務を `UseCase` 層から `Infrastructure` 層へ移譲するリファクタリング (`2025-12-09` 実施) の影響で、`OrderClient` を利用してぁE��褁E��のチE��チE(`cancelorder`, `cancelorderall`, `correctorder`) でコンパイルエラーが発生してぁE��、E- **修正**:
+    1. `NewOrder` メソチE��の呼び出し部刁E��、新しい `client.NewOrderParams` 構造体を使ぁE��ぁE��修正し、すべてのコンパイルエラーを解消、E    2. `order_client_impl_cancelorder_test.go` で発生してぁE��実行時エラー�E�EPIエラーコーチE`13001`, `11121`�E�を調査。原因が送E��値注斁E�Eパラメータにあると特定、E    3. ユーザーの持E��に基づき、テスト�E意図�E�特定�Eリクエストを生�Eすること�E�を維持するため、`NewOrderParams` の値は允E�EチE��トコード�E値を保持するように最終調整。これにより、テスト�Eコンパイル可能だが、APIの仕様により実行時には失敗する可能性がある状態となった、E- **結諁E*: `OrderClient` に関連するチE��ト�E、リファクタリング後�Eインターフェースに準拠した形に修正され、コンパイル可能な状態に復旧した、E
+#### `OrderClient` メソチE��の SecondPassword 責務移譲の完亁E- **課顁E*: `NewOrder` メソチE��に適用した `SecondPassword` の責務移譲が、`OrderClient` の他�EメソチE�� (`CorrectOrder`, `CancelOrder`, `CancelOrderAll`) に対して未完亁E��あった、E- **修正**:
+    1. `internal/infrastructure/client/order_client.go` 冁E�E `OrderClient` インターフェースを更新し、`CorrectOrderParams`, `CancelOrderParams`, `CancelOrderAllParams` の吁E��造体を定義し、対応するメソチE��のシグネチャを変更、E    2. `internal/infrastructure/client/order_client_impl.go` 冁E��、変更されたインターフェースに合わせて `CorrectOrder`, `CancelOrder`, `CancelOrderAll` の実裁E��修正し、`SecondPassword` の扱ぁE��冁E��にカプセル化、E    3. 関連するチE��トファイル (`order_client_impl_cancelorder_test.go`, `order_client_impl_correctorder_test.go`, `order_client_impl_cancelorderall_test.go`) を更新されたインターフェースに合わせるように修正、E    4. `internal/app/order_usecase_impl.go` はこれら�EメソチE��を使用してぁE��ぁE��め、変更は不要であることを確認、E- **結諁E*: `OrderClient` のすべての関連メソチE��において `SecondPassword` の管琁E��務が `Infrastructure` 層に完�Eに移譲され、リファクタリングが完亁E��た、E
+#### リポジトリ層の静的コードレビュー完亁E- **課顁E*: リポジトリ層の実裁E�� `gorm` を使用して適刁E��行われてぁE��か、E��皁E��確認する忁E��があった、E- **レビュー結果**:
+    1. `OrderRepository` (`domain/repository/order_repository.go`, `domain/model/order.go`, `internal/infrastructure/repository/order_repository_impl.go`) をレビューし、インターフェース、`gorm` タグ付きモチE��、`gorm` ベ�Eスの実裁E��適刁E��あることを確認、E    2. `PositionRepository` (`domain/repository/position_repository.go`, `domain/model/position.go`, `internal/infrastructure/repository/position_repository_impl.go`) をレビューし、同様に適刁E��あることを確認、E    3. `SignalRepository` (`domain/repository/signal_repository.go`, `domain/model/signal.go`, `internal/infrastructure/repository/signal_repository_impl.go`) をレビューし、同様に適刁E��あることを確認、E    4. `MasterRepository` (`domain/repository/master_repository.go`, `domain/model/master_*.go`, `internal/infrastructure/repository/master_repository_impl.go`) をレビューし、同様に適刁E��あることを確認。`FindByIssueCode` メソチE��は `entityType` に基づぁE��適刁E��モチE��を検索する汎用皁E��実裁E��あり、既存コードに修正すべき論理皁E��陥はなかった、E- **結諁E*: すべてのリポジトリコンポ�Eネント（インターフェース、`gorm` タグ付きモチE��、`gorm` ベ�Eスの実裁E���E、E��皁E��ード�E観点から完�EしてぁE��と判断される、E
+### 開発進捁E(2025-12-12)
 
 #### リポジトリ層の統合と永続化の実現
-ダミー実装だったリポジトリ層を、実際のデータベース（PostgreSQL）に接続する実装に置き換え、アプリケーションの永続化基盤を構築した。
-
-1.  **開発用データベース環境の構築:**
-    *   `docker-compose.yml` を新規に作成し、PostgreSQLコンテナを定義。開発環境のデータベースをDockerで簡単に起動できるようにした。
-    *   `.env` ファイルにデータベース接続情報（`DB_HOST`, `DB_USER`等）を設定する方法を明確化し、接続問題を解決した。
-
-2.  **`main.go` へのGORM統合:**
-    *   アプリケーション起動時に、`gorm` を用いてPostgreSQLに接続する処理を `cmd/myapp/main.go` に実装。
-    *   `db.AutoMigrate` を使用し、`Order`, `Position`, `Signal`, `StockMaster` などのドメインモデルに基づいて、データベーススキーマが自動的に生成・更新されるようにした。
-    *   `OrderUseCase` に注入するリポジトリを、ダミーの `dummyOrderRepo` から `gorm` ベースの `repository_impl.NewOrderRepository` に置き換えた。
-
+ダミ�E実裁E��ったリポジトリ層を、実際のチE�Eタベ�Eス�E�EostgreSQL�E�に接続する実裁E��置き換え、アプリケーションの永続化基盤を構築した、E
+1.  **開発用チE�Eタベ�Eス環墁E�E構篁E**
+    *   `docker-compose.yml` を新規に作�Eし、PostgreSQLコンチE��を定義。開発環墁E�EチE�Eタベ�EスをDockerで簡単に起動できるようにした、E    *   `.env` ファイルにチE�Eタベ�Eス接続情報�E�EDB_HOST`, `DB_USER`等）を設定する方法を明確化し、接続問題を解決した、E
+2.  **`main.go` へのGORM統吁E**
+    *   アプリケーション起動時に、`gorm` を用ぁE��PostgreSQLに接続する�E琁E�� `cmd/myapp/main.go` に実裁E��E    *   `db.AutoMigrate` を使用し、`Order`, `Position`, `Signal`, `StockMaster` などのドメインモチE��に基づぁE��、データベ�Eススキーマが自動的に生�E・更新されるよぁE��した、E    *   `OrderUseCase` に注入するリポジトリを、ダミ�Eの `dummyOrderRepo` から `gorm` ベ�Eスの `repository_impl.NewOrderRepository` に置き換えた、E
 3.  **コンパイルエラーと実行時エラーの修正:**
-    *   `main.go` で発生していた、モデル名 (`StockMaster` 等) やリポジトリのコンストラクタ名 (`NewOrderRepository`) の不一致によるコンパイルエラーを修正した。
-    *   `.env` の設定不備に起因するデータベース接続エラー (`lookup db: no such host`) を特定し、ユーザーが設定を修正することで解決に導いた。
+    *   `main.go` で発生してぁE��、モチE��吁E(`StockMaster` 筁E めE��ポジトリのコンストラクタ吁E(`NewOrderRepository`) の不一致によるコンパイルエラーを修正した、E    *   `.env` の設定不備に起因するチE�Eタベ�Eス接続エラー (`lookup db: no such host`) を特定し、ユーザーが設定を修正することで解決に導いた、E
+4.  **統合�E最終確誁E**
+    *   上記修正後、`go run ./cmd/myapp/main.go` を実行し、アプリケーションが正常に起動、データベ�Eス接続、スキーマ�Eマイグレーション、APIへのログインを完亁E��、HTTPサーバ�EがリチE��ン状態になることを確認した、E
+#### 次回�Eアクションプラン (2025-12-13 以陁E
 
-4.  **統合の最終確認:**
-    *   上記修正後、`go run ./cmd/myapp/main.go` を実行し、アプリケーションが正常に起動、データベース接続、スキーマのマイグレーション、APIへのログインを完了し、HTTPサーバーがリッスン状態になることを確認した。
-
-#### 次回のアクションプラン (2025-12-13 以降)
-
-1.  **WebSocket接続テストの再開 (最優先)**:
+1.  **WebSocket接続テスト�E再開 (最優允E**:
     *   **対象:** `TestEventClient_ConnectReadMessagesWithDemoAPI`
-    *   **内容:** 平日の取引時間中に `websocket: bad handshake`エラーのデバッグを再開する。
-    *   **目的:** リアルタイムの株価・約定情報を受信する機能を確立する。
-
+    *   **冁E��:** 平日の取引時間中に `websocket: bad handshake`エラーのチE��チE��を�E開する、E    *   **目皁E** リアルタイムの株価・紁E��情報を受信する機�Eを確立する、E
 2.  **Goaサービスの追加開発:**
-    *   **対象:** `Balance`, `Position`などの未実装サービス
-    *   **内容:** `SYSTEM_DESIGN_MEMO.md`に記載した「Goaサービス実装の標準手順」に従い、他のサービスの開発に着手する。
-    *   **目的:** アプリケーションのコア機能を拡充する。
+    *   **対象:** `Balance`, `Position`などの未実裁E��ービス
+    *   **冁E��:** `SYSTEM_DESIGN_MEMO.md`に記載した「Goaサービス実裁E�E標準手頁E��に従い、他�Eサービスの開発に着手する、E    *   **目皁E** アプリケーションのコア機�Eを拡允E��る、E
+### 開発進捁E(2025-12-13)
 
-### 開発進捗 (2025-12-13)
-
-#### データベースマイグレーションの導入
--   **課題**: 既存の `gorm.AutoMigrate` は開発初期には便利だが、本番環境での運用には不向きであった。
--   **解決策**: `golang-migrate/migrate` ツールを導入し、バージョン管理されたSQLファイルによるマイグレーションシステムを構築した。
--   **具体的な変更**:
-    1.  `golang-migrate/migrate` CLIツールをインストール。
-    2.  プロジェクトルートに `migrations` ディレクトリを作成し、初期スキーマ (`000001_create_initial_tables.up.sql`, `.down.sql`) を生成。
-    3.  既存の `domain/model` 定義から、PostgreSQL用の `CREATE TABLE` および `DROP TABLE` SQLを生成し、マイグレーションファイルに記述。
-    4.  `cmd/myapp/main.go` から `db.AutoMigrate(...)` の呼び出しを削除。
-    5.  `README.md` を更新し、マイグレーションの実行方法に関する説明を追加。
-    6.  `migrations/README.md` を作成し、ディレクトリの目的と利用方法を解説。
-
-#### Goaサービス「Order」のテスト修正
--   **課題**: `OrderUseCase` のモック（`OrderClientMock`）が、`SecondPassword` の責務移譲に伴う `client.OrderClient` インターフェースの変更に追従できておらず、コンパイルエラーが発生していた。
--   **解決策**: `internal/app/tests/order_usecase_impl_test.go` 内の `OrderClientMock` のメソッドシグネチャを、新しい `client....Params` 型に合わせて修正。
-
-#### Goaサービス「Balance」の追加
--   **目的**: 口座の残高サマリーを取得する `GET /balance` エンドポイントを実装。
--   **実装詳細**:
-    1.  `design/design.go` に `balance` サービスを定義。主要な残高情報（買付可能額、保証金率など）を `BalanceResult` として抽出。
-    2.  `goa gen` でコードを生成。
-    3.  `internal/app/tests/balance_usecase_impl_test.go` で `BalanceUseCase` のテスト（成功、クライアントエラー、パースエラー）を定義。
-    4.  `internal/app/balance_usecase.go` と `internal/app/balance_usecase_impl.go` でユースケースを実装。`client.BalanceClient.GetZanKaiSummary` を呼び出し、API応答文字列を適切な型にパース。
-    5.  `internal/handler/web/balance_service.go` でGoaハンドラを実装。
-    6.  `cmd/myapp/main.go` に `BalanceUseCase` と `BalanceService` をDIし、エンドポイントをマウント。
-    7.  **デバッグと修正**: `balance.BalanceResult` が `balance.StockbotBalance` という名前で生成されていたため、ハンドラコードを修正。
-    8.  `curl` コマンドによる統合テストで動作を確認。
-
-#### Goaサービス「Position」の追加
--   **目的**: 現在保有しているポジション（建玉）の一覧を取得する `GET /positions` エンドポイントを実装。
--   **実装詳細**:
-    1.  `design/design.go` に `position` サービスを定義。現物と信用のポジションを統合した `PositionResult` および `PositionCollection` を定義。`type` パラメータによるフィルタリングをサポート。
-    2.  `goa gen` でコードを生成。
-    3.  `internal/app/tests/position_usecase_impl_test.go` で `PositionUseCase` のテスト（`all`, `cash`, `margin` フィルタリング、クライアントエラー）を定義。
-    4.  `internal/app/position_usecase.go` と `internal/app/position_usecase_impl.go` でユースケースを実装。`client.BalanceClient.GetGenbutuKabuList` と `GetShinyouTategyokuList` を呼び出し、統一された `Position` 構造体に変換。
-    5.  `internal/handler/web/position_service.go` でGoaハンドラを実装。
-    6.  `cmd/myapp/main.go` に `PositionUseCase` と `PositionService` をDIし、エンドポイントをマウント。
-    7.  **デバッグと修正**: `PositionUseCaseBalanceClientMock` が `client.BalanceClient` インターフェースの全メソッドを実装していなかった点を修正。
-    8.  **デバッグと修正**: `position.PositionCollection` が `position.StockbotPositionCollection` という名前で生成されていたため、ハンドラコードを修正。
-    9.  `curl` コマンドによる統合テストで動作を確認。
-
-#### Goaサービス「Master」の追加 (途中)
--   **目的**: 個別銘柄のマスタデータ（PER, PBR等の詳細情報）を取得する `GET /master/stocks/{symbol}` エンドポイントを実装。
--   **実装詳細**:
-    1.  `design/design.go` に `master` サービスを定義。`get_stock_detail` メソッドと `StockDetailResult`（PER, PBR等の財務指標を含む）を定義。
-    2.  `goa gen` でコードを生成。
-    3.  `MasterUseCase` とハンドラの開発を進めたが、統合テストで `Stock detail not found` エラーが発生。
-    4.  **原因調査**: 立花証券APIのPythonサンプルコードを分析した結果、`GetIssueDetail` はデモ環境で期待通りの詳細データを返却しない可能性が高いと判明。代わりに `GetMasterDataQuery` を使用し、基本的な銘柄情報のみを取得する方針に転換。
-    5.  **再設計と実装（現在デバッグ中）**:
-        -   `design/design.design.go` を修正し、`get_stock` メソッドと `StockMasterResult`（銘柄コード、名称、市場、業種コード名など基本的な情報のみを含む）を定義。
-        -   `goa gen` を再実行。
-        -   `internal/app/tests/master_usecase_impl_test.go` を、`GetMasterDataQuery` をモックし、新しい `StockMasterResult` のフィールドをアサートするように全面修正。
-        -   `internal/app/master_usecase.go` および `internal/app/master_usecase_impl.go` を修正し、`GetMasterDataQuery` を呼び出してレスポンスから銘柄情報を抽出し、`StockMasterResult` を返すように変更。
-        -   `internal/handler/web/master_service.go` を修正し、新しい `get_stock` メソッドと `master.StockbotStockMaster` 型を使用するように変更。
-        -   **現在デバッグ中**: `ResStockMaster` 内のフィールド名 (`YusenSizyou` -> `PreferredMarket`, `GyousyuCode` -> `IndustryCode`, `GyousyuName` -> `IndustryName`) の不一致や、Goa生成型名（`StockbotStockMaster`）のミスマッチ、テストのモック引数不一致、構文エラーなど、複数のコンパイル／実行時エラーを修正中。
-
+#### チE�Eタベ�Eスマイグレーションの導�E
+-   **課顁E*: 既存�E `gorm.AutoMigrate` は開発初期には便利だが、本番環墁E��の運用には不向きであった、E-   **解決筁E*: `golang-migrate/migrate` チE�Eルを導�Eし、バージョン管琁E��れたSQLファイルによるマイグレーションシスチE��を構築した、E-   **具体的な変更**:
+    1.  `golang-migrate/migrate` CLIチE�Eルをインスト�Eル、E    2.  プロジェクトルートに `migrations` チE��レクトリを作�Eし、�E期スキーチE(`000001_create_initial_tables.up.sql`, `.down.sql`) を生成、E    3.  既存�E `domain/model` 定義から、PostgreSQL用の `CREATE TABLE` および `DROP TABLE` SQLを生成し、�Eイグレーションファイルに記述、E    4.  `cmd/myapp/main.go` から `db.AutoMigrate(...)` の呼び出しを削除、E    5.  `README.md` を更新し、�Eイグレーションの実行方法に関する説明を追加、E    6.  `migrations/README.md` を作�Eし、ディレクトリの目皁E��利用方法を解説、E
+#### Goaサービス「Order」�EチE��ト修正
+-   **課顁E*: `OrderUseCase` のモチE���E�EOrderClientMock`�E�が、`SecondPassword` の責務移譲に伴ぁE`client.OrderClient` インターフェースの変更に追従できておらず、コンパイルエラーが発生してぁE��、E-   **解決筁E*: `internal/app/tests/order_usecase_impl_test.go` 冁E�E `OrderClientMock` のメソチE��シグネチャを、新しい `client....Params` 型に合わせて修正、E
+#### Goaサービス「Balance」�E追加
+-   **目皁E*: 口座の残高サマリーを取得すめE`GET /balance` エンド�Eイントを実裁E��E-   **実裁E��細**:
+    1.  `design/design.go` に `balance` サービスを定義。主要な残高情報�E�買付可能額、保証金率など�E�を `BalanceResult` として抽出、E    2.  `goa gen` でコードを生�E、E    3.  `internal/app/tests/balance_usecase_impl_test.go` で `BalanceUseCase` のチE��ト（�E功、クライアントエラー、パースエラー�E�を定義、E    4.  `internal/app/balance_usecase.go` と `internal/app/balance_usecase_impl.go` でユースケースを実裁E��`client.BalanceClient.GetZanKaiSummary` を呼び出し、API応答文字�Eを適刁E��型にパ�Eス、E    5.  `internal/handler/web/balance_service.go` でGoaハンドラを実裁E��E    6.  `cmd/myapp/main.go` に `BalanceUseCase` と `BalanceService` をDIし、エンド�Eイントをマウント、E    7.  **チE��チE��と修正**: `balance.BalanceResult` ぁE`balance.StockbotBalance` とぁE��名前で生�EされてぁE��ため、ハンドラコードを修正、E    8.  `curl` コマンドによる統合テストで動作を確認、E
+#### Goaサービス「Position」�E追加
+-   **目皁E*: 現在保有してぁE��ポジション�E�建玉）�E一覧を取得すめE`GET /positions` エンド�Eイントを実裁E��E-   **実裁E��細**:
+    1.  `design/design.go` に `position` サービスを定義。現物と信用のポジションを統合しぁE`PositionResult` および `PositionCollection` を定義。`type` パラメータによるフィルタリングをサポ�Eト、E    2.  `goa gen` でコードを生�E、E    3.  `internal/app/tests/position_usecase_impl_test.go` で `PositionUseCase` のチE��ト！Eall`, `cash`, `margin` フィルタリング、クライアントエラー�E�を定義、E    4.  `internal/app/position_usecase.go` と `internal/app/position_usecase_impl.go` でユースケースを実裁E��`client.BalanceClient.GetGenbutuKabuList` と `GetShinyouTategyokuList` を呼び出し、統一されぁE`Position` 構造体に変換、E    5.  `internal/handler/web/position_service.go` でGoaハンドラを実裁E��E    6.  `cmd/myapp/main.go` に `PositionUseCase` と `PositionService` をDIし、エンド�Eイントをマウント、E    7.  **チE��チE��と修正**: `PositionUseCaseBalanceClientMock` ぁE`client.BalanceClient` インターフェースの全メソチE��を実裁E��てぁE��かった点を修正、E    8.  **チE��チE��と修正**: `position.PositionCollection` ぁE`position.StockbotPositionCollection` とぁE��名前で生�EされてぁE��ため、ハンドラコードを修正、E    9.  `curl` コマンドによる統合テストで動作を確認、E
+#### Goaサービス「Master」�E追加 (途中)
+-   **目皁E*: 個別銘柄のマスタチE�Eタ�E�EER, PBR等�E詳細惁E���E�を取得すめE`GET /master/stocks/{symbol}` エンド�Eイントを実裁E��E-   **実裁E��細**:
+    1.  `design/design.go` に `master` サービスを定義。`get_stock_detail` メソチE��と `StockDetailResult`�E�EER, PBR等�E財務指標を含む�E�を定義、E    2.  `goa gen` でコードを生�E、E    3.  `MasterUseCase` とハンドラの開発を進めたが、統合テストで `Stock detail not found` エラーが発生、E    4.  **原因調査**: 立花証券APIのPythonサンプルコードを刁E��した結果、`GetIssueDetail` はチE��環墁E��期征E��りの詳細チE�Eタを返却しなぁE��能性が高いと判明。代わりに `GetMasterDataQuery` を使用し、基本皁E��銘柄惁E��のみを取得する方針に転換、E    5.  **再設計と実裁E��現在チE��チE��中�E�E*:
+        -   `design/design.design.go` を修正し、`get_stock` メソチE��と `StockMasterResult`�E�銘柁E��ード、名称、市場、業種コード名など基本皁E��惁E��のみを含む�E�を定義、E        -   `goa gen` を�E実行、E        -   `internal/app/tests/master_usecase_impl_test.go` を、`GetMasterDataQuery` をモチE��し、新しい `StockMasterResult` のフィールドをアサートするよぁE��全面修正、E        -   `internal/app/master_usecase.go` および `internal/app/master_usecase_impl.go` を修正し、`GetMasterDataQuery` を呼び出してレスポンスから銘柄惁E��を抽出し、`StockMasterResult` を返すように変更、E        -   `internal/handler/web/master_service.go` を修正し、新しい `get_stock` メソチE��と `master.StockbotStockMaster` 型を使用するように変更、E        -   **現在チE��チE��中**: `ResStockMaster` 冁E�Eフィールド名 (`YusenSizyou` -> `PreferredMarket`, `GyousyuCode` -> `IndustryCode`, `GyousyuName` -> `IndustryName`) の不一致めE��Goa生�E型名�E�EStockbotStockMaster`�E��Eミスマッチ、テスト�EモチE��引数不一致、構文エラーなど、褁E��のコンパイル�E�実行時エラーを修正中、E
 ---
 
-#### 次回のアクションプラン (2025-12-16 以降)
+#### 次回�Eアクションプラン (2025-12-16 以陁E
 
-1.  **WebSocket接続テストの再開 (最優先)**:
+1.  **WebSocket接続テスト�E再開 (最優允E**:
     *   **対象:** `TestEventClient_ConnectReadMessagesWithDemoAPI`
-    *   **内容:** 平日の取引時間中に `websocket: bad handshake`エラーのデバッグを再開する。
-    *   **目的:** リアルタイムの株価・約定情報を受信する機能を確立する。
-
-2.  **API統合テストの拡充**:
-    *   **対象**: 起動したアプリケーション全体
-    *   **内容**: `curl`や`Invoke-WebRequest`などのツールを使用し、実装済みの各APIエンドポイント（`/order`, `/balance`, `/positions`, `/master/stocks/{symbol}`）が、永続化されたDBと連携して正しく動作するかを体系的にテストする。
-    *   **目的**: 各サービスのE2Eでの動作を保証する。
-
+    *   **冁E��:** 平日の取引時間中に `websocket: bad handshake`エラーのチE��チE��を�E開する、E    *   **目皁E** リアルタイムの株価・紁E��情報を受信する機�Eを確立する、E
+2.  **API統合テスト�E拡允E*:
+    *   **対象**: 起動したアプリケーション全佁E    *   **冁E��**: `curl`や`Invoke-WebRequest`などのチE�Eルを使用し、実裁E��みの各APIエンド�Eイント！E/order`, `/balance`, `/positions`, `/master/stocks/{symbol}`�E�が、永続化されたDBと連携して正しく動作するかを体系皁E��チE��トする、E    *   **目皁E*: 吁E��ービスのE2Eでの動作を保証する、E
 3.  **Goaサービスの追加開発:**
-    *   **対象:** `design/design.go` に定義されている未実装のサービス
-    *   **内容:** `SYSTEM_DESIGN_MEMO.md`に記載した「Goaサービス実装の標準手順」に従い、他のサービスの開発に着手する。
-    *   **目的:** アプリケーションのコア機能を拡充する。
+    *   **対象:** `design/design.go` に定義されてぁE��未実裁E�Eサービス
+    *   **冁E��:** `SYSTEM_DESIGN_MEMO.md`に記載した「Goaサービス実裁E�E標準手頁E��に従い、他�Eサービスの開発に着手する、E    *   **目皁E** アプリケーションのコア機�Eを拡允E��る、E
+### 開発進捁E(2025-12-14)
 
-### 開発進捗 (2025-12-14)
+#### マスターチE�Eタ同期機�Eの実裁E��亁E長期間にわたるデバッグの末、アプリケーション起動時にマスターチE�Eタをダウンロードし、データベ�Eスに保存する一連の機�Eが正常に動作することを確認した、E
+1.  **API接続�E課題解決**:
+    *   **ログイン404エラー**: 原因は、`.env`ファイルに設定されたAPIのベ�EスURL (`TACHIBANA_BASE_URL`) のバ�Eジョンが古かっぁE(`v4r7`) ことであった。最新のバ�Eジョン (`v4r8`) に修正したことで解決した、E    *   **マスターチE�Eタ取得エラー**: `DownloadMasterData` APIが返す巨大なストリーミングチE�Eタ�E�改行なし�E連続したJSON�E�が、Go標準ライブラリの`bufio.Scanner`のバッファ上限を趁E��てしまぁE��題があった。これ�E、Pythonサンプルを参老E��、チャンクで読み込み`}`を区刁E��斁E��として手動でJSONをパースするロジチE��を実裁E��ることで解決した、E
+2.  **チE�Eタベ�Eス永続化の課題解決**:
+    *   **GORMとリレーションのUpsert問顁E*: リレーション (`TickRules`) を持つGORMモチE��をそのまま一括UpsertしよぁE��すると `invalid field` エラーが発生した。`.Omit()`や`.Select()`も期征E��りに機�Eしなかったため、最終的にリポジトリ層でリレーションフィールドを持たないDB保存用のDTO (`dbStockMaster`) にチE�Eタを詰め替える「DTOパターン」を採用することで、GORMの一括Upsert機�Eを活かしつつ問題を構造皁E��解決した、E    *   **マイグレーションの課顁E*: モチE��とDBスキーマ�E不整合（カラム不足�E�や、GORMの主キー規紁E��Eid`カラムの自動探索�E�に起因するエラーが発生。これらは、`golang-migrate/migrate`を使ってスキーマを修正し、モチE��定義から不要な`ID`フィールドを削除することで解決した、E
+3.  **開発効玁E�E改喁E*:
+    *   マイグレーションを簡単かつ確実に行うため、`.env`ファイルを読み込んで`migrate`ライブラリを直接実行するGoプログラム (`cmd/migrator/main.go`) を作�Eした。これにより、`go run`コマンド一つで誰でも�Eイグレーションを実行できるようになった、E
+#### マスターチE�Eタ同期機�EにおけるDB問題�E再発
 
-#### マスターデータ同期機能の実装完了
-長期間にわたるデバッグの末、アプリケーション起動時にマスターデータをダウンロードし、データベースに保存する一連の機能が正常に動作することを確認した。
+-   **課題�E再発**: マスターチE�Eタ同期機�Eの実行時に、`TickRules`チE�EブルへのチE�Eタ挿入で`ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification (SQLSTATE 42P10)`エラーが�E発した。これ�E、`tick_rules`モチE��の`TickUnitNumber`が`PRIMARY KEY`として定義されてぁE��にもかかわらず発生してぁE��、E-   **環墁E��異とチE�Eタベ�Eス状慁E*:
+    -   別の開発環墁E��はこ�E`ON CONFLICT`エラーは発生しておらず、現在の環墁E��のみ再発してぁE��。この事実�E、両環墁E��でチE�Eタベ�Eススキーマ�E状態に差異があることを強く示唁E��てぁE��、E    -   これまでのチE��チE��過程で、�Eイグレーションの失敗によるチE�Eタベ�Eスの「ダーチE��」状態�E発生や、`ALTER TABLE ADD COLUMN`の重褁E��ラーなど、スキーマ�E不整合に起因する問題が褁E��回発生してぁE��、E    -   `ON CONFLICT`句が期征E��りに機�Eするためには、PostgreSQLが`UNIQUE`制紁E��た�E`EXCLUSION`制紁E��明示皁E��認識してぁE��忁E��があり、`PRIMARY KEY`のみでは不十刁E��場合がある、E-   **現在のチE�Eタベ�Eス状態�E評価**: 現在の環墁E��発生してぁE��一連のチE�Eタベ�Eス関連エラーは、E��去のマイグレーション失敗や不完�Eな適用により、データベ�Eスのスキーマがアプリケーションコードやマイグレーションファイルが期征E��る状態と一致してぁE��ぁE��とに起因すると老E��られる。開発段階にあるとはぁE��、このような不整合なチE�Eタベ�Eスの状態を維持しようとすることは、デバッグを困難にし、さらなる問題を引き起こす可能性が高いため、現状のチE�Eタベ�Eス設定�E価値がなぁE��判断する、E-   **今後�E対応方釁E*:
+    -   `migrations/20251212203023_create_initial_tables.up.sql`に`tick_rules`チE�Eブルの`tick_unit_number`カラムに対して明示皁E��`CREATE UNIQUE INDEX IF NOT EXISTS idx_tick_rules_tick_unit_number ON tick_rules(tick_unit_number);`を追加した、E    -   今後�E開発を確実に行うため、問題が再発した場合�E、現在のチE�Eタベ�Eスを完�Eに破棁E��、クリーンな状態から�Eイグレーションを�E適用することを基本皁E��運用方針とする、E
+### 開発進捁E(2025-12-15)
 
-1.  **API接続の課題解決**:
-    *   **ログイン404エラー**: 原因は、`.env`ファイルに設定されたAPIのベースURL (`TACHIBANA_BASE_URL`) のバージョンが古かった (`v4r7`) ことであった。最新のバージョン (`v4r8`) に修正したことで解決した。
-    *   **マスターデータ取得エラー**: `DownloadMasterData` APIが返す巨大なストリーミングデータ（改行なしの連続したJSON）が、Go標準ライブラリの`bufio.Scanner`のバッファ上限を超えてしまう問題があった。これは、Pythonサンプルを参考に、チャンクで読み込み`}`を区切り文字として手動でJSONをパースするロジックを実装することで解決した。
-
-2.  **データベース永続化の課題解決**:
-    *   **GORMとリレーションのUpsert問題**: リレーション (`TickRules`) を持つGORMモデルをそのまま一括Upsertしようとすると `invalid field` エラーが発生した。`.Omit()`や`.Select()`も期待通りに機能しなかったため、最終的にリポジトリ層でリレーションフィールドを持たないDB保存用のDTO (`dbStockMaster`) にデータを詰め替える「DTOパターン」を採用することで、GORMの一括Upsert機能を活かしつつ問題を構造的に解決した。
-    *   **マイグレーションの課題**: モデルとDBスキーマの不整合（カラム不足）や、GORMの主キー規約（`id`カラムの自動探索）に起因するエラーが発生。これらは、`golang-migrate/migrate`を使ってスキーマを修正し、モデル定義から不要な`ID`フィールドを削除することで解決した。
-
-3.  **開発効率の改善**:
-    *   マイグレーションを簡単かつ確実に行うため、`.env`ファイルを読み込んで`migrate`ライブラリを直接実行するGoプログラム (`cmd/migrator/main.go`) を作成した。これにより、`go run`コマンド一つで誰でもマイグレーションを実行できるようになった。
-
-#### マスターデータ同期機能におけるDB問題の再発
-
--   **課題の再発**: マスターデータ同期機能の実行時に、`TickRules`テーブルへのデータ挿入で`ERROR: there is no unique or exclusion constraint matching the ON CONFLICT specification (SQLSTATE 42P10)`エラーが再発した。これは、`tick_rules`モデルの`TickUnitNumber`が`PRIMARY KEY`として定義されているにもかかわらず発生している。
--   **環境差異とデータベース状態**:
-    -   別の開発環境ではこの`ON CONFLICT`エラーは発生しておらず、現在の環境でのみ再発している。この事実は、両環境間でデータベーススキーマの状態に差異があることを強く示唆している。
-    -   これまでのデバッグ過程で、マイグレーションの失敗によるデータベースの「ダーティ」状態の発生や、`ALTER TABLE ADD COLUMN`の重複エラーなど、スキーマの不整合に起因する問題が複数回発生している。
-    -   `ON CONFLICT`句が期待通りに機能するためには、PostgreSQLが`UNIQUE`制約または`EXCLUSION`制約を明示的に認識している必要があり、`PRIMARY KEY`のみでは不十分な場合がある。
--   **現在のデータベース状態の評価**: 現在の環境で発生している一連のデータベース関連エラーは、過去のマイグレーション失敗や不完全な適用により、データベースのスキーマがアプリケーションコードやマイグレーションファイルが期待する状態と一致していないことに起因すると考えられる。開発段階にあるとはいえ、このような不整合なデータベースの状態を維持しようとすることは、デバッグを困難にし、さらなる問題を引き起こす可能性が高いため、現状のデータベース設定は価値がないと判断する。
--   **今後の対応方針**:
-    -   `migrations/20251212203023_create_initial_tables.up.sql`に`tick_rules`テーブルの`tick_unit_number`カラムに対して明示的な`CREATE UNIQUE INDEX IF NOT EXISTS idx_tick_rules_tick_unit_number ON tick_rules(tick_unit_number);`を追加した。
-    -   今後の開発を確実に行うため、問題が再発した場合は、現在のデータベースを完全に破棄し、クリーンな状態からマイグレーションを再適用することを基本的な運用方針とする。
-
-### 開発進捗 (2025-12-15)
-
-#### マイグレーション管理の安定化とDBの正常化
-- **課題**: `2025-12-14`に記録されたDB問題（環境差異による`ON CONFLICT`エラーの再発）の根本原因が、開発の進行に伴うマイグレーション管理の複雑化にあると判断。環境ごとの適用状態の差異が、スキーマの不整合を引き起こしていた。
-- **解決策**: 開発初期の安定性と再現性を高めるため、マイグレーションファイルを単一の初期スキーマファイルに統合するリファクタリングを実施。
-    1.  `..._add_fields_to_stock_masters.up.sql`の内容を、`..._create_initial_tables.up.sql`の`CREATE TABLE`文にマージした。
-    2.  不要になった古いマイグレーションファイルを削除した。
-    3.  動作検証として、`docker-compose down -v`でデータベースを完全にクリーンアップした後、`go run ./cmd/migrator/main.go`を実行。統合されたマイグレーションが正常に適用されることを確認した。
-- **結論**: これにより、どの開発環境でも一度のマイグレーションで最新のスキーマを確実に構築できるようになり、環境差異に起因するデータベース問題が構造的に解決された。アプリケーションも、クリーンなDB上で正常に起動し、マスターデータを同期できることを確認済み。
-
+#### マイグレーション管琁E�E安定化とDBの正常匁E- **課顁E*: `2025-12-14`に記録されたDB問題（環墁E��異による`ON CONFLICT`エラーの再発�E��E根本原因が、E��発の進行に伴ぁE�Eイグレーション管琁E�E褁E��化にあると判断。環墁E��との適用状態�E差異が、スキーマ�E不整合を引き起こしてぁE��、E- **解決筁E*: 開発初期の安定性と再現性を高めるため、�Eイグレーションファイルを単一の初期スキーマファイルに統合するリファクタリングを実施、E    1.  `..._add_fields_to_stock_masters.up.sql`の冁E��を、`..._create_initial_tables.up.sql`の`CREATE TABLE`斁E��マ�Eジした、E    2.  不要になった古ぁE�Eイグレーションファイルを削除した、E    3.  動作検証として、`docker-compose down -v`でチE�Eタベ�Eスを完�EにクリーンアチE�Eした後、`go run ./cmd/migrator/main.go`を実行。統合されたマイグレーションが正常に適用されることを確認した、E- **結諁E*: これにより、どの開発環墁E��も一度のマイグレーションで最新のスキーマを確実に構築できるようになり、環墁E��異に起因するチE�Eタベ�Eス問題が構造皁E��解決された。アプリケーションも、クリーンなDB上で正常に起動し、�EスターチE�Eタを同期できることを確認済み、E
 ---
 
-## 実装から得られた知見（APIクライアント編）
-
-本セクションでは、開発過程で遭遇した立花証券APIの特殊な仕様や、それに対する実装上のノウハウを記録する。
-
-### 1. APIの環境差異とURLのバージョン管理
-
-- **課題**: テスト環境とローカル環境で同じコードにも関わらず、ローカルでのみログインAPIが404エラーを返した。
-- **原因**: APIのベースURLにバージョン情報（例: `v4r8`）が含まれており、ローカルの`.env`ファイルに設定されたURLのバージョンが古かった (`v4r7`)。
-- **ノウハウ**:
-    - APIへの接続テストが失敗する場合、コードのロジックだけでなく、`.env`ファイルに設定されたエンドポイントURL (`TACHIBANA_BASE_URL`など) が、テスト対象の環境で有効なものであるかを最初に確認する必要がある。
-    - APIのバージョンアップに伴い、URLも変更される可能性があることを常に念頭に置く。
-
-### 2. マスターデータ取得APIの特殊なストリーミング仕様
-
-- **課題**: 全件マスターデータを取得する`DownloadMasterData` APIを呼び出すと、`bufio.Scanner: token too long`エラーが発生し、ストリームを最後まで読み取れなかった。
-- **原因**: このAPIは、数万行に及ぶデータを、**改行なしの単一の巨大なライン、あるいは連続したJSONオブジェクト**としてストリーミング配信する特殊な仕様となっている。Go標準ライブラリの`bufio.Scanner`は改行をデリミタとしており、この形式に対応できない。
-- **解決策**: 公式のPythonサンプルコードのロジックを参考に、以下の手動パーシング処理を実装した。
-    1. レスポンスボディを固定長のチャンク（例: 4096バイト）で読み込む。
-    2. 読み込んだバイト列を一時的なバッファ (`bytes.Buffer`) に蓄積する。
-    3. バッファ内にJSONオブジェクトの終端文字 (`}`) が存在するかを検索する。
-    4. 終端文字が見つかった場合、そこまでを一つのJSONオブジェクト候補として切り出し、`json.Unmarshal`でデコードを試みる。
-    5. デコードが成功した場合、バッファからその部分を削除し、次のオブジェクトの処理に移る。
-    6. これを、APIから`CLMEventDownloadComplete`という完了通知オブジェクトが送られてくるまで繰り返す。
-- **ノウハウ**:
-    - ストリーミングAPIを扱う際は、データがどのような形式・区切り文字で送られてくるかを正確に把握することが極めて重要である。
-    - 標準ライブラリで対応できない特殊な形式の場合、公式のサンプルコード（もしあれば）の挙動を模倣した、より低レベルなバイト/チャンク処理の実装が必要となる。
+## 実裁E��ら得られた知見！EPIクライアント編�E�E
+本セクションでは、E��発過程で遭遁E��た立花証券APIの特殊な仕様や、それに対する実裁E���Eノウハウを記録する、E
+### 1. APIの環墁E��異とURLのバ�Eジョン管琁E
+- **課顁E*: チE��ト環墁E��ローカル環墁E��同じコードにも関わらず、ローカルでのみログインAPIぁE04エラーを返した、E- **原因**: APIのベ�EスURLにバ�Eジョン惁E���E�侁E `v4r8`�E�が含まれており、ローカルの`.env`ファイルに設定されたURLのバ�Eジョンが古かっぁE(`v4r7`)、E- **ノウハウ**:
+    - APIへの接続テストが失敗する場合、コード�EロジチE��だけでなく、`.env`ファイルに設定されたエンド�EインチERL (`TACHIBANA_BASE_URL`など) が、テスト対象の環墁E��有効なも�Eであるかを最初に確認する忁E��がある、E    - APIのバ�EジョンアチE�Eに伴ぁE��URLも変更される可能性があることを常に念頭に置く、E
+### 2. マスターチE�Eタ取得APIの特殊なストリーミング仕槁E
+- **課顁E*: 全件マスターチE�Eタを取得する`DownloadMasterData` APIを呼び出すと、`bufio.Scanner: token too long`エラーが発生し、ストリームを最後まで読み取れなかった、E- **原因**: こ�EAPIは、数丁E��に及�EチE�Eタを、E*改行なし�E単一の巨大なライン、あるいは連続したJSONオブジェクチE*としてストリーミング配信する特殊な仕様となってぁE��、Eo標準ライブラリの`bufio.Scanner`は改行をチE��ミタとしており、この形式に対応できなぁE��E- **解決筁E*: 公式�EPythonサンプルコード�EロジチE��を参老E��、以下�E手動パ�Eシング処琁E��実裁E��た、E    1. レスポンスボディを固定長のチャンク�E�侁E 4096バイト）で読み込む、E    2. 読み込んだバイト�Eを一時的なバッファ (`bytes.Buffer`) に蓁E��する、E    3. バッファ冁E��JSONオブジェクト�E終端斁E��E(`}`) が存在するかを検索する、E    4. 終端斁E��が見つかった場合、そこまでを一つのJSONオブジェクト候補として刁E��出し、`json.Unmarshal`でチE��ードを試みる、E    5. チE��ードが成功した場合、バチE��ァからそ�E部刁E��削除し、次のオブジェクト�E処琁E��移る、E    6. これを、APIから`CLMEventDownloadComplete`とぁE��完亁E��知オブジェクトが送られてくるまで繰り返す、E- **ノウハウ**:
+    - ストリーミングAPIを扱ぁE��は、データがどのような形式�E区刁E��斁E��で送られてくるかを正確に把握することが極めて重要である、E    - 標準ライブラリで対応できなぁE��殊な形式�E場合、�E式�Eサンプルコード（もしあれ�E�E��E挙動を模倣した、より低レベルなバイチEチャンク処琁E�E実裁E��忁E��となる�

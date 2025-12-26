@@ -101,10 +101,12 @@ func SendRequest(
 	}
 
 	decodeFunc := func(body []byte, v interface{}) error {
+		slog.Debug("Raw response body", "body", string(body))
 		bodyUTF8, _, err := transform.Bytes(japanese.ShiftJIS.NewDecoder(), body)
 		if err != nil {
 			return fmt.Errorf("shift-jis decode error: %w", err)
 		}
+		slog.Debug("UTF-8 decoded response body", "body_utf8", string(bodyUTF8))
 		return json.Unmarshal(bodyUTF8, v) // UTF-8 でデコード
 	}
 

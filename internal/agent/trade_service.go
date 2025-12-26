@@ -24,9 +24,10 @@ type TradeService interface {
 
 // PlaceOrderRequest は注文発行に必要な情報を保持する
 type PlaceOrderRequest struct {
-	Symbol    string
-	TradeType model.TradeType
-	OrderType model.OrderType
-	Quantity  int
-	Price     float64 // 指値の場合のみ
+	Symbol       string
+	TradeType    model.TradeType
+	OrderType    model.OrderType
+	Quantity     int
+	Price        float64 // 指値の場合のみ
+	TriggerPrice float64 // 逆指値の場合のみ
 }

@@ -229,80 +229,50 @@ Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Con
     -   注文に必要な第二パスワードを`config`から読み込むように修正し、`orderRepo`を`GoaTradeService`に注入しました。
 
 ---
+## 開発進捗（2025-12-25, Part2）
 
-#### 次回のアクションプラン
-(現在、特定の最優先タスクはありません。次のアクションプランを検討してください。)
+### 逆指値注文実装の試行とデバッグ
+-   **逆指値注文の実装に着手**: `GoaTradeService` と `Agent` ロジックの変更に着手しました。
+-   **サイレントクラッシュ問題の発生と原因特定**:
+    -   逆指値注文のロジックを実装したところ、アプリケーションがエラーログを出力せずに起動しなくなる「サイレントクラッシュ」問題が発生しました。
+    -   `go build` は成功することから、ランタイムエラーであると判断しました。
+    -   実装した変更を一つずつ元に戻すことで問題を切り分け、原因が `goa_trade_service.go` の `PlaceOrder` 関数に対して行った、大規模なリファクタリングにあることを特定しました。
+-   **現状復帰**: 問題解決と次回への準備のため、関連する変更をすべて元に戻し、アプリケーションが正常に起動する安定した状態に復元しました。
 
 ---
 
-## 開発進捗（2025-12-20）
+## 開発進捗（2025-12-25）
 
-### ログイン仕様のテストと明確化
-APIのログイン仕様に関する不明点を解消するため、`planning/LOGIN_TEST_PLAN.md`を作成し、体系的なテスト計画を立案した。
-`TEST-001`（連続ログイン）および`TEST-002`（時間差ログイン）を実行し、以下の重要な仕様を特定した。
+### エージェントの基盤機能の完成と検証
+-   **状態同期機能**: エージェントが起動時に、現物・信用の全ポジションと未約定注文を正確に同期する機能が完成しました。
+-   **注文執行機能**: 注文APIの必須パラメータをすべて実装し、安定した成り行き注文の発行が可能になりました。重複注文防止ロジックも正常に機能しています。
+-   **指値注文の内部実装検証**: エージェントが指値注文を生成し、システムがそれを処理できることを確認しました。（テストコードはクリーンアップ済み）
 
-1.  **電話認証の有効期間**: 手動での電話認証後、実際にログインリクエストが成功するまでの有効期間は**約3分**であることを確認した。
-2.  **セッションの独立性**: ログインに成功するたびに、サーバーは新しい独立したセッションを確立する。
+---
 
-### APIクライアントのリファクタリング: セッションオブジェクトの導入
-上記テスト結果と、より高度なセッションテストの必要性から、クライアントからセッション状態を分離する大規模なリファクタリングを実施した。
+## 開発進捗（2025-12-26）
 
-**本日完了した作業:**
-*   **`Session`構造体の定義**: ログイン情報をカプセル化する`Session`構造体を`session.go`に作成。
-*   **クライアントのステートレス化**: `TachibanaClientImpl`からセッション状態（ログイン情報、p_no等）を削除し、`sUserId`, `sPassword`などログインに必要な初期設定のみを残すように修正。
-*   **インターフェースの更新**: `AuthClient`, `PriceInfoClient`, `OrderClient`, `BalanceClient`, `MasterDataClient`の全メソッドのシグネチャを、`Session`オブジェクトを利用する形に更新。
-*   **実装の更新**: 上記インターフェース変更に伴い、`DownloadMasterData`を除く全ての`...ClientImpl`の実装を修正。
-
-### 複数のセッション独立性に関するテスト結果 (2025-12-20 追加)
-`auth_client_impl_test.go` に追加した `TestAuthClientImpl_MultipleSessions` の結果、以下のAPI仕様が判明しました。
-*   **新しいログインセッションが確立されると、それ以前のセッションはサーバー側で無効化される。**
-*   複数のログインセッションを同時にアクティブな状態に保ち、それぞれを独立して操作（ログアウトなど）することはできません。常に最新のセッションのみが有効です。
-
-### APIクライアントのリファクタリングに伴うテストコードの全面的な修正 (2025-12-20 更新)
-`APIクライアントのリファクタリング: セッションオブジェクトの導入` に伴い、以下のテストコードを修正しました。
-
-**修正済みテストファイル:**
-*   `internal/infrastructure/client/tests/order_client_impl_neworder_test.go`
-*   `internal/infrastructure/client/tests/order_client_impl_cancelorder_test.go`
-*   `internal/infrastructure/client/tests/order_client_impl_correctorder_test.go`
-*   `internal/infrastructure/client/tests/order_client_impl_cancelorderall_test.go`
-*   `internal/infrastructure/client/tests/order_client_impl_getorderlist_test.go`
-*   `internal/infrastructure/client/tests/order_client_impl_getorderlistdetail_test.go`
-*   `internal/infrastructure/client/tests/master_data_client_impl_test.go` (GetMasterDataQuery, GetNewsHeader, GetNewsBody, GetIssueDetail, GetMarginInfo, GetCreditInfo, GetMarginPremiumInfo)
-*   `internal/infrastructure/client/tests/master_data_client_impl_download_masterdata_test.go`
-*   `internal/infrastructure/client/tests/event_client_impl_test.go`
-*   `internal/infrastructure/client/tests/price_info_client_impl_demo_test.go`
-
-### ログイン仕様に関するテスト結果 (2025-12-20 追加)
-`planning/LOGIN_TEST_PLAN.md` に基づき、ログイン関連のテストを実施しました。
-*   **TEST-003: ログアウト後の再ログイン**: ログイン、ログアウト、直後の再ログインがすべて成功。これにより、電話認証の有効期間内であれば、ログアウト後すぐに再ログインが可能であることが確認されました。
-*   **TEST-004: タイムラグを伴ったログアウト後の再ログイン**: 
-    *   `auth_client_impl_test.go` に `TestAuthClientImpl_Sequence_LoginWaitLogoutLogin` を実装し、「ログイン → 5分待機 → ログアウト → 再ログイン」のシーケンスを単一のテストとして自動化しました。
-    *   実行結果、初回ログインとログアウトは成功しましたが、5分経過後の再ログインは `result code 10089` （電話認証の有効期間切れ）で失敗しました。
-    *   この結果から、電話認証の有効期間（3分）は再ログインの可否に強く影響するが、一度確立されたセッションのログアウトは時間経過後も可能であることが判明しました。
-*   **TEST-006: セッションの競合（二重ログイン）**: `auth_client_impl_test.go` に `TestAuthClientImpl_MultipleSessions` を実装し、複数のログインセッションの独立性を確認しました。結果、新しいログインが確立されると、それ以前のセッションはサーバー側で無効化されることが判明しました。常に最新のセッションのみが有効であるという前提でセッション管理を行う必要があります。
-
-### TEST-005 無通信タイムアウトテストの準備状況 (2025-12-20 追加)
-`TEST-005: 無通信タイムアウトの確認` のため、`price_info_client_impl_prod_test.go` に実装済みの `TestPriceInfo_Sequence_LoginWaitGetPrice` を実行する段階です。このテストは30分間の自動待機を含むため、コマンド実行後は手動監視なしで完了を待つことができます。
-
-### APIクライアントリファクタリングの完了 (2025-12-20 追加)
-`Session`オブジェクトの導入に伴うリファクタリングの最終作業として、`UseCase`層および`Handler`層の修正を完了し、ビルドが成功することを確認しました。
-
-*   **`UseCase`層の修正**: `balance`, `position`, `order`, `master` の各`UseCase`のインターフェースと実装を更新し、クライアントAPIを呼び出すメソッドが`Session`オブジェクトを引数として受け取るように変更しました。
-*   **`Handler`層の修正**: Goaで実装された各サービス（ハンドラ）が、起動時にDIされた`Session`オブジェクトを保持し、`UseCase`の呼び出し時に渡すように修正しました。
-*   **`UseCase`テストの修正**: `internal/app/tests`内の各テストコードを修正し、`Session`オブジェクトの変更に対応させました。
-*   **`main.go`の修正**: アプリケーション起動時に`LoginWithPost`で`Session`を生成し、各ハンドラに注入するよう修正しました。
-*   **ロガーの統一**: `log`と`slog`の混在によって発生したコンパイルエラーを、`slog`に統一することで解消しました。
+### 逆指値注文機能の実装完了
+-   **目的**: 売り注文に対して、損切り（ストップロス）のための逆指値注文機能を実装する。
+-   **実装**:
+    -   `goa_trade_service.go`の`PlaceOrder`メソッドを修正し、逆指値注文のパラメータをAPIの仕様に合わせて正しくマッピングするようにした。
+    -   単体テストとAPIドキュメントを参考に、`GyakusasiZyouken`（トリガー価格）と`GyakusasiPrice`（執行価格）の役割を正しく実装した。
+-   **検証**: 一時的なテストコードを用いて、逆指値注文（Stop-Market Order）がAPIエラーなく正常に発行されることを確認した。
 
 ---
 
 #### 次回のアクションプラン
 
-**最優先タスク: 注文リクエスト生成ロジックの実装**
+**最優先タスク: リアルタイムイベント受信機能の実装**
 
-1.  **意思決定ロジックの強化**:
-    *   **内容**: `agent.go`の`tick`メソッド内で、読み込んだシグナルと、同期済みの内部状態（ポジション、残高）に基づき、具体的な注文リクエスト（`PlaceOrderRequest`）を生成するロジックを実装します。これには、注文数量の決定（例: 設定ファイルの`lot_size`を使用）、注文種別の決定（例: まずは成行注文に固定）などが含まれます。
-    *   **目的**: エージェントがシグナルと自身の状態に基づき、実行可能な注文内容を組み立てられるようにする。
+1.  **目的**:
+    *   WebSocketを利用して、証券会社APIからリアルタイムのイベント（約定通知、株価更新など）を受信するための基盤を実装する。
+2.  **内容**:
+    *   **ステップ1**: `internal/infrastructure/client/event_client.go` に、WebSocket接続とメッセージ受信のためのインターフェースを定義する。
+    *   **ステップ2**: `internal/infrastructure/client/event_client_impl.go` に、`gorilla/websocket` などのライブラリを用いてWebSocketクライアントを実装する。
+    *   **ステップ3**: ログイン後に取得したWebSocket URLを用いて接続し、メッセージを非同期に受信してチャネルに送信するロジックを実装する。
+    *   **ステップ4**: `internal/agent/agent.go` を修正し、エージェント起動時に `EventClient` を使ってWebSocketに接続し、受信したイベントをログに出力する処理を追加する。
+
 
 ---
 
@@ -321,7 +291,7 @@ APIのログイン仕様に関する不明点を解消するため、`planning/L
 ### 2. マスターデータ取得APIの特殊なストリーミング仕様
 
 - **課題**: 全件マスターデータを取得する`DownloadMasterData` APIを呼び出すと、`bufio.Scanner: token too long`エラーが発生し、ストリームを最後まで読み取れなかった。
-- **原因**: このAPIは、数万行に及ぶデータを、**改行なしの単一の巨大なライン、あるいは連続したJSONオブジェクト**としてストリーミング配信する特殊な仕様となっている。Go標準ライブラリの`bufio.Scanner`は改行をデリミтаとしており、この形式に対応できない。
+- **原因**: このAPIは、数万行に及ぶデータを、**改行なしの単一の巨大なライン、あるいは連続したJSONオブジェクト**としてストリーミング配信する特殊な仕様となっている。Go標準ライブラリの`bufio.Scanner`は改行をデリミたとしており、この形式に対応できない。
 - **解決策**: 公式のPythonサンプルコードのロジックを参考に、以下の手動パーシング処理を実装した。
     1. レスポンスボディを固定長のチャンク（例: 4096バイト）で読み込む。
     2. 読み込んだバイト列を一時的なバッファ (`bytes.Buffer`) に蓄積する。
@@ -413,5 +383,3 @@ APIアカウントロック問題（`2025-12-17`）を受け、証券会社サ�
 -   **運用方針**:
     -   このため、電話認証の確認のような**インタラクティブなプロンプトは、開発者が意図的に対話的に実行するテストファイル内（例: `price_info_client_impl_prod_test.go`）に限定すべきである。**
     -   共通のテストヘルパー関数 (`CreateTestClient`) や、CI/CDで実行される可能性のあるテストファイルには、インタラクティブなプロンプトを含めるべきではない。これにより、テストの実行環境に依存しない安定したテスト運用が可能となる。
-
-

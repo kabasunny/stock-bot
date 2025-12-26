@@ -164,6 +164,20 @@ func (a *Agent) tick() {
 		a.logger.Info("signal detail", "symbol", s.Symbol, "signal", s.Signal)
 		symbolStr := fmt.Sprintf("%d", s.Symbol)
 
+		// Check for existing open orders for this symbol before processing the signal
+		hasOpenOrder := false
+		for _, o := range a.state.GetOrders() {
+			if o.Symbol == symbolStr && o.OrderStatus == model.OrderStatusNew {
+				hasOpenOrder = true
+				break
+			}
+		}
+
+		if hasOpenOrder {
+			a.logger.Info("skipping signal due to existing open order", "symbol", symbolStr)
+			continue
+		}
+
 		// 意思決定ロジック
 		if s.Signal == BuySignal {
 			if _, ok := a.state.GetPosition(symbolStr); ok {

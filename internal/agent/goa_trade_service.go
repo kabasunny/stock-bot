@@ -8,6 +8,7 @@ import (
 	"stock-bot/domain/repository"
 	"stock-bot/internal/infrastructure/client"
 	"stock-bot/internal/infrastructure/client/dto/price/request"
+	order_request "stock-bot/internal/infrastructure/client/dto/order/request"
 	"strconv"
 	// "stock-bot/internal/infrastructure/client/dto/balance/request"
 )
@@ -45,19 +46,18 @@ func NewGoaTradeService(
 func (s *GoaTradeService) GetPositions(ctx context.Context) ([]*model.Position, error) {
 	s.logger.Info("GoaTradeService.GetPositions called")
 
-	// balanceClient を使って現物保有銘柄リストを取得
+	// 現物保有銘柄リストの取得
 	genbutuList, err := s.balanceClient.GetGenbutuKabuList(ctx, s.appSession)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get genbutu kabu list: %w", err)
 	}
 
 	// APIのレスポンスDTOからドメインモデルに変換
-	// パースできないレコードはスキップするため、可変長の positions スライスを準備
 	positions := make([]*model.Position, 0, len(genbutuList.GenbutuKabuList))
 	for _, kabu := range genbutuList.GenbutuKabuList {
 		quantity, err := strconv.Atoi(kabu.UriOrderZanKabuSuryou)
 		if err != nil {
-			s.logger.Warn("could not parse quantity, skipping position record", "raw", kabu.UriOrderZanKabuSuryou, "error", err)
+			s.logger.Warn("could not parse quantity for genbutsu position, skipping", "raw", kabu.UriOrderZanKabuSuryou, "error", err)
 			continue
 		}
 		if quantity == 0 {
@@ -66,7 +66,7 @@ func (s *GoaTradeService) GetPositions(ctx context.Context) ([]*model.Position, 
 
 		avgPrice, err := strconv.ParseFloat(kabu.UriOrderGaisanBokaTanka, 64)
 		if err != nil {
-			s.logger.Warn("could not parse average price, skipping position record", "raw", kabu.UriOrderGaisanBokaTanka, "error", err)
+			s.logger.Warn("could not parse average price for genbutsu position, skipping", "raw", kabu.UriOrderGaisanBokaTanka, "error", err)
 			continue
 		}
 
@@ -78,7 +78,48 @@ func (s *GoaTradeService) GetPositions(ctx context.Context) ([]*model.Position, 
 		})
 	}
 
-	// TODO: 信用建玉も取得してマージする必要がある
+	// 信用建玉リストの取得とマージ
+	shinyouList, err := s.balanceClient.GetShinyouTategyokuList(ctx, s.appSession)
+	if err != nil {
+		// 信用口座がない場合なども考えられるため、エラーログは出すが処理は続行
+		s.logger.Error("failed to get shinyou tategyoku list, proceeding with genbutsu positions only", "error", err)
+		return positions, nil
+	}
+	
+	for _, shinyou := range shinyouList.SinyouTategyokuList {
+		quantity, err := strconv.Atoi(shinyou.OrderHensaiKanouSuryou)
+		if err != nil {
+			s.logger.Warn("could not parse quantity for shinyou position, skipping", "raw", shinyou.OrderHensaiKanouSuryou, "error", err)
+			continue
+		}
+		if quantity == 0 {
+			continue // 返済可能数量0のポジションは無視
+		}
+
+		avgPrice, err := strconv.ParseFloat(shinyou.OrderTategyokuTanka, 64)
+		if err != nil {
+			s.logger.Warn("could not parse average price for shinyou position, skipping", "raw", shinyou.OrderTategyokuTanka, "error", err)
+			continue
+		}
+
+		var posType model.PositionType
+		switch shinyou.OrderBaibaiKubun {
+		case "1": // 売建
+			posType = model.PositionTypeShort
+		case "3": // 買建
+			posType = model.PositionTypeLong
+		default:
+			s.logger.Warn("unknown baibai kubun for shinyou position, skipping", "raw", shinyou.OrderBaibaiKubun)
+			continue
+		}
+
+		positions = append(positions, &model.Position{
+			Symbol:       shinyou.OrderIssueCode,
+			PositionType: posType,
+			AveragePrice: avgPrice,
+			Quantity:     quantity,
+		})
+	}
 
 	return positions, nil
 }
@@ -87,8 +128,87 @@ func (s *GoaTradeService) GetPositions(ctx context.Context) ([]*model.Position, 
 // GetOrders は発注中の注文を取得する
 func (s *GoaTradeService) GetOrders(ctx context.Context) ([]*model.Order, error) {
 	s.logger.Info("GoaTradeService.GetOrders called")
-    // TODO: orderClient を使って発注中注文を取得し、model.Order に変換する
-	return []*model.Order{}, nil // ダミー実装
+
+	// 注文一覧取得リクエストを作成
+	// 未約定+一部約定の注文を取得
+	req := order_request.ReqOrderList{
+		CLMID:              "CLMOrderList",
+		OrderSyoukaiStatus: "5",
+	}
+
+	// APIクライアント経由で注文一覧を取得
+	res, err := s.orderClient.GetOrderList(ctx, s.appSession, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order list from api client: %w", err)
+	}
+
+	if res.ResultCode != "0" {
+		return nil, fmt.Errorf("get order list api returned error: code=%s, text=%s", res.ResultCode, res.ResultText)
+	}
+
+	// APIのレスポンスDTOからドメインモデルに変換
+	orders := make([]*model.Order, 0, len(res.OrderList))
+	for _, rawOrder := range res.OrderList {
+		// TradeType のマッピング
+		var tradeType model.TradeType
+		switch rawOrder.OrderBaibaiKubun {
+		case "1": // 売
+			tradeType = model.TradeTypeSell
+		case "3": // 買
+			tradeType = model.TradeTypeBuy
+		default:
+			s.logger.Warn("unknown trade type in order list, skipping", "raw", rawOrder.OrderBaibaiKubun)
+			continue
+		}
+
+		// OrderType のマッピング
+		var orderType model.OrderType
+		switch rawOrder.OrderOrderPriceKubun {
+		case "1": // 成行
+			orderType = model.OrderTypeMarket
+		case "2": // 指値
+			orderType = model.OrderTypeLimit
+		default:
+			orderType = model.OrderTypeMarket // 不明な場合は成行として扱う (要検討)
+			s.logger.Warn("unknown order price kubun, defaulting to MARKET", "raw", rawOrder.OrderOrderPriceKubun)
+		}
+
+		// OrderStatus のマッピング
+		var orderStatus model.OrderStatus
+		switch rawOrder.OrderYakuzyouStatus {
+		case "0": // 未約定
+			orderStatus = model.OrderStatusNew
+		case "1": // 一部約定
+			orderStatus = model.OrderStatusPartiallyFilled
+		default:
+			s.logger.Warn("skipping order with unhandled execution status", "raw", rawOrder.OrderYakuzyouStatus, "status_name", rawOrder.OrderStatus)
+			continue // 全部約定などはここでは取得しないはず
+		}
+
+		quantity, err := strconv.Atoi(rawOrder.OrderOrderSuryou)
+		if err != nil {
+			s.logger.Warn("could not parse quantity in order list, skipping", "raw", rawOrder.OrderOrderSuryou, "error", err)
+			continue
+		}
+
+		price, err := strconv.ParseFloat(rawOrder.OrderOrderPrice, 64)
+		if err != nil {
+			s.logger.Warn("could not parse price in order list, skipping", "raw", rawOrder.OrderOrderPrice, "error", err)
+			price = 0 // パース失敗時は0
+		}
+
+		orders = append(orders, &model.Order{
+			OrderID:     rawOrder.OrderOrderNumber,
+			Symbol:      rawOrder.OrderIssueCode,
+			TradeType:   tradeType,
+			OrderType:   orderType,
+			Quantity:    quantity,
+			Price:       price,
+			OrderStatus: orderStatus,
+		})
+	}
+
+	return orders, nil
 }
 
 // GetBalance は口座残高を取得する
@@ -173,27 +293,45 @@ func (s *GoaTradeService) PlaceOrder(ctx context.Context, req *PlaceOrderRequest
 		return nil, fmt.Errorf("unknown trade type: %s", req.TradeType)
 	}
 
-	// OrderPrice のマッピング
+	// OrderPrice, Gyakusasi... のマッピング
 	var orderPrice string
+	var gyakusasiOrderType string = "0"
+	var gyakusasiZyouken string = "0"
+	var gyakusasiPrice string = "*"
+
 	switch req.OrderType {
 	case model.OrderTypeMarket:
 		orderPrice = "0" // 成行
 	case model.OrderTypeLimit:
 		orderPrice = strconv.FormatFloat(req.Price, 'f', -1, 64)
+	case model.OrderTypeStop: // 逆指値
+		gyakusasiOrderType = "1" // 逆指値注文
+		// ドキュメントとテストケースに基づき、GyakusasiZyouken がトリガー価格
+		gyakusasiZyouken = strconv.FormatFloat(req.TriggerPrice, 'f', -1, 64)
+		// 逆指値成行注文なので、GyakusasiPrice は "0" (成行)
+		gyakusasiPrice = "0"
+		// この種の注文では、メインの OrderPrice は "*" に設定する必要がある
+		orderPrice = "*"
 	default:
 		return nil, fmt.Errorf("unknown order type: %s", req.OrderType)
 	}
 
 	// APIクライアントに渡すパラメータを作成
 	params := client.NewOrderParams{
-		IssueCode:          req.Symbol,
-		SizyouC:            "00", // 東証
-		BaibaiKubun:        baibaiKubun,
-		Condition:          "0", // 指定なし
-		OrderPrice:         orderPrice,
-		OrderSuryou:        strconv.Itoa(req.Quantity),
-		GenkinShinyouKubun: "0", // 現物
-		OrderExpireDay:     "0", // 当日
+		ZyoutoekiKazeiC:          "1",    // 譲渡益課税区分: 1(特定口座)
+		IssueCode:                req.Symbol,
+		SizyouC:                  "00",   // 東証
+		BaibaiKubun:              baibaiKubun,
+		Condition:                "0",    // 指定なし
+		OrderPrice:               orderPrice,
+		OrderSuryou:              strconv.Itoa(req.Quantity),
+		GenkinShinyouKubun:       "0",    // 現物
+		OrderExpireDay:           "0",    // 当日限り
+		GyakusasiOrderType:       gyakusasiOrderType, // 逆指値注文の種類
+		GyakusasiZyouken:         gyakusasiZyouken,   // 逆指値条件
+		GyakusasiPrice:           gyakusasiPrice,     // 逆指値価格
+		TatebiType:               "*",    // 指定なし
+		TategyokuZyoutoekiKazeiC: "*",    // 指定なし
 	}
 
 	// 注文を執行

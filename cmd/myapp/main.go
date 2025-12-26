@@ -96,6 +96,7 @@ func main() {
 		os.Exit(1)
 	}
 	slog.Default().Info("login successful")
+	appSession.SecondPassword = cfg.TachibanaSecondPassword // configから読み込んだ第二パスワードをSessionに設定
 
 	// 4-2. リポジトリを初期化
 	orderRepo := repository_impl.NewOrderRepository(db)
