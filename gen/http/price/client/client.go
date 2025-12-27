@@ -20,6 +20,10 @@ type Client struct {
 	// Get Doer is the HTTP client used to make requests to the get endpoint.
 	GetDoer goahttp.Doer
 
+	// GetHistory Doer is the HTTP client used to make requests to the get_history
+	// endpoint.
+	GetHistoryDoer goahttp.Doer
+
 	// RestoreResponseBody controls whether the response bodies are reset after
 	// decoding so they can be read again.
 	RestoreResponseBody bool
@@ -41,6 +45,7 @@ func NewClient(
 ) *Client {
 	return &Client{
 		GetDoer:             doer,
+		GetHistoryDoer:      doer,
 		RestoreResponseBody: restoreBody,
 		scheme:              scheme,
 		host:                host,
@@ -63,6 +68,30 @@ func (c *Client) Get() goa.Endpoint {
 		resp, err := c.GetDoer.Do(req)
 		if err != nil {
 			return nil, goahttp.ErrRequestError("price", "get", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// GetHistory returns an endpoint that makes HTTP requests to the price service
+// get_history server.
+func (c *Client) GetHistory() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeGetHistoryRequest(c.encoder)
+		decodeResponse = DecodeGetHistoryResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildGetHistoryRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.GetHistoryDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("price", "get_history", err)
 		}
 		return decodeResponse(resp)
 	}

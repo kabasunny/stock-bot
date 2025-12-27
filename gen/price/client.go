@@ -15,13 +15,15 @@ import (
 
 // Client is the "price" service client.
 type Client struct {
-	GetEndpoint goa.Endpoint
+	GetEndpoint        goa.Endpoint
+	GetHistoryEndpoint goa.Endpoint
 }
 
 // NewClient initializes a "price" service client given the endpoints.
-func NewClient(get goa.Endpoint) *Client {
+func NewClient(get, getHistory goa.Endpoint) *Client {
 	return &Client{
-		GetEndpoint: get,
+		GetEndpoint:        get,
+		GetHistoryEndpoint: getHistory,
 	}
 }
 
@@ -33,4 +35,14 @@ func (c *Client) Get(ctx context.Context, p *GetPayload) (res *StockbotPrice, er
 		return
 	}
 	return ires.(*StockbotPrice), nil
+}
+
+// GetHistory calls the "get_history" endpoint of the "price" service.
+func (c *Client) GetHistory(ctx context.Context, p *GetHistoryPayload) (res *StockbotHistoricalPrice, err error) {
+	var ires any
+	ires, err = c.GetHistoryEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*StockbotHistoricalPrice), nil
 }

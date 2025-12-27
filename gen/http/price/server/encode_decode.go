@@ -12,8 +12,10 @@ import (
 	"net/http"
 	price "stock-bot/gen/price"
 	priceviews "stock-bot/gen/price/views"
+	"strconv"
 
 	goahttp "goa.design/goa/v3/http"
+	goa "goa.design/goa/v3/pkg"
 )
 
 // EncodeGetResponse returns an encoder for responses returned by the price get
@@ -42,4 +44,63 @@ func DecodeGetRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Dec
 
 		return payload, nil
 	}
+}
+
+// EncodeGetHistoryResponse returns an encoder for responses returned by the
+// price get_history endpoint.
+func EncodeGetHistoryResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
+	return func(ctx context.Context, w http.ResponseWriter, v any) error {
+		res := v.(*priceviews.StockbotHistoricalPrice)
+		enc := encoder(ctx, w)
+		body := NewGetHistoryResponseBody(res.Projected)
+		w.WriteHeader(http.StatusOK)
+		return enc.Encode(body)
+	}
+}
+
+// DecodeGetHistoryRequest returns a decoder for requests sent to the price
+// get_history endpoint.
+func DecodeGetHistoryRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Decoder) func(*http.Request) (*price.GetHistoryPayload, error) {
+	return func(r *http.Request) (*price.GetHistoryPayload, error) {
+		var (
+			symbol string
+			days   uint
+			err    error
+
+			params = mux.Vars(r)
+		)
+		symbol = params["symbol"]
+		{
+			daysRaw := r.URL.Query().Get("days")
+			if daysRaw != "" {
+				v, err2 := strconv.ParseUint(daysRaw, 10, strconv.IntSize)
+				if err2 != nil {
+					err = goa.MergeErrors(err, goa.InvalidFieldTypeError("days", daysRaw, "unsigned integer"))
+				}
+				days = uint(v)
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+		payload := NewGetHistoryPayload(symbol, days)
+
+		return payload, nil
+	}
+}
+
+// marshalPriceviewsHistoricalPriceItemViewToHistoricalPriceItemResponseBody
+// builds a value of type *HistoricalPriceItemResponseBody from a value of type
+// *priceviews.HistoricalPriceItemView.
+func marshalPriceviewsHistoricalPriceItemViewToHistoricalPriceItemResponseBody(v *priceviews.HistoricalPriceItemView) *HistoricalPriceItemResponseBody {
+	res := &HistoricalPriceItemResponseBody{
+		Date:   *v.Date,
+		Open:   *v.Open,
+		High:   *v.High,
+		Low:    *v.Low,
+		Close:  *v.Close,
+		Volume: v.Volume,
+	}
+
+	return res
 }

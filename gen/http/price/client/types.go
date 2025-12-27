@@ -9,6 +9,8 @@ package client
 
 import (
 	priceviews "stock-bot/gen/price/views"
+
+	goa "goa.design/goa/v3/pkg"
 )
 
 // GetResponseBody is the type of the "price" service "get" endpoint HTTP
@@ -22,6 +24,32 @@ type GetResponseBody struct {
 	Timestamp *string `form:"timestamp,omitempty" json:"timestamp,omitempty" xml:"timestamp,omitempty"`
 }
 
+// GetHistoryResponseBody is the type of the "price" service "get_history"
+// endpoint HTTP response body.
+type GetHistoryResponseBody struct {
+	// 銘柄コード
+	Symbol *string `form:"symbol,omitempty" json:"symbol,omitempty" xml:"symbol,omitempty"`
+	// 過去の価格データ
+	History []*HistoricalPriceItemResponseBody `form:"history,omitempty" json:"history,omitempty" xml:"history,omitempty"`
+}
+
+// HistoricalPriceItemResponseBody is used to define fields on response body
+// types.
+type HistoricalPriceItemResponseBody struct {
+	// 日付 (YYYY-MM-DD)
+	Date *string `form:"date,omitempty" json:"date,omitempty" xml:"date,omitempty"`
+	// 始値
+	Open *float64 `form:"open,omitempty" json:"open,omitempty" xml:"open,omitempty"`
+	// 高値
+	High *float64 `form:"high,omitempty" json:"high,omitempty" xml:"high,omitempty"`
+	// 安値
+	Low *float64 `form:"low,omitempty" json:"low,omitempty" xml:"low,omitempty"`
+	// 終値
+	Close *float64 `form:"close,omitempty" json:"close,omitempty" xml:"close,omitempty"`
+	// 出来高
+	Volume *uint64 `form:"volume,omitempty" json:"volume,omitempty" xml:"volume,omitempty"`
+}
+
 // NewGetStockbotPriceOK builds a "price" service "get" endpoint result from a
 // HTTP "OK" response.
 func NewGetStockbotPriceOK(body *GetResponseBody) *priceviews.StockbotPriceView {
@@ -32,4 +60,43 @@ func NewGetStockbotPriceOK(body *GetResponseBody) *priceviews.StockbotPriceView 
 	}
 
 	return v
+}
+
+// NewGetHistoryStockbotHistoricalPriceOK builds a "price" service
+// "get_history" endpoint result from a HTTP "OK" response.
+func NewGetHistoryStockbotHistoricalPriceOK(body *GetHistoryResponseBody) *priceviews.StockbotHistoricalPriceView {
+	v := &priceviews.StockbotHistoricalPriceView{
+		Symbol: body.Symbol,
+	}
+	v.History = make([]*priceviews.HistoricalPriceItemView, len(body.History))
+	for i, val := range body.History {
+		if val == nil {
+			v.History[i] = nil
+			continue
+		}
+		v.History[i] = unmarshalHistoricalPriceItemResponseBodyToPriceviewsHistoricalPriceItemView(val)
+	}
+
+	return v
+}
+
+// ValidateHistoricalPriceItemResponseBody runs the validations defined on
+// HistoricalPriceItemResponseBody
+func ValidateHistoricalPriceItemResponseBody(body *HistoricalPriceItemResponseBody) (err error) {
+	if body.Date == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("date", "body"))
+	}
+	if body.Open == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("open", "body"))
+	}
+	if body.High == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("high", "body"))
+	}
+	if body.Low == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("low", "body"))
+	}
+	if body.Close == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("close", "body"))
+	}
+	return
 }

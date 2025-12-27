@@ -396,6 +396,37 @@ APIアカウントロック問題（`2025-12-17`）を受け、証券会社サ�
     -   共通のテストヘルパー関数 (`CreateTestClient`) や、CI/CDで実行される可能性のあるテストファイルには、インタラクティブなプロンプトを含めるべきではない。これにより、テストの実行環境に依存しない安定したテスト運用が可能となる。
 
 ---
+
+
+
+## 開発進捗（2025-12-27, Part2）
+
+
+
+### ATR（Average True Range）に基づく動的なポジションサイジング機能の実装
+
+-   **目的**: 固定リスク率による注文数量の決定ロジックを、銘柄のボラティリティを考慮したATRベースの計算に置き換え、リスク管理の精度を向上させる。
+
+-   **API拡張**: 履歴価格データを取得するための`GET /price/{symbol}/history`エンドポイントをGoaで設計・実装しました。
+
+-   **設定追加**: `agent_config.yaml`にATRの計算期間（`atr_period`）やリスク係数（`risk_per_atr`）などのパラメータを追加しました。
+
+-   **ロジック更新**: エージェントの`checkSignalsForEntry`関数内で、`GetPriceHistory`を呼び出してATRを算出し、それに基づいて注文数量を動的に決定するロジックを実装しました。
+
+
+
+### 決済ロジックの単体テスト実装と堅牢化
+
+-   エージェントの決済ロジック（`checkPositionsForExit`）に対して、利確、損切り、トレーリングストップの各シナリオを網羅する単体テストを実装しました。
+
+-   テストを通じて発見された複数のコンパイルエラーやロジックの不具合を修正し、エージェントの中核機能の安定性を高めました。
+
+
+
+---
+
+
+
 ## 開発進捗（2025-12-27）
 
 ### リアルタイムイベント受信機能の基盤実装とコンパイルエラーの解消
@@ -411,3 +442,42 @@ APIアカウントロック問題（`2025-12-17`）を受け、証券会社サ�
 ### トレーリングストップ機能の実装着手
 -   **設定パラメータの定義**: `agent_config.yaml`と`internal/agent/config.go`に、トレーリングストップの動作を制御する`trailing_stop_trigger_rate`と`trailing_stop_rate`を追加しました。
 -   **Positionモデルの拡張**: `domain/model/position.go`の`Position`構造体に、トレーリングストップの追跡に必要な`HighestPrice`と`TrailingStopPrice`フィールドを（メモリ上でのみ利用する`gorm:"-"`タグ付きで）追加しました。
+---
+
+## 6. �N���I�v�V�����ƈˑ��֌W�̊Ǘ�
+
+���[�J���ł̊J���A�e�X�g�A�����UI�m�F�̌��������コ���邽�߁A�O���ˑ��֌W�i�f�[�^�x�[�X�A�،����API�j�Ȃ��ŃA�v���P�[�V�������N�����邽�߂̃R�}���h���C���t���O�𓱓����܂����B
+
+### 6.1. �ړI
+
+-   �f�[�^�x�[�X�R���e�i���N�������ɁAHTTP�T�[�o�[��G�[�W�F���g�̊�{������e�X�g�������B
+-   �L���ȏ،����API�̔F�؏��i.env�t�@�C���j���Ȃ����ł��ASwagger UI�̊m�F�ȂǁA�����I�ȋ@�\�𗘗p�������B
+
+### 6.2. �������ꂽ�t���O
+
+cmd/myapp/main.go �ňȉ��̃t���O�����p�\�ł��B
+
+-   --no-db
+    -   ���̃t���O��t����ƁAPostgreSQL�f�[�^�x�[�X�ւ̐ڑ������݂܂���B
+    -   �f�[�^�x�[�X�Ɉˑ����邷�ׂẴ��|�W�g���A���[�X�P�[�X�A�����API�T�[�r�X�̏��������X�L�b�v����܂��B
+
+-   --no-tachibana
+    -   ���̃t���O��t����ƁA���ԏ،�API�N���C�A���g�̏������ƃ��O�C���������s���܂���B
+    -   .env �t�@�C���̓ǂݍ��݂����s���Ă��i�x���͕\������܂����j�A�v���P�[�V�����͏I�����܂���B
+    -   Tachibana API�Ɉˑ����邷�ׂẴ��[�X�P�[�X��API�T�[�r�X�̏��������X�L�b�v����܂��B
+
+### 6.3. �g�p��
+
+�ȉ��̃R�}���h�ŁA���ׂĂ̊O���ˑ��֌W�𖳌��ɂ���HTTP�T�[�o�[���ŏ����̏�ԂŋN���ł��܂��B
+
+`sh
+go run cmd/myapp/main.go --no-db --no-tachibana
+`
+
+����ɂ��AGoa���񋟂���Swagger UI (http://localhost:8080/swagger/) �ւ̃A�N�Z�X��A�ˑ��֌W�̂Ȃ��R���|�[�l���g�̓���m�F���e�ՂɂȂ�܂��B
+
+### 6.4. �����Ɋւ��钍�L
+
+���̋@�\�́Acmd/myapp/main.go ���̏������V�[�P���X�ɏ�������𓱓����邱�ƂŎ�������Ă��܂��B�e�t���O�̗L���ɉ����āA�ˑ��R���|�[�l���g�i���|�W�g���A�N���C�A���g�A���[�X�P�[�X�A�T�[�r�X�j�̃C���X�^���X�������X�L�b�v���A
+il �̂܂܌㑱�̏����ɐi�݂܂��B
+il �̃T�[�r�X��Goa�T�[�o�[�Ƀ}�E���g����Ȃ��悤�ɁA�G���h�|�C���g�̃}�E���g���������l�ɏ������򂳂�Ă��܂��B

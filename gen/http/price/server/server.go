@@ -18,8 +18,9 @@ import (
 
 // Server lists the price service endpoint HTTP handlers.
 type Server struct {
-	Mounts []*MountPoint
-	Get    http.Handler
+	Mounts     []*MountPoint
+	Get        http.Handler
+	GetHistory http.Handler
 }
 
 // MountPoint holds information about the mounted endpoints.
@@ -50,8 +51,10 @@ func New(
 	return &Server{
 		Mounts: []*MountPoint{
 			{"Get", "GET", "/price/{symbol}"},
+			{"GetHistory", "GET", "/price/{symbol}/history"},
 		},
-		Get: NewGetHandler(e.Get, mux, decoder, encoder, errhandler, formatter),
+		Get:        NewGetHandler(e.Get, mux, decoder, encoder, errhandler, formatter),
+		GetHistory: NewGetHistoryHandler(e.GetHistory, mux, decoder, encoder, errhandler, formatter),
 	}
 }
 
@@ -61,6 +64,7 @@ func (s *Server) Service() string { return "price" }
 // Use wraps the server handlers with the given middleware.
 func (s *Server) Use(m func(http.Handler) http.Handler) {
 	s.Get = m(s.Get)
+	s.GetHistory = m(s.GetHistory)
 }
 
 // MethodNames returns the methods served.
@@ -69,6 +73,7 @@ func (s *Server) MethodNames() []string { return price.MethodNames[:] }
 // Mount configures the mux to serve the price endpoints.
 func Mount(mux goahttp.Muxer, h *Server) {
 	MountGetHandler(mux, h.Get)
+	MountGetHistoryHandler(mux, h.GetHistory)
 }
 
 // Mount configures the mux to serve the price endpoints.
@@ -106,6 +111,59 @@ func NewGetHandler(
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
 		ctx = context.WithValue(ctx, goa.MethodKey, "get")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "price")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountGetHistoryHandler configures the mux to serve the "price" service
+// "get_history" endpoint.
+func MountGetHistoryHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("GET", "/price/{symbol}/history", f)
+}
+
+// NewGetHistoryHandler creates a HTTP handler which loads the HTTP request and
+// calls the "price" service "get_history" endpoint.
+func NewGetHistoryHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeGetHistoryRequest(mux, decoder)
+		encodeResponse = EncodeGetHistoryResponse(encoder)
+		encodeError    = goahttp.ErrorEncoder(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "get_history")
 		ctx = context.WithValue(ctx, goa.ServiceKey, "price")
 		payload, err := decodeRequest(r)
 		if err != nil {

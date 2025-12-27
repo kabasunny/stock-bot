@@ -15,19 +15,22 @@ import (
 
 // Endpoints wraps the "price" service endpoints.
 type Endpoints struct {
-	Get goa.Endpoint
+	Get        goa.Endpoint
+	GetHistory goa.Endpoint
 }
 
 // NewEndpoints wraps the methods of the "price" service with endpoints.
 func NewEndpoints(s Service) *Endpoints {
 	return &Endpoints{
-		Get: NewGetEndpoint(s),
+		Get:        NewGetEndpoint(s),
+		GetHistory: NewGetHistoryEndpoint(s),
 	}
 }
 
 // Use applies the given middleware to all the "price" service endpoints.
 func (e *Endpoints) Use(m func(goa.Endpoint) goa.Endpoint) {
 	e.Get = m(e.Get)
+	e.GetHistory = m(e.GetHistory)
 }
 
 // NewGetEndpoint returns an endpoint function that calls the method "get" of
@@ -40,6 +43,20 @@ func NewGetEndpoint(s Service) goa.Endpoint {
 			return nil, err
 		}
 		vres := NewViewedStockbotPrice(res, "default")
+		return vres, nil
+	}
+}
+
+// NewGetHistoryEndpoint returns an endpoint function that calls the method
+// "get_history" of service "price".
+func NewGetHistoryEndpoint(s Service) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*GetHistoryPayload)
+		res, err := s.GetHistory(ctx, p)
+		if err != nil {
+			return nil, err
+		}
+		vres := NewViewedStockbotHistoricalPrice(res, "default")
 		return vres, nil
 	}
 }

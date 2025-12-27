@@ -16,6 +16,8 @@ import (
 type Service interface {
 	// Get the current price for a specified stock symbol.
 	Get(context.Context, *GetPayload) (res *StockbotPrice, err error)
+	// Get historical price data for a specified stock symbol.
+	GetHistory(context.Context, *GetHistoryPayload) (res *StockbotHistoricalPrice, err error)
 }
 
 // APIName is the name of the API as defined in the design.
@@ -32,12 +34,46 @@ const ServiceName = "price"
 // MethodNames lists the service method names as defined in the design. These
 // are the same values that are set in the endpoint request contexts under the
 // MethodKey key.
-var MethodNames = [1]string{"get"}
+var MethodNames = [2]string{"get", "get_history"}
+
+// GetHistoryPayload is the payload type of the price service get_history
+// method.
+type GetHistoryPayload struct {
+	// Stock symbol to look up
+	Symbol string
+	// Number of historical days to retrieve (optional)
+	Days uint
+}
 
 // GetPayload is the payload type of the price service get method.
 type GetPayload struct {
 	// Stock symbol to look up
 	Symbol string
+}
+
+// A single historical price data point.
+type HistoricalPriceItem struct {
+	// 日付 (YYYY-MM-DD)
+	Date string
+	// 始値
+	Open float64
+	// 高値
+	High float64
+	// 安値
+	Low float64
+	// 終値
+	Close float64
+	// 出来高
+	Volume *uint64
+}
+
+// StockbotHistoricalPrice is the result type of the price service get_history
+// method.
+type StockbotHistoricalPrice struct {
+	// 銘柄コード
+	Symbol string
+	// 過去の価格データ
+	History []*HistoricalPriceItem
 }
 
 // StockbotPrice is the result type of the price service get method.
@@ -61,6 +97,20 @@ func NewStockbotPrice(vres *priceviews.StockbotPrice) *StockbotPrice {
 func NewViewedStockbotPrice(res *StockbotPrice, view string) *priceviews.StockbotPrice {
 	p := newStockbotPriceView(res)
 	return &priceviews.StockbotPrice{Projected: p, View: "default"}
+}
+
+// NewStockbotHistoricalPrice initializes result type StockbotHistoricalPrice
+// from viewed result type StockbotHistoricalPrice.
+func NewStockbotHistoricalPrice(vres *priceviews.StockbotHistoricalPrice) *StockbotHistoricalPrice {
+	return newStockbotHistoricalPrice(vres.Projected)
+}
+
+// NewViewedStockbotHistoricalPrice initializes viewed result type
+// StockbotHistoricalPrice from result type StockbotHistoricalPrice using the
+// given view.
+func NewViewedStockbotHistoricalPrice(res *StockbotHistoricalPrice, view string) *priceviews.StockbotHistoricalPrice {
+	p := newStockbotHistoricalPriceView(res)
+	return &priceviews.StockbotHistoricalPrice{Projected: p, View: "default"}
 }
 
 // newStockbotPrice converts projected type StockbotPrice to service type
@@ -88,4 +138,80 @@ func newStockbotPriceView(res *StockbotPrice) *priceviews.StockbotPriceView {
 		Timestamp: &res.Timestamp,
 	}
 	return vres
+}
+
+// newStockbotHistoricalPrice converts projected type StockbotHistoricalPrice
+// to service type StockbotHistoricalPrice.
+func newStockbotHistoricalPrice(vres *priceviews.StockbotHistoricalPriceView) *StockbotHistoricalPrice {
+	res := &StockbotHistoricalPrice{}
+	if vres.Symbol != nil {
+		res.Symbol = *vres.Symbol
+	}
+	if vres.History != nil {
+		res.History = make([]*HistoricalPriceItem, len(vres.History))
+		for i, val := range vres.History {
+			if val == nil {
+				res.History[i] = nil
+				continue
+			}
+			res.History[i] = transformPriceviewsHistoricalPriceItemViewToHistoricalPriceItem(val)
+		}
+	}
+	return res
+}
+
+// newStockbotHistoricalPriceView projects result type StockbotHistoricalPrice
+// to projected type StockbotHistoricalPriceView using the "default" view.
+func newStockbotHistoricalPriceView(res *StockbotHistoricalPrice) *priceviews.StockbotHistoricalPriceView {
+	vres := &priceviews.StockbotHistoricalPriceView{
+		Symbol: &res.Symbol,
+	}
+	if res.History != nil {
+		vres.History = make([]*priceviews.HistoricalPriceItemView, len(res.History))
+		for i, val := range res.History {
+			if val == nil {
+				vres.History[i] = nil
+				continue
+			}
+			vres.History[i] = transformHistoricalPriceItemToPriceviewsHistoricalPriceItemView(val)
+		}
+	} else {
+		vres.History = []*priceviews.HistoricalPriceItemView{}
+	}
+	return vres
+}
+
+// transformPriceviewsHistoricalPriceItemViewToHistoricalPriceItem builds a
+// value of type *HistoricalPriceItem from a value of type
+// *priceviews.HistoricalPriceItemView.
+func transformPriceviewsHistoricalPriceItemViewToHistoricalPriceItem(v *priceviews.HistoricalPriceItemView) *HistoricalPriceItem {
+	if v == nil {
+		return nil
+	}
+	res := &HistoricalPriceItem{
+		Date:   *v.Date,
+		Open:   *v.Open,
+		High:   *v.High,
+		Low:    *v.Low,
+		Close:  *v.Close,
+		Volume: v.Volume,
+	}
+
+	return res
+}
+
+// transformHistoricalPriceItemToPriceviewsHistoricalPriceItemView builds a
+// value of type *priceviews.HistoricalPriceItemView from a value of type
+// *HistoricalPriceItem.
+func transformHistoricalPriceItemToPriceviewsHistoricalPriceItemView(v *HistoricalPriceItem) *priceviews.HistoricalPriceItemView {
+	res := &priceviews.HistoricalPriceItemView{
+		Date:   &v.Date,
+		Open:   &v.Open,
+		High:   &v.High,
+		Low:    &v.Low,
+		Close:  &v.Close,
+		Volume: v.Volume,
+	}
+
+	return res
 }

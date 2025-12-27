@@ -37,3 +37,34 @@ func (s *PriceService) Get(ctx context.Context, p *price.GetPayload) (res *price
 
 	return stockPrice, nil
 }
+
+// GetHistory implements price.Service.
+func (s *PriceService) GetHistory(ctx context.Context, p *price.GetHistoryPayload) (res *price.StockbotHistoricalPrice, err error) {
+	s.logger.Info("PriceService.GetHistory", slog.String("symbol", p.Symbol), slog.Uint64("days", uint64(p.Days)))
+
+	// ユースケースを呼び出す
+	historyResult, err := s.priceUseCase.GetHistory(ctx, p.Symbol, p.Days)
+	if err != nil {
+		s.logger.Error("failed to get historical price via usecase", slog.Any("error", err))
+		return nil, err
+	}
+
+	// app.HistoricalPriceResult を price.StockbotHistoricalPrice に変換
+	res = &price.StockbotHistoricalPrice{
+		Symbol: historyResult.Symbol,
+		History: make([]*price.HistoricalPriceItem, len(historyResult.History)),
+	}
+
+	for i, item := range historyResult.History {
+		res.History[i] = &price.HistoricalPriceItem{
+			Date:   item.Date,
+			Open:   item.Open,
+			High:   item.High,
+			Low:    item.Low,
+			Close:  item.Close,
+			Volume: &item.Volume, // Pass as pointer
+		}
+	}
+
+	return res, nil
+}

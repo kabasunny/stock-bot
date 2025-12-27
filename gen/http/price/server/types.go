@@ -23,6 +23,32 @@ type GetResponseBody struct {
 	Timestamp string `form:"timestamp" json:"timestamp" xml:"timestamp"`
 }
 
+// GetHistoryResponseBody is the type of the "price" service "get_history"
+// endpoint HTTP response body.
+type GetHistoryResponseBody struct {
+	// 銘柄コード
+	Symbol string `form:"symbol" json:"symbol" xml:"symbol"`
+	// 過去の価格データ
+	History []*HistoricalPriceItemResponseBody `form:"history" json:"history" xml:"history"`
+}
+
+// HistoricalPriceItemResponseBody is used to define fields on response body
+// types.
+type HistoricalPriceItemResponseBody struct {
+	// 日付 (YYYY-MM-DD)
+	Date string `form:"date" json:"date" xml:"date"`
+	// 始値
+	Open float64 `form:"open" json:"open" xml:"open"`
+	// 高値
+	High float64 `form:"high" json:"high" xml:"high"`
+	// 安値
+	Low float64 `form:"low" json:"low" xml:"low"`
+	// 終値
+	Close float64 `form:"close" json:"close" xml:"close"`
+	// 出来高
+	Volume *uint64 `form:"volume,omitempty" json:"volume,omitempty" xml:"volume,omitempty"`
+}
+
 // NewGetResponseBody builds the HTTP response body from the result of the
 // "get" endpoint of the "price" service.
 func NewGetResponseBody(res *priceviews.StockbotPriceView) *GetResponseBody {
@@ -34,10 +60,40 @@ func NewGetResponseBody(res *priceviews.StockbotPriceView) *GetResponseBody {
 	return body
 }
 
+// NewGetHistoryResponseBody builds the HTTP response body from the result of
+// the "get_history" endpoint of the "price" service.
+func NewGetHistoryResponseBody(res *priceviews.StockbotHistoricalPriceView) *GetHistoryResponseBody {
+	body := &GetHistoryResponseBody{
+		Symbol: *res.Symbol,
+	}
+	if res.History != nil {
+		body.History = make([]*HistoricalPriceItemResponseBody, len(res.History))
+		for i, val := range res.History {
+			if val == nil {
+				body.History[i] = nil
+				continue
+			}
+			body.History[i] = marshalPriceviewsHistoricalPriceItemViewToHistoricalPriceItemResponseBody(val)
+		}
+	} else {
+		body.History = []*HistoricalPriceItemResponseBody{}
+	}
+	return body
+}
+
 // NewGetPayload builds a price service get endpoint payload.
 func NewGetPayload(symbol string) *price.GetPayload {
 	v := &price.GetPayload{}
 	v.Symbol = symbol
+
+	return v
+}
+
+// NewGetHistoryPayload builds a price service get_history endpoint payload.
+func NewGetHistoryPayload(symbol string, days uint) *price.GetHistoryPayload {
+	v := &price.GetHistoryPayload{}
+	v.Symbol = symbol
+	v.Days = days
 
 	return v
 }

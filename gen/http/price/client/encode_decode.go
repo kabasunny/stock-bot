@@ -10,6 +10,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt"
 	"io"
 	"net/http"
 	"net/url"
@@ -84,4 +85,102 @@ func DecodeGetResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody
 			return nil, goahttp.ErrInvalidResponse("price", "get", resp.StatusCode, string(body))
 		}
 	}
+}
+
+// BuildGetHistoryRequest instantiates a HTTP request object with method and
+// path set to call the "price" service "get_history" endpoint
+func (c *Client) BuildGetHistoryRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		symbol string
+	)
+	{
+		p, ok := v.(*price.GetHistoryPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("price", "get_history", "*price.GetHistoryPayload", v)
+		}
+		symbol = p.Symbol
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: GetHistoryPricePath(symbol)}
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("price", "get_history", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeGetHistoryRequest returns an encoder for requests sent to the price
+// get_history server.
+func EncodeGetHistoryRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*price.GetHistoryPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("price", "get_history", "*price.GetHistoryPayload", v)
+		}
+		values := req.URL.Query()
+		values.Add("days", fmt.Sprintf("%v", p.Days))
+		req.URL.RawQuery = values.Encode()
+		return nil
+	}
+}
+
+// DecodeGetHistoryResponse returns a decoder for responses returned by the
+// price get_history endpoint. restoreBody controls whether the response body
+// should be restored after having been read.
+func DecodeGetHistoryResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body GetHistoryResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("price", "get_history", err)
+			}
+			p := NewGetHistoryStockbotHistoricalPriceOK(&body)
+			view := "default"
+			vres := &priceviews.StockbotHistoricalPrice{Projected: p, View: view}
+			if err = priceviews.ValidateStockbotHistoricalPrice(vres); err != nil {
+				return nil, goahttp.ErrValidationError("price", "get_history", err)
+			}
+			res := price.NewStockbotHistoricalPrice(vres)
+			return res, nil
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("price", "get_history", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// unmarshalHistoricalPriceItemResponseBodyToPriceviewsHistoricalPriceItemView
+// builds a value of type *priceviews.HistoricalPriceItemView from a value of
+// type *HistoricalPriceItemResponseBody.
+func unmarshalHistoricalPriceItemResponseBodyToPriceviewsHistoricalPriceItemView(v *HistoricalPriceItemResponseBody) *priceviews.HistoricalPriceItemView {
+	res := &priceviews.HistoricalPriceItemView{
+		Date:   v.Date,
+		Open:   v.Open,
+		High:   v.High,
+		Low:    v.Low,
+		Close:  v.Close,
+		Volume: v.Volume,
+	}
+
+	return res
 }

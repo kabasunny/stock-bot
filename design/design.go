@@ -119,6 +119,45 @@ var _ = Service("price", func() {
             Response(StatusOK)
         })
     })
+
+    // GET /price/{symbol}/history
+    Method("get_history", func() {
+        Description("Get historical price data for a specified stock symbol.")
+        Payload(func() {
+            Attribute("symbol", String, "Stock symbol to look up")
+            Attribute("days", UInt, "Number of historical days to retrieve (optional)", func() {
+                Default(0) // 0 means all available history
+            })
+            Required("symbol")
+        })
+        Result(HistoricalPriceResult)
+
+        HTTP(func() {
+            GET("/price/{symbol}/history")
+            Param("days")
+            Response(StatusOK)
+        })
+    })
+})
+
+// Goa Type for a single Historical Price data point
+var HistoricalPriceItem = Type("HistoricalPriceItem", func() {
+	Description("A single historical price data point.")
+	Attribute("date", String, "日付 (YYYY-MM-DD)")
+	Attribute("open", Float64, "始値")
+	Attribute("high", Float64, "高値")
+	Attribute("low", Float64, "安値")
+	Attribute("close", Float64, "終値")
+	Attribute("volume", UInt64, "出来高")
+	Required("date", "open", "high", "low", "close")
+})
+
+// Goa Type for Historical Price Result (collection)
+var HistoricalPriceResult = ResultType("application/vnd.stockbot.historical-price", func() {
+	Description("Historical price information for a stock.")
+	Attribute("symbol", String, "銘柄コード")
+	Attribute("history", ArrayOf(HistoricalPriceItem), "過去の価格データ")
+	Required("symbol", "history")
 })
 
 // Goa Type for a single Position

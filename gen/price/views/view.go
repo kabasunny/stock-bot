@@ -19,6 +19,15 @@ type StockbotPrice struct {
 	View string
 }
 
+// StockbotHistoricalPrice is the viewed result type that is projected based on
+// a view.
+type StockbotHistoricalPrice struct {
+	// Type to project
+	Projected *StockbotHistoricalPriceView
+	// View to render
+	View string
+}
+
 // StockbotPriceView is a type that runs validations on a projected type.
 type StockbotPriceView struct {
 	// 銘柄コード
@@ -27,6 +36,31 @@ type StockbotPriceView struct {
 	Price *float64
 	// 価格取得日時 (RFC3339)
 	Timestamp *string
+}
+
+// StockbotHistoricalPriceView is a type that runs validations on a projected
+// type.
+type StockbotHistoricalPriceView struct {
+	// 銘柄コード
+	Symbol *string
+	// 過去の価格データ
+	History []*HistoricalPriceItemView
+}
+
+// HistoricalPriceItemView is a type that runs validations on a projected type.
+type HistoricalPriceItemView struct {
+	// 日付 (YYYY-MM-DD)
+	Date *string
+	// 始値
+	Open *float64
+	// 高値
+	High *float64
+	// 安値
+	Low *float64
+	// 終値
+	Close *float64
+	// 出来高
+	Volume *uint64
 }
 
 var (
@@ -39,6 +73,14 @@ var (
 			"timestamp",
 		},
 	}
+	// StockbotHistoricalPriceMap is a map indexing the attribute names of
+	// StockbotHistoricalPrice by view name.
+	StockbotHistoricalPriceMap = map[string][]string{
+		"default": {
+			"symbol",
+			"history",
+		},
+	}
 )
 
 // ValidateStockbotPrice runs the validations defined on the viewed result type
@@ -47,6 +89,18 @@ func ValidateStockbotPrice(result *StockbotPrice) (err error) {
 	switch result.View {
 	case "default", "":
 		err = ValidateStockbotPriceView(result.Projected)
+	default:
+		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
+	}
+	return
+}
+
+// ValidateStockbotHistoricalPrice runs the validations defined on the viewed
+// result type StockbotHistoricalPrice.
+func ValidateStockbotHistoricalPrice(result *StockbotHistoricalPrice) (err error) {
+	switch result.View {
+	case "default", "":
+		err = ValidateStockbotHistoricalPriceView(result.Projected)
 	default:
 		err = goa.InvalidEnumValueError("view", result.View, []any{"default"})
 	}
@@ -64,6 +118,46 @@ func ValidateStockbotPriceView(result *StockbotPriceView) (err error) {
 	}
 	if result.Timestamp == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("timestamp", "result"))
+	}
+	return
+}
+
+// ValidateStockbotHistoricalPriceView runs the validations defined on
+// StockbotHistoricalPriceView using the "default" view.
+func ValidateStockbotHistoricalPriceView(result *StockbotHistoricalPriceView) (err error) {
+	if result.Symbol == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("symbol", "result"))
+	}
+	if result.History == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("history", "result"))
+	}
+	for _, e := range result.History {
+		if e != nil {
+			if err2 := ValidateHistoricalPriceItemView(e); err2 != nil {
+				err = goa.MergeErrors(err, err2)
+			}
+		}
+	}
+	return
+}
+
+// ValidateHistoricalPriceItemView runs the validations defined on
+// HistoricalPriceItemView.
+func ValidateHistoricalPriceItemView(result *HistoricalPriceItemView) (err error) {
+	if result.Date == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("date", "result"))
+	}
+	if result.Open == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("open", "result"))
+	}
+	if result.High == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("high", "result"))
+	}
+	if result.Low == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("low", "result"))
+	}
+	if result.Close == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("close", "result"))
 	}
 	return
 }

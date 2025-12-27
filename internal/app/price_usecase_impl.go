@@ -65,3 +65,50 @@ func (uc *PriceUseCaseImpl) Get(ctx context.Context, symbol string) (*price.Stoc
 		Timestamp: timestampStr,
 	}, nil
 }
+
+// GetHistory retrieves historical price data for a specified stock symbol.
+func (uc *PriceUseCaseImpl) GetHistory(ctx context.Context, symbol string, days uint) (*HistoricalPriceResult, error) {
+	req := request.ReqGetPriceInfoHistory{
+		IssueCode: symbol,
+	}
+
+	res, err := uc.priceInfoClient.GetPriceInfoHistory(ctx, uc.session, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get price history from client: %w", err)
+	}
+
+	if res == nil || len(res.CLMMfdsGetMarketPriceHistory) == 0 {
+		return &HistoricalPriceResult{
+			Symbol: symbol,
+			History: []*HistoricalPriceItem{},
+		}, nil
+	}
+
+	historyItems := make([]*HistoricalPriceItem, 0, len(res.CLMMfdsGetMarketPriceHistory))
+	for _, item := range res.CLMMfdsGetMarketPriceHistory {
+		open, _ := strconv.ParseFloat(item.PDOPxK, 64)
+		high, _ := strconv.ParseFloat(item.PDHPxK, 64)
+		low, _ := strconv.ParseFloat(item.PDLPxK, 64)
+		close, _ := strconv.ParseFloat(item.PDPPxK, 64)
+		volume, _ := strconv.ParseUint(item.PDVxK, 10, 64)
+
+		historyItems = append(historyItems, &HistoricalPriceItem{
+			Date:   item.SDate, // Assuming YYYYMMDD and Goa will format
+			Open:   open,
+			High:   high,
+			Low:    low,
+			Close:  close,
+			Volume: volume,
+		})
+	}
+
+	// Filter by days if needed (the underlying client might return all history)
+	if days > 0 && len(historyItems) > int(days) {
+		historyItems = historyItems[:days]
+	}
+
+	return &HistoricalPriceResult{
+		Symbol: symbol,
+		History: historyItems,
+	}, nil
+}

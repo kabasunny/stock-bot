@@ -8,7 +8,9 @@
 package client
 
 import (
+	"fmt"
 	price "stock-bot/gen/price"
+	"strconv"
 )
 
 // BuildGetPayload builds the payload for the price get endpoint from CLI flags.
@@ -19,6 +21,32 @@ func BuildGetPayload(priceGetSymbol string) (*price.GetPayload, error) {
 	}
 	v := &price.GetPayload{}
 	v.Symbol = symbol
+
+	return v, nil
+}
+
+// BuildGetHistoryPayload builds the payload for the price get_history endpoint
+// from CLI flags.
+func BuildGetHistoryPayload(priceGetHistorySymbol string, priceGetHistoryDays string) (*price.GetHistoryPayload, error) {
+	var err error
+	var symbol string
+	{
+		symbol = priceGetHistorySymbol
+	}
+	var days uint
+	{
+		if priceGetHistoryDays != "" {
+			var v uint64
+			v, err = strconv.ParseUint(priceGetHistoryDays, 10, strconv.IntSize)
+			days = uint(v)
+			if err != nil {
+				return nil, fmt.Errorf("invalid value for days, must be UINT")
+			}
+		}
+	}
+	v := &price.GetHistoryPayload{}
+	v.Symbol = symbol
+	v.Days = days
 
 	return v, nil
 }

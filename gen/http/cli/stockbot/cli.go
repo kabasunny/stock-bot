@@ -29,7 +29,7 @@ func UsageCommands() []string {
 	return []string{
 		"order create",
 		"balance get",
-		"price get",
+		"price (get|get-history)",
 		"position list",
 		"master (get-stock|update)",
 	}
@@ -37,11 +37,11 @@ func UsageCommands() []string {
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "order create --body '{\n      \"is_margin\": true,\n      \"order_type\": \"STOP\",\n      \"price\": 0.4518777138956951,\n      \"quantity\": 15444783396623686298,\n      \"symbol\": \"A ut.\",\n      \"trade_type\": \"BUY\"\n   }'" + "\n" +
+	return os.Args[0] + " " + "order create --body '{\n      \"is_margin\": true,\n      \"order_type\": \"LIMIT\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'" + "\n" +
 		os.Args[0] + " " + "balance get" + "\n" +
-		os.Args[0] + " " + "price get --symbol \"Blanditiis voluptatibus dolores quia facilis.\"" + "\n" +
+		os.Args[0] + " " + "price get --symbol \"Quia ut id.\"" + "\n" +
 		os.Args[0] + " " + "position list --type \"margin\"" + "\n" +
-		os.Args[0] + " " + "master get-stock --symbol \"Eligendi voluptatem officia vel.\"" + "\n" +
+		os.Args[0] + " " + "master get-stock --symbol \"Aperiam minus.\"" + "\n" +
 		""
 }
 
@@ -69,6 +69,10 @@ func ParseEndpoint(
 		priceGetFlags      = flag.NewFlagSet("get", flag.ExitOnError)
 		priceGetSymbolFlag = priceGetFlags.String("symbol", "REQUIRED", "Stock symbol to look up")
 
+		priceGetHistoryFlags      = flag.NewFlagSet("get-history", flag.ExitOnError)
+		priceGetHistorySymbolFlag = priceGetHistoryFlags.String("symbol", "REQUIRED", "Stock symbol to look up")
+		priceGetHistoryDaysFlag   = priceGetHistoryFlags.String("days", "", "")
+
 		positionFlags = flag.NewFlagSet("position", flag.ContinueOnError)
 
 		positionListFlags    = flag.NewFlagSet("list", flag.ExitOnError)
@@ -89,6 +93,7 @@ func ParseEndpoint(
 
 	priceFlags.Usage = priceUsage
 	priceGetFlags.Usage = priceGetUsage
+	priceGetHistoryFlags.Usage = priceGetHistoryUsage
 
 	positionFlags.Usage = positionUsage
 	positionListFlags.Usage = positionListUsage
@@ -156,6 +161,9 @@ func ParseEndpoint(
 			case "get":
 				epf = priceGetFlags
 
+			case "get-history":
+				epf = priceGetHistoryFlags
+
 			}
 
 		case "position":
@@ -214,6 +222,9 @@ func ParseEndpoint(
 			case "get":
 				endpoint = c.Get()
 				data, err = pricec.BuildGetPayload(*priceGetSymbolFlag)
+			case "get-history":
+				endpoint = c.GetHistory()
+				data, err = pricec.BuildGetHistoryPayload(*priceGetHistorySymbolFlag, *priceGetHistoryDaysFlag)
 			}
 		case "position":
 			c := positionc.NewClient(scheme, host, doer, enc, dec, restore)
@@ -265,7 +276,7 @@ func orderCreateUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"is_margin\": true,\n      \"order_type\": \"STOP\",\n      \"price\": 0.4518777138956951,\n      \"quantity\": 15444783396623686298,\n      \"symbol\": \"A ut.\",\n      \"trade_type\": \"BUY\"\n   }'")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"is_margin\": true,\n      \"order_type\": \"LIMIT\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'")
 }
 
 // balanceUsage displays the usage of the balance command and its subcommands.
@@ -300,6 +311,7 @@ func priceUsage() {
 	fmt.Fprintf(os.Stderr, "Usage:\n    %s [globalflags] price COMMAND [flags]\n\n", os.Args[0])
 	fmt.Fprintln(os.Stderr, "COMMAND:")
 	fmt.Fprintln(os.Stderr, `    get: Get the current price for a specified stock symbol.`)
+	fmt.Fprintln(os.Stderr, `    get-history: Get historical price data for a specified stock symbol.`)
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Additional help:")
 	fmt.Fprintf(os.Stderr, "    %s price COMMAND --help\n", os.Args[0])
@@ -319,7 +331,27 @@ func priceGetUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get --symbol \"Blanditiis voluptatibus dolores quia facilis.\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get --symbol \"Quia ut id.\"")
+}
+
+func priceGetHistoryUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] price get-history", os.Args[0])
+	fmt.Fprint(os.Stderr, " -symbol STRING")
+	fmt.Fprint(os.Stderr, " -days UINT")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Get historical price data for a specified stock symbol.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -symbol STRING: Stock symbol to look up`)
+	fmt.Fprintln(os.Stderr, `    -days UINT: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get-history --symbol \"Ratione non repudiandae quibusdam accusantium ut.\" --days 13375599974161852885")
 }
 
 // positionUsage displays the usage of the position command and its subcommands.
@@ -376,7 +408,7 @@ func masterGetStockUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master get-stock --symbol \"Eligendi voluptatem officia vel.\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master get-stock --symbol \"Aperiam minus.\"")
 }
 
 func masterUpdateUsage() {

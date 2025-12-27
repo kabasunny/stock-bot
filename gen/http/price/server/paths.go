@@ -15,3 +15,8 @@ import (
 func GetPricePath(symbol string) string {
 	return fmt.Sprintf("/price/%v", symbol)
 }
+
+// GetHistoryPricePath returns the URL path to the price service get_history HTTP endpoint.
+func GetHistoryPricePath(symbol string) string {
+	return fmt.Sprintf("/price/%v/history", symbol)
+}

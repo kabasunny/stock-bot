@@ -7,9 +7,10 @@ import (
 	"stock-bot/domain/model"
 	"stock-bot/domain/repository"
 	"stock-bot/internal/infrastructure/client"
-	"stock-bot/internal/infrastructure/client/dto/price/request"
 	order_request "stock-bot/internal/infrastructure/client/dto/order/request"
+	"stock-bot/internal/infrastructure/client/dto/price/request"
 	"strconv"
+	"time"
 	// "stock-bot/internal/infrastructure/client/dto/balance/request"
 )
 
@@ -90,7 +91,7 @@ func (s *GoaTradeService) GetPositions(ctx context.Context) ([]*model.Position, 
 		s.logger.Error("failed to get shinyou tategyoku list, proceeding with genbutsu positions only", "error", err)
 		return positions, nil
 	}
-	
+
 	for _, shinyou := range shinyouList.SinyouTategyokuList {
 		quantity, err := strconv.Atoi(shinyou.OrderHensaiKanouSuryou)
 		if err != nil {
@@ -128,7 +129,6 @@ func (s *GoaTradeService) GetPositions(ctx context.Context) ([]*model.Position, 
 
 	return positions, nil
 }
-
 
 // GetOrders は発注中の注文を取得する
 func (s *GoaTradeService) GetOrders(ctx context.Context) ([]*model.Order, error) {
@@ -219,7 +219,7 @@ func (s *GoaTradeService) GetOrders(ctx context.Context) ([]*model.Order, error)
 // GetBalance は口座残高を取得する
 func (s *GoaTradeService) GetBalance(ctx context.Context) (*Balance, error) {
 	s.logger.Info("GoaTradeService.GetBalance called")
-	
+
 	summary, err := s.balanceClient.GetZanKaiSummary(ctx, s.appSession)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get zan kai summary: %w", err)
@@ -282,6 +282,88 @@ func (s *GoaTradeService) GetPrice(ctx context.Context, symbol string) (float64,
 	return price, nil
 }
 
+// GetPriceHistory は指定した銘柄の過去の価格情報を取得する
+func (s *GoaTradeService) GetPriceHistory(ctx context.Context, symbol string, days int) ([]*HistoricalPrice, error) {
+	s.logger.Info("GoaTradeService.GetPriceHistory called", "symbol", symbol, "days", days)
+
+	// 1. リクエストを作成
+	req := request.ReqGetPriceInfoHistory{
+		IssueCode: symbol,
+		// SizyouC: "00", // 東証 (デフォルトのため省略可能)
+	}
+
+	// 2. priceClient を使って履歴情報を取得
+	res, err := s.priceClient.GetPriceInfoHistory(ctx, s.appSession, req)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get price history for symbol %s: %w", symbol, err)
+	}
+	if res == nil || len(res.CLMMfdsGetMarketPriceHistory) == 0 {
+		s.logger.Warn("no price history returned for symbol", "symbol", symbol)
+		return []*HistoricalPrice{}, nil // 空のスライスを返し、エラーとはしない
+	}
+
+	// 3. レスポンスDTOをエージェントの型に変換
+	history := make([]*HistoricalPrice, 0, len(res.CLMMfdsGetMarketPriceHistory))
+	for _, item := range res.CLMMfdsGetMarketPriceHistory {
+		// YYYYMMDD 形式の日付を time.Time にパース
+		date, err := time.Parse("20060102", item.SDate)
+		if err != nil {
+			s.logger.Warn("could not parse date in price history, skipping item", "raw", item.SDate, "error", err)
+			continue
+		}
+
+		// 安全なパース用のヘルパー関数
+		parseFloat := func(val string) float64 {
+			if val == "" {
+				return 0
+			}
+			f, err := strconv.ParseFloat(val, 64)
+			if err != nil {
+				s.logger.Warn("could not parse float in price history", "raw", val, "error", err)
+				return 0
+			}
+			return f
+		}
+		parseInt := func(val string) int {
+			if val == "" {
+				return 0
+			}
+			i, err := strconv.Atoi(val)
+			if err != nil {
+				s.logger.Warn("could not parse int in price history", "raw", val, "error", err)
+				return 0
+			}
+			return i
+		}
+
+		// 分割調整済みの価格を使用する (pDOPxK など)
+		histItem := &HistoricalPrice{
+			Date:   date,
+			Open:   parseFloat(item.PDOPxK),
+			High:   parseFloat(item.PDHPxK),
+			Low:    parseFloat(item.PDLPxK),
+			Close:  parseFloat(item.PDPPxK),
+			Volume: parseInt(item.PDVxK),
+		}
+
+		// 重要なOHLCのいずれかが0の場合はスキップ (データ欠損の可能性)
+		if histItem.Open == 0 || histItem.High == 0 || histItem.Low == 0 || histItem.Close == 0 {
+			s.logger.Info("skipping historical data point with zero OHLC values", "date", item.SDate, "symbol", symbol)
+			continue
+		}
+
+		history = append(history, histItem)
+	}
+
+	// 必要であれば 'days' パラメータで結果をフィルタリングする
+	if len(history) > days && days > 0 {
+		// 日付でソートされていると仮定 (新しいものが先頭の場合)
+		history = history[:days]
+	}
+
+	s.logger.Info("successfully fetched and processed price history", "symbol", symbol, "records_count", len(history))
+	return history, nil
+}
 
 // PlaceOrder は注文を発行する
 func (s *GoaTradeService) PlaceOrder(ctx context.Context, req *PlaceOrderRequest) (*model.Order, error) {
@@ -323,20 +405,20 @@ func (s *GoaTradeService) PlaceOrder(ctx context.Context, req *PlaceOrderRequest
 
 	// APIクライアントに渡すパラメータを作成
 	params := client.NewOrderParams{
-		ZyoutoekiKazeiC:          "1",    // 譲渡益課税区分: 1(特定口座)
+		ZyoutoekiKazeiC:          "1", // 譲渡益課税区分: 1(特定口座)
 		IssueCode:                req.Symbol,
-		SizyouC:                  "00",   // 東証
+		SizyouC:                  "00", // 東証
 		BaibaiKubun:              baibaiKubun,
-		Condition:                "0",    // 指定なし
+		Condition:                "0", // 指定なし
 		OrderPrice:               orderPrice,
 		OrderSuryou:              strconv.Itoa(req.Quantity),
-		GenkinShinyouKubun:       "0",    // 現物
-		OrderExpireDay:           "0",    // 当日限り
+		GenkinShinyouKubun:       "0",                // 現物
+		OrderExpireDay:           "0",                // 当日限り
 		GyakusasiOrderType:       gyakusasiOrderType, // 逆指値注文の種類
 		GyakusasiZyouken:         gyakusasiZyouken,   // 逆指値条件
 		GyakusasiPrice:           gyakusasiPrice,     // 逆指値価格
-		TatebiType:               "*",    // 指定なし
-		TategyokuZyoutoekiKazeiC: "*",    // 指定なし
+		TatebiType:               "*",                // 指定なし
+		TategyokuZyoutoekiKazeiC: "*",                // 指定なし
 	}
 
 	// 注文を執行

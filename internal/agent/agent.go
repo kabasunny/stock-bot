@@ -6,7 +6,6 @@ import (
 	"log/slog"
 	"math"
 	"os"
-	"path/filepath"
 	"stock-bot/domain/model"
 	"stock-bot/internal/infrastructure/client"
 	"time"
@@ -190,7 +189,12 @@ func (a *Agent) checkPositionsForExit(ctx context.Context) {
 	}
 
 	profitTakeRate := a.config.StrategySettings.Swingtrade.ProfitTakeRate
-	stopLossRate := a.config.StrategySettings.Swingtrade.StopLossRate
+	// stopLossRate is now replaced by ATR-based calculation
+	// stopLossRate := a.config.StrategySettings.Swingtrade.StopLossRate 
+	trailingStopTriggerRate := a.config.StrategySettings.Swingtrade.TrailingStopTriggerRate
+	trailingStopRate := a.config.StrategySettings.Swingtrade.TrailingStopRate
+	atrPeriod := a.config.StrategySettings.Swingtrade.ATRPeriod
+	stopLossATRMultiplier := a.config.StrategySettings.Swingtrade.StopLossATRMultiplier
 
 	for _, pos := range positions {
 		// すでにこの銘柄に対する決済注文（売り注文）が出ていないか確認
@@ -216,6 +220,22 @@ func (a *Agent) checkPositionsForExit(ctx context.Context) {
 			a.logger.Warn("skipping exit check because current price is zero", "symbol", pos.Symbol)
 			continue
 		}
+		
+		// ATR計算のための履歴データを取得
+		history, err := a.tradeService.GetPriceHistory(ctx, pos.Symbol, atrPeriod+1)
+		if err != nil {
+			a.logger.Error("failed to get price history for ATR stop-loss", "symbol", pos.Symbol, "error", err)
+			continue
+		}
+		atr, err := calculateATR(history, atrPeriod)
+		if err != nil {
+			a.logger.Error("failed to calculate ATR for stop-loss", "symbol", pos.Symbol, "error", err)
+			continue
+		}
+		if atr == 0 {
+			a.logger.Warn("ATR is zero, cannot calculate ATR-based stop-loss", "symbol", pos.Symbol)
+			continue
+		}
 
 		// Positional data initialization/update for trailing stop
 		if pos.HighestPrice == 0 || currentPrice > pos.HighestPrice {
@@ -225,7 +245,7 @@ func (a *Agent) checkPositionsForExit(ctx context.Context) {
 
 		// 利確・損切り・トレーリングストップの閾値計算
 		profitTakePrice := pos.AveragePrice * (1 + profitTakeRate/100)
-		stopLossPrice := pos.AveragePrice * (1 - stopLossRate/100)
+		stopLossPrice := pos.AveragePrice - (atr * stopLossATRMultiplier) // ATRベースの損切り
 		trailingStopTriggerPrice := pos.AveragePrice * (1 + trailingStopTriggerRate/100)
 		
 		// トレーリングストップ価格の計算と更新
@@ -249,14 +269,17 @@ func (a *Agent) checkPositionsForExit(ctx context.Context) {
 			// 1. 固定損切り
 			a.logger.Info("stop loss condition met (fixed)", "symbol", pos.Symbol, "average_price", pos.AveragePrice, "current_price", currentPrice, "target_price", stopLossPrice)
 			a.placeExitOrder(ctx, pos, "STOP_LOSS_FIXED")
+			continue
 		} else if pos.TrailingStopPrice > 0 && currentPrice <= pos.TrailingStopPrice {
 			// 2. トレーリングストップ執行
 			a.logger.Info("stop loss condition met (trailing)", "symbol", pos.Symbol, "highest_price", pos.HighestPrice, "current_price", currentPrice, "trailing_stop_price", pos.TrailingStopPrice)
 			a.placeExitOrder(ctx, pos, "STOP_LOSS_TRAILING")
+			continue
 		} else if currentPrice >= profitTakePrice {
 			// 3. 固定利確
 			a.logger.Info("profit take condition met (fixed)", "symbol", pos.Symbol, "average_price", pos.AveragePrice, "current_price", currentPrice, "target_price", profitTakePrice)
 			a.placeExitOrder(ctx, pos, "PROFIT_TAKE_FIXED")
+			continue
 		}
 	}
 }
@@ -351,136 +374,58 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 				continue
 			}
 
-			// リスクベースで注文数量を計算
-			riskPercentage := a.config.StrategySettings.Swingtrade.TradeRiskPercentage
+			// ATRベースで注文数量を計算
+			atrPeriod := a.config.StrategySettings.Swingtrade.ATRPeriod
+			riskPerATR := a.config.StrategySettings.Swingtrade.RiskPerATR
 			unitSize := float64(a.config.StrategySettings.Swingtrade.UnitSize)
 
-			tradeValue := balance.BuyingPower * riskPercentage
-			quantity := math.Floor(tradeValue/currentPrice/unitSize) * unitSize
-
-			a.logger.Info("calculated order quantity", "symbol", symbolStr, "buying_power", balance.BuyingPower, "risk_percentage", riskPercentage, "current_price", currentPrice, "calculated_quantity", quantity)
-
-			if quantity <= 0 {
-				a.logger.Info("skipping buy signal due to zero calculated quantity", "symbol", symbolStr)
-				continue
-			}
-
-			// 注文リクエストを作成
-			req := &PlaceOrderRequest{
-				Symbol:    symbolStr,
-				TradeType: model.TradeTypeBuy,
-				OrderType: model.OrderTypeMarket,
-				Quantity:  int(quantity),
-				Price:     0, // 成行注文のため価格は0
-			}
-
-			// 注文を発行
-			order, err := a.tradeService.PlaceOrder(ctx, req)
+			// 履歴価格データを取得
+			history, err := a.tradeService.GetPriceHistory(ctx, symbolStr, atrPeriod+1) // ATR計算に必要な期間 + 1
 			if err != nil {
-				a.logger.Error("failed to place buy order", "symbol", symbolStr, "error", err)
-				continue // 次のシグナルへ
-			}
-			a.logger.Info("successfully placed buy order", "symbol", symbolStr, "order_id", order.OrderID)
-			a.state.AddOrder(order) // 発注成功後、内部状態を更新する
-
-		} else if s.Signal == SellSignal {
-			position, ok := a.state.GetPosition(symbolStr)
-			if !ok {
-				a.logger.Info("skipping sell signal for non-held position", "symbol", symbolStr)
+				a.logger.Error("failed to get price history for ATR calculation", "symbol", symbolStr, "error", err)
 				continue
 			}
-			a.logger.Info("preparing to place sell order", "symbol", symbolStr, "quantity", position.Quantity)
-
-			// 注文リクエストを作成
-			req := &PlaceOrderRequest{
-				Symbol:    symbolStr,
-				TradeType: model.TradeTypeSell,
-				OrderType: model.OrderTypeMarket,
-				Quantity:  position.Quantity, // 保有する全数量を売却
-				Price:     0,                 // 成行注文のため価格は0
+			if len(history) < atrPeriod+1 {
+				a.logger.Warn("not enough historical data for ATR calculation, skipping sizing", "symbol", symbolStr, "required", atrPeriod+1, "got", len(history))
+				continue
 			}
 
-			// 注文を発行
-			order, err := a.tradeService.PlaceOrder(ctx, req)
+			atr, err := calculateATR(history, atrPeriod)
 			if err != nil {
-				a.logger.Error("failed to place sell order", "symbol", symbolStr, "error", err)
-				continue // 次のシグナルへ
-			}
-			a.logger.Info("successfully placed sell order", "symbol", symbolStr, "order_id", order.OrderID)
-			a.state.AddOrder(order) // 発注成功後、内部状態を更新する
-		}
-	}
-}
-	orders := a.state.GetOrders()
-	a.logger.Info("current orders", "count", len(orders))
-	for _, o := range orders {
-		a.logger.Info("  order detail", "order_id", o.OrderID, "symbol", o.Symbol, "trade_type", o.TradeType, "status", o.OrderStatus)
-	}
-	signalFilePath, err := FindSignalFile(a.signalPattern)
-	if err != nil {
-		a.logger.Error("failed to find signal file", "error", err)
-		return
-	}
-	if signalFilePath == "" {
-		a.logger.Info("no signal file found, skipping entry check")
-		return
-	}
-
-	a.logger.Info("found signal file", "path", signalFilePath)
-
-	signals, err := ReadSignalFile(signalFilePath)
-	if err != nil {
-		a.logger.Error("failed to read signal file", "path", signalFilePath, "error", err)
-		return
-	}
-
-	a.logger.Info("signals loaded", "count", len(signals))
-	for _, s := range signals {
-		a.logger.Info("signal detail", "symbol", s.Symbol, "signal", s.Signal)
-		symbolStr := fmt.Sprintf("%d", s.Symbol)
-
-		// Check for existing open orders for this symbol before processing the signal
-		hasOpenOrder := false
-		for _, o := range a.state.GetOrders() {
-			if o.Symbol == symbolStr && o.OrderStatus.IsUnexecuted() {
-				hasOpenOrder = true
-				break
-			}
-		}
-
-		if hasOpenOrder {
-			a.logger.Info("skipping signal due to existing open order", "symbol", symbolStr)
-			continue
-		}
-
-		// 意思決定ロジック
-		if s.Signal == BuySignal {
-			if _, ok := a.state.GetPosition(symbolStr); ok {
-				a.logger.Info("skipping buy signal for already held position", "symbol", symbolStr)
+				a.logger.Error("failed to calculate ATR", "symbol", symbolStr, "error", err)
 				continue
 			}
-			a.logger.Info("preparing to place buy order", "symbol", symbolStr)
-
-			// 買付余力と現在価格を取得
-			balance := a.state.GetBalance()
-			currentPrice, err := a.tradeService.GetPrice(ctx, symbolStr)
-			if err != nil {
-				a.logger.Error("failed to get price for sizing", "symbol", symbolStr, "error", err)
-				continue
-			}
-			if currentPrice == 0 {
-				a.logger.Warn("skipping buy signal because current price is zero", "symbol", symbolStr)
+			if atr == 0 {
+				a.logger.Warn("calculated ATR is zero, skipping sizing", "symbol", symbolStr)
 				continue
 			}
 
-			// リスクベースで注文数量を計算
-			riskPercentage := a.config.StrategySettings.Swingtrade.TradeRiskPercentage
-			unitSize := float64(a.config.StrategySettings.Swingtrade.UnitSize)
+			// ポジションサイズをATRに基づいて計算
+			// totalRiskAmount はポートフォリオ全体のリスク許容額
+			totalRiskAmount := balance.BuyingPower * a.config.StrategySettings.Swingtrade.TradeRiskPercentage
+			// 1株あたりのボラティリティリスク (ATRに基づく)
+			riskPerShare := atr * riskPerATR
+			if riskPerShare == 0 {
+				a.logger.Warn("risk per share is zero, skipping sizing", "symbol", symbolStr)
+				continue
+			}
+			
+			// 最大許容株数 (unitSizeの倍数に丸める前)
+			maxShares := totalRiskAmount / riskPerShare
+			
+			// unitSizeの倍数に切り捨て
+			quantity := math.Floor(maxShares / unitSize) * unitSize
 
-			tradeValue := balance.BuyingPower * riskPercentage
-			quantity := math.Floor(tradeValue/currentPrice/unitSize) * unitSize
-
-			a.logger.Info("calculated order quantity", "symbol", symbolStr, "buying_power", balance.BuyingPower, "risk_percentage", riskPercentage, "current_price", currentPrice, "calculated_quantity", quantity)
+			a.logger.Info("calculated order quantity (ATR-based)",
+				"symbol", symbolStr,
+				"buying_power", balance.BuyingPower,
+				"trade_risk_percentage", a.config.StrategySettings.Swingtrade.TradeRiskPercentage,
+				"atr_period", atrPeriod,
+				"risk_per_atr", riskPerATR,
+				"calculated_atr", atr,
+				"risk_per_share", riskPerShare,
+				"total_risk_amount", totalRiskAmount,
+				"calculated_quantity", quantity)
 
 			if quantity <= 0 {
 				a.logger.Info("skipping buy signal due to zero calculated quantity", "symbol", symbolStr)
@@ -534,37 +479,6 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 	}
 }
 
-// FindSignalFile は指定されたパターンに一致するシグナルファイルを探し、最も新しい更新日時を持つファイルを返す
-func FindSignalFile(pattern string) (string, error) {
-	files, err := filepath.Glob(pattern)
-	if err != nil {
-		return "", fmt.Errorf("failed to glob pattern %q: %w", pattern, err)
-	}
-	if len(files) == 0 {
-		return "", nil // ファイルが見つからなくてもエラーではない
-	}
 
-	var latestFile string
-	var latestModTime time.Time
 
-	for _, file := range files {
-		info, err := os.Stat(file)
-		if err != nil {
-			// ファイルが見つからない、またはアクセスできない場合はスキップ
-			// ただし、エラーとしてログに出力する方が良い場合もあるが、ここでは堅牢性を優先しスキップ
-			continue
-		}
 
-		if latestFile == "" || info.ModTime().After(latestModTime) {
-			latestModTime = info.ModTime()
-			latestFile = file
-		}
-	}
-
-	if latestFile == "" {
-		// globでファイルが見つかったが、os.Statで全て失敗した場合
-		return "", fmt.Errorf("no accessible signal files found matching pattern %q", pattern)
-	}
-
-	return latestFile, nil
-}
