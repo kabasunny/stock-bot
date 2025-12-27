@@ -59,6 +59,11 @@ const (
 	OrderStatusExpired         OrderStatus = "EXPIRED"          // 期限切れ
 )
 
+// IsUnexecuted は注文が市場でまだ有効（未約定または一部約定）かどうかを返す
+func (os OrderStatus) IsUnexecuted() bool {
+	return os == OrderStatusNew || os == OrderStatusPartiallyFilled
+}
+
 type Execution struct {
 	gorm.Model
 	OrderID           string `gorm:"index"`       // 注文ID (Orderモデルのgorm.Model.IDを参照)
@@ -67,4 +72,9 @@ type Execution struct {
 	ExecutionPrice    float64
 	ExecutionQuantity int
 	Commission        float64 // 手数料
+}
+
+// IsUnexecuted は注文が市場でまだ有効かどうかを返す
+func (o *Order) IsUnexecuted() bool {
+	return o.OrderStatus.IsUnexecuted()
 }

@@ -18,12 +18,14 @@ type AgentConfig struct {
 	} `yaml:"agent"`
 	StrategySettings struct {
 		Swingtrade struct {
-			TargetSymbols     []string  `yaml:"target_symbols"`
-			TradeRiskPercentage float64 `yaml:"trade_risk_percentage"`
-			UnitSize          int       `yaml:"unit_size"`
-			ProfitTakeRate    float64   `yaml:"profit_take_rate"`
-			StopLossRate      float64   `yaml:"stop_loss_rate"`
-			SignalFilePattern string    `yaml:"signal_file_pattern"` // シグナルファイルのパターンを追加
+			TargetSymbols          []string  `yaml:"target_symbols"`
+			TradeRiskPercentage    float64   `yaml:"trade_risk_percentage"`
+			UnitSize               int       `yaml:"unit_size"`
+			ProfitTakeRate         float64   `yaml:"profit_take_rate"`
+			StopLossRate           float64   `yaml:"stop_loss_rate"`
+			TrailingStopTriggerRate float64 `yaml:"trailing_stop_trigger_rate"`
+			TrailingStopRate       float64   `yaml:"trailing_stop_rate"`
+			SignalFilePattern      string    `yaml:"signal_file_pattern"` // シグナルファイルのパターンを追加
 		} `yaml:"swingtrade"`
 		Daytrade struct {
 			// デイトレード戦略用の設定

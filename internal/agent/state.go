@@ -36,9 +36,34 @@ func (s *State) UpdatePositions(positions []*model.Position) {
 
 	newPositions := make(map[string]*model.Position)
 	for _, p := range positions {
+		// 既存のポジション情報があれば、HighestPriceとTrailingStopPriceを引き継ぐ
+		if existingPos, ok := s.positions[p.Symbol]; ok {
+			p.HighestPrice = existingPos.HighestPrice
+			p.TrailingStopPrice = existingPos.TrailingStopPrice
+		}
 		newPositions[p.Symbol] = p
 	}
 	s.positions = newPositions
+}
+
+// UpdatePositionHighestPrice は指定した銘柄のHighestPriceを更新する
+func (s *State) UpdatePositionHighestPrice(symbol string, price float64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if pos, ok := s.positions[symbol]; ok {
+		pos.HighestPrice = price
+	}
+}
+
+// UpdatePositionTrailingStopPrice は指定した銘柄のTrailingStopPriceを更新する
+func (s *State) UpdatePositionTrailingStopPrice(symbol string, price float64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+
+	if pos, ok := s.positions[symbol]; ok {
+		pos.TrailingStopPrice = price
+	}
 }
 
 // GetPosition は指定した銘柄のポジションを取得する

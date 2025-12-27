@@ -1,151 +1,140 @@
-// internal/infrastructure/client/event_client_impl.go
 package client
 
 import (
 	"bytes"
 	"context"
-	"log"
+	"log/slog"
 	"net/http"
-	"net/url"
+	"strings"
 	"sync"
 
 	"github.com/cockroachdb/errors"
 	"github.com/gorilla/websocket"
 )
 
-var (
-	sepA = []byte("\x01") // Item separator
-	sepB = []byte("\x02") // Key-value separator
-	sepC = []byte("\x03") // Value-value separator
-)
-
-type eventClientImpl struct {
-	conn     *websocket.Conn
-	mu       sync.Mutex
-	isClosed bool
+// eventClient implements the EventClient interface.
+type eventClient struct {
+	conn   *websocket.Conn
+	logger *slog.Logger
+	mu     sync.Mutex
 }
 
 // NewEventClient creates a new EventClient.
-func NewEventClient() EventClient {
-	return &eventClientImpl{}
+func NewEventClient(logger *slog.Logger) EventClient {
+	return &eventClient{
+		logger: logger.WithGroup("event_client"),
+	}
 }
 
-func (c *eventClientImpl) Connect(ctx context.Context, urlString string, jar http.CookieJar) error {
+// Connect establishes a WebSocket connection and starts a message reading goroutine.
+func (c *eventClient) Connect(ctx context.Context, session *Session) (<-chan []byte, <-chan error, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
 	if c.conn != nil {
-		return errors.New("already connected")
+		return nil, nil, errors.New("event client is already connected")
 	}
 
+	if session.EventURL == "" {
+		return nil, nil, errors.New("WebSocket EventURL is not available in the session")
+	}
+
+	// Prepare request headers, especially the Cookie
 	header := http.Header{}
-	u, err := url.Parse(urlString)
+	if session.CookieJar != nil {
+		cookies := session.CookieJar.Cookies(nil) // URL is nil, gets all cookies
+		for _, cookie := range cookies {
+			header.Add("Cookie", cookie.String())
+		}
+	}
+	c.logger.Info("Connecting to WebSocket", "url", session.EventURL)
+
+	// Establish WebSocket connection
+	conn, _, err := websocket.DefaultDialer.DialContext(ctx, session.EventURL, header)
 	if err != nil {
-		return errors.Wrap(err, "failed to parse websocket url")
+		c.logger.Error("Failed to connect to WebSocket", "error", err)
+		return nil, nil, errors.Wrap(err, "failed to dial websocket")
 	}
-	originURL := *u
-	if originURL.Scheme == "wss" {
-		originURL.Scheme = "https"
-	} else {
-		originURL.Scheme = "http"
-	}
-	origin := originURL.Scheme + "://" + originURL.Host
-	header.Set("Origin", origin)
-
-	// Use a custom dialer to specify the subprotocol and cookie jar.
-	dialer := websocket.Dialer{
-		Subprotocols: []string{"e-api-stream"},
-		Jar:          jar,
-	}
-
-	conn, _, err := dialer.DialContext(ctx, urlString, header)
-	if err != nil {
-		return errors.Wrap(err, "failed to connect to websocket")
-	}
-	log.Println("WebSocket connected")
-
 	c.conn = conn
-	c.isClosed = false
-	return nil
-}
+	c.logger.Info("Successfully connected to WebSocket")
 
-func (c *eventClientImpl) Close() {
-	c.mu.Lock()
-	defer c.mu.Unlock()
+	messages := make(chan []byte)
+	errs := make(chan error, 1)
 
-	if c.isClosed || c.conn == nil {
-		return
-	}
-
-	log.Println("Closing WebSocket connection")
-	c.isClosed = true
-	// Send close message and ignore error, as the connection might be already gone.
-	_ = c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
-	c.conn.Close()
-}
-
-// ParseMessage parses the custom message format from the WebSocket server.
-// The format uses ^A, ^B, and ^C as delimiters.
-// 項目A1^B値B1^A項目A2^B値B21^CB22^CB23^A...
-func ParseMessage(msg []byte) map[string]string {
-	result := make(map[string]string)
-	pairs := bytes.Split(msg, sepA)
-	for _, pair := range pairs {
-		if len(pair) == 0 {
-			continue
-		}
-		kv := bytes.SplitN(pair, sepB, 2)
-		if len(kv) == 2 {
-			key := string(kv[0])
-			// Values separated by ^C are joined with a comma.
-			value := bytes.ReplaceAll(kv[1], sepC, []byte(","))
-			result[key] = string(value)
-		}
-	}
-	return result
-}
-
-func (c *eventClientImpl) ReadMessages(ctx context.Context) (<-chan map[string]string, <-chan error) {
-	msgCh := make(chan map[string]string)
-	errCh := make(chan error, 1)
-
+	// Start a goroutine to read messages
 	go func() {
-		defer close(msgCh)
-		defer close(errCh)
+		defer func() {
+			close(messages)
+			close(errs)
+			c.Close() // Ensure connection is closed when loop exits
+		}()
 
 		for {
 			select {
 			case <-ctx.Done():
-				log.Println("Context done, stopping ReadMessages.")
+				errs <- ctx.Err()
 				return
 			default:
-				c.mu.Lock()
-				if c.isClosed {
-					c.mu.Unlock()
-					return
-				}
-				c.mu.Unlock()
-
-				_, message, err := c.conn.ReadMessage()
+				messageType, message, err := c.conn.ReadMessage()
 				if err != nil {
-					if !c.isClosed {
-						if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
-							log.Printf("Unexpeced close error: %v", err)
-							errCh <- errors.Wrap(err, "websocket read error")
-						}
+					// Check if it's a clean close
+					if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
+						c.logger.Error("WebSocket read error", "error", err)
+						errs <- err
+					} else {
+						c.logger.Info("WebSocket closed cleanly", "error", err)
 					}
 					return
 				}
 
-				if len(message) > 0 {
-					parsedMsg := ParseMessage(message)
-					if len(parsedMsg) > 0 {
-						msgCh <- parsedMsg
-					}
+				if messageType == websocket.TextMessage || messageType == websocket.BinaryMessage {
+					messages <- message
 				}
 			}
 		}
 	}()
 
-	return msgCh, errCh
+	return messages, errs, nil
+}
+
+// Close terminates the WebSocket connection.
+func (c *eventClient) Close() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+
+	if c.conn != nil {
+		c.logger.Info("Closing WebSocket connection")
+		// Send a clean close message to the server
+		_ = c.conn.WriteMessage(websocket.CloseMessage, websocket.FormatCloseMessage(websocket.CloseNormalClosure, ""))
+		_ = c.conn.Close()
+		c.conn = nil
+	}
+}
+
+// ParseMessage はWebSocketから受信した独自形式のメッセージをパースする
+func ParseMessage(raw []byte) map[string]string {
+	result := make(map[string]string)
+	if len(raw) == 0 {
+		return result
+	}
+
+	records := bytes.Split(raw, []byte{'\x01'})
+	for _, record := range records {
+		if len(record) == 0 {
+			continue
+		}
+		parts := bytes.SplitN(record, []byte{'\x02'}, 2)
+		if len(parts) != 2 {
+			continue
+		}
+		key := string(parts[0])
+		// 値 부분은 `\x03`으로 더 분할될 수 있다
+		valueParts := bytes.Split(parts[1], []byte{'\x03'})
+		var valueStrings []string
+		for _, v := range valueParts {
+			valueStrings = append(valueStrings, string(v))
+		}
+		result[key] = strings.Join(valueStrings, ",")
+	}
+	return result
 }

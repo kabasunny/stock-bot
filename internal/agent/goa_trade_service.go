@@ -42,6 +42,11 @@ func NewGoaTradeService(
 	}
 }
 
+// GetSession は現在のAPIセッション情報を取得する
+func (s *GoaTradeService) GetSession() *client.Session {
+	return s.appSession
+}
+
 // GetPositions は現在の保有ポジションを取得する
 func (s *GoaTradeService) GetPositions(ctx context.Context) ([]*model.Position, error) {
 	s.logger.Info("GoaTradeService.GetPositions called")

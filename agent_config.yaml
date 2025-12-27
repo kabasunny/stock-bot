@@ -12,6 +12,8 @@ strategy_settings:
     unit_size: 100 # 1単元の株数
     profit_take_rate: 5.0
     stop_loss_rate: 2.0
+    trailing_stop_trigger_rate: 5.0 # 利益がこの割合に達したらトレーリングストップを開始
+    trailing_stop_rate: 2.0      # 最高値からこの割合下落したら売却
     signal_file_pattern: "./signals/*.bin"
 api:
   go_wrapper_url: "http://localhost:8080"

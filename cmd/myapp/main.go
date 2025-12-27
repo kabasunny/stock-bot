@@ -131,6 +131,9 @@ func main() {
 		slog.Default(),
 	)
 
+	// 4-Z. イベントクライアントの初期化
+	eventClient := client.NewEventClient(slog.Default())
+
 	// 5. Goaサービスの実装を初期化
 	orderSvc := web.NewOrderService(orderUsecase, slog.Default(), appSession)
 	balanceSvc := web.NewBalanceService(balanceUsecase, slog.Default(), appSession)
@@ -175,7 +178,7 @@ func main() {
 
 	// 7-1. エージェントの初期化と起動
 	agentConfigPath := "agent_config.yaml" // TODO: コマンドライン引数で渡せるようにする
-	stockAgent, err := agent.NewAgent(agentConfigPath, goaTradeService)
+	stockAgent, err := agent.NewAgent(agentConfigPath, goaTradeService, eventClient)
 	if err != nil {
 		slog.Default().Error("failed to create agent", "config", agentConfigPath, slog.Any("error", err))
 		os.Exit(1)

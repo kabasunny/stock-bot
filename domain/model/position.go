@@ -17,4 +17,8 @@ type Position struct {
 	AveragePrice float64
 	Quantity     int
 	// Account      Account `gorm:"foreignKey:AccountID;references:ID"`
+
+	// Fields for trailing stop logic (in-memory only)
+	HighestPrice      float64 `gorm:"-"`
+	TrailingStopPrice float64 `gorm:"-"`
 }

@@ -3,10 +3,13 @@ package agent
 import (
 	"context"
 	"stock-bot/domain/model"
+	"stock-bot/internal/infrastructure/client"
 )
 
 // TradeService はエージェントがトレードサービス（Go APIラッパー）と連携するためのインターフェース
 type TradeService interface {
+	// GetSession は現在のAPIセッション情報を取得する
+	GetSession() *client.Session
 	// GetPositions は現在の保有ポジションを取得する
 	GetPositions(ctx context.Context) ([]*model.Position, error)
 	// GetOrders は発注中の注文を取得する
