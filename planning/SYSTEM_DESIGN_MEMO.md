@@ -265,28 +265,126 @@ Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Con
 
 ---
 
+## 開発進捗（2025-12-27, Part2）
+
+
+
+### ATR（Average True Range）に基づく動的なポジションサイジング機能の実装
+
+-   **目的**: 固定リスク率による注文数量の決定ロジックを、銘柄のボラティリティを考慮したATRベースの計算に置き換え、リスク管理の精度を向上させる。
+
+-   **API拡張**: 履歴価格データを取得するための`GET /price/{symbol}/history`エンドポイントをGoaで設計・実装しました。
+
+-   **設定追加**: `agent_config.yaml`にATRの計算期間（`atr_period`）やリスク係数（`risk_per_atr`）などのパラメータを追加しました。
+
+-   **ロジック更新**: エージェントの`checkSignalsForEntry`関数内で、`GetPriceHistory`を呼び出してATRを算出し、それに基づいて注文数量を動的に決定するロジックを実装しました。
+
+
+
+### 決済ロジックの単体テスト実装と堅牢化
+
+-   エージェントの決済ロジック（`checkPositionsForExit`）に対して、利確、損切り、トレーリングストップの各シナリオを網羅する単体テストを実装しました。
+
+-   テストを通じて発見された複数のコンパイルエラーやロジックの不具合を修正し、エージェントの中核機能の安定性を高めました。
+
+
+
+---
+
+
+
+## 開発進捗（2025-12-27）
+
+### リアルタイムイベント受信機能の基盤実装とコンパイルエラーの解消
+-   **リアルタイムイベント受信機能**: WebSocketクライアントの基盤を実装し、エージェントへの統合を完了しました。これにより、WebSocketへの接続、メッセージの受信、ログ出力までの一連のフローが確立されました。
+-   **コンパイルエラーの解消**:
+    -   ロガーの型不一致（`slog`と`zap`）の問題を解消するため、`event_client_impl.go`のロガーを`slog`に統一しました。
+    -   WebSocketの独自メッセージ形式をパースする`ParseMessage`関数が`event_client_impl.go`から欠落していた問題を修正し、テストが通るようにしました。
+
+### エージェントの自律的な決済ロジック（固定レート）の実装
+-   **自動損切り・利確ロジック**: `agent.go`の`tick`メソッドを拡張し、保有ポジションの現在価格を監視して、`agent_config.yaml`で設定された`profit_take_rate`（利確率）または`stop_loss_rate`（損切り率）の閾値に達した場合に、自動的に成行の決済売り注文を発行する機能を実装しました。重複注文のチェック機構も組み込まれています。
+-   **Helperメソッドの追加**: 注文が未約定であるかを判定する`IsUnexecuted`メソッドを`domain/model/order.go`に追加し、ロジックの可読性と堅牢性を向上させました。
+
+### トレーリングストップ機能の実装着手
+-   **設定パラメータの定義**: `agent_config.yaml`と`internal/agent/config.go`に、トレーリングストップの動作を制御する`trailing_stop_trigger_rate`と`trailing_stop_rate`を追加しました。
+-   **Positionモデルの拡張**: `domain/model/position.go`の`Position`構造体に、トレーリングストップの追跡に必要な`HighestPrice`と`TrailingStopPrice`フィールドを（メモリ上でのみ利用する`gorm:"-"`タグ付きで）追加しました。
+
+---
+## 開発進捗（2025-12-28, Part2）
+
+### バックテスト環境の安定化とポジションサイジングロジックの改善
+-   **目的**: バックテスト実行時に発生していた重複注文や、非現実的な資金配分の問題を解決し、取引戦略の評価環境を安定させる。
+-   **実装**:
+    -   **状態同期の強化**: エージェントの `tick` メソッドの開始時に、残高だけでなくポジションと注文情報も `TradeService` から取得し、内部状態を完全に同期するように修正しました。これにより、エージェントは常に最新のポートフォリオを認識し、重複注文などの誤った意思決定を防ぐことができます。
+    -   **ポジションサイジングの改善**: 1回の取引に資金が過度に集中する問題を解決するため、`agent_config.yaml`に `max_position_size_percentage`（例: 購買力の25%まで）という設定を追加しました。注文数量の計算時にこの上限を考慮させることで、より現実的な資金分散を実現しました。
+-   **検証**: 上記の修正を適用したバックテストを実行し、エージェントが複数の銘柄に適切に資金を分散させ、かつ重複注文なしに安定して動作することを確認しました。
+
+---
+
+## 開発進捗（2025-12-28）
+
+### `HighestPrice`の永続化と決済ロジックの堅牢化
+-   **目的**: トレーリングストップ機能の耐障害性を向上させるため、ポジションごとの最高値をデータベースに永続化する。
+-   **実装**:
+    -   `domain/model/position.go` の `HighestPrice` フィールドから `gorm:"-"` タグを削除し、データベースのカラムとしてマッピングされるように変更しました。
+    -   `positions` テーブルに `highest_price` カラムを追加するためのデータベースマイグレーションを作成し、適用しました。
+    -   `PositionRepository` を拡張し、`HighestPrice` を更新するメソッドを追加実装しました。
+    -   エージェントの決済ロジック (`checkPositionsForExit`) をリファクタリングし、`HighestPrice` 更新時にデータベースへの保存処理を組み込みました。
+-   **堅牢化**: 上記変更に伴い、テストコードを修正し、`PositionRepository` のモックを追加することで、決済ロジックのテストカバレッジと信頼性を維持・向上させました。また、一連の修正過程で発生した複数のコンパイルエラーを解消しました。
+
+### バックテスト環境の構築とデバッグ
+-   **目的**: 開発した取引戦略の有効性を評価するためのバックテスト環境を構築し、発生した問題を解消する。
+-   **実装**:
+    -   `data/history`ディレクトリの作成。
+    -   `7203.csv`, `6758.csv`, `9984.csv`のダミー履歴価格CSVファイルを作成し、`data/history`に配置。
+    -   CSVを読み込み、パースするためのGoコード（`internal/data/price_history_reader.go`）を実装。
+    -   `agent.TradeService`インターフェースを満たす`internal/agent/backtest_trade_service.go`を実装。
+    -   バックテスト実行エンジン`cmd/backtester/main.go`を実装。
+    -   `internal/agent/agent.go`に`SetLogger`、`Tick`、`SyncInitialState`メソッドを追加。
+    -   `internal/agent/trade_service.go`の`HistoricalPrice.Volume`の型を`int64`に統一。
+    -   `internal/agent/backtest_trade_service.go`のフィールドを公開化し、メソッド内の参照を修正。
+    -   `cmd/backtester/main.go`の`targetSymbols`をサフィックスなしに統一。
+    -   `cmd/backtester/main.go`の`initialCash`を1000万円、`agent_config.yaml`の`trade_risk_percentage`を`0.02`に設定。
+    -   `cmd/backtester/main.go`のループを、全銘柄の履歴データの日付をユニークにしてソートしたリストを基準に回すように修正。
+    -   `internal/agent/backtest_trade_service.go`の`GetPrice`および`GetPriceHistory`メソッドを、指定日付のデータがない場合に直近の過去データを返すように修正。
+    -   `internal/agent/agent.go`の`checkSignalsForEntry`内のポジションサイジングロジックを修正。`riskPerATR`を削除し、`stopLossATRMultiplier`を使用するように統一。
+    -   上記修正に伴い発生した全てのコンパイルエラーを解消。
+
+---
+
+## 開発進捗（2025-12-28, Part3）
+
+### リアルタイム約定通知の処理機能実装とシステム統合
+
+-   **目的**: WebSocket経由で受信したリアルタイムの約定通知を処理し、システムの内部状態（ポジション、注文状況）とデータベースを正確に更新するエンドツーエンドの機能を実装する。
+-   **実装**:
+    -   **ドメイン層**: `domain/model`に約定情報を表現する`Execution`モデルを定義し、`OrderRepository`と`PositionRepository`に約定を処理するためのメソッド（`UpdateOrderStatusByExecution`, `UpsertPositionByExecution`など）を追加しました。
+    -   **アプリケーション層**: TDDアプローチに基づき、約定情報を受け取って各リポジトリを呼び出す`ExecutionUseCase`とその実装`ExecutionUseCaseImpl`を`internal/app`に作成しました。
+    -   **インフラストラクチャ層**: `OrderRepositoryImpl`と`PositionRepositoryImpl`に、約定情報に基づいてデータベースを更新する具体的なロジックを実装しました。
+    -   **エージェント層**: `Agent`構造体に`ExecutionUseCase`を注入し、`watchEvents`メソッド内で約定通知イベント（`p_cmd`が`"EX"`のケース）をハンドリングする`handleExecution`メソッドを実装しました。これにより、WebSocketで受信したメッセージがパースされ、`ExecutionUseCase`を通じて状態が更新されるフローが完成しました。
+-   **堅牢化とリファクタリング**:
+    -   本機能の実装に伴い、`agent`パッケージと`app`パッケージで発生したコンパイルエラーとテストの不整合をすべて解消しました。
+    -   `agent.go`の決済ロジック`checkPositionsForExit`をリファクタリングし、ATR計算が失敗しても他の決済条件（利確など）のチェックが続行されるように改善しました。
+    -   テストコードの信頼性を向上させるため、テストケースごとにモックを初期化するなどの修正を行いました。
+
+---
 #### 次回のアクションプラン
 
-**最優先タスク: リアルタイムイベント受信機能の検証と拡張**
+**最優先タスク: プロジェクト全体のテストの安定化とクリーンアップ**
 
 1.  **目的**:
-    *   WebSocketを利用したリアルタイムイベント受信基盤の動作を確認し、受信したイベントをエージェントの状態更新に利用する。
+    *   プロジェクト全体のテストスイートを安定させ、CI/CD環境でも常に信頼できるフィードバックが得られる状態を構築する。また、開発中に導入した一時的なコードをクリーンアップする。
+
 2.  **現状と次のステップ**:
-    *   **現状**: `EventClient`の基盤実装と、独自メッセージ形式に対応するためのパーサー骨格の実装が完了。
-    *   **次ステップ (12/30接続テスト)**: 12月30日の証券会社APIとの接続テストにおいて、WebSocket経由で受信するメッセージの具体的なフォーマットと内容（特に約定通知）を特定する。
-    *   **その後の実装**: メッセージフォーマットが判明次第、`internal/agent/agent.go` の `watchEvents` 関数内で、受信したメッセージをパースし、エージェントの内部状態（ポジション、注文状況など）をリアルタイムに更新するロジックを実装する。
-
-**その他、並行して検討可能なタスク（重要度順）:**
-
-*   **バックテスト環境のデバッグとATRベースのポジションサイジングの最適化 (進行中)**:
-    *   **目的**: バックテスト実行時に`calculated_quantity=0`となる問題を解消し、ATRベースのポジションサイジングが意図通りに機能するようにする。
-    *   **現状**: エージェントの内部状態(`agent.state`)の残高情報が`BacktestTradeService`の残高と同期されておらず、購入可能数量が0と計算されているため、注文数量が`0`になっている。
-    *   **次ステップ**: `internal/agent/agent.go`の`tick()`メソッドの開始時に、`a.tradeService.GetBalance()`を呼び出し、`a.state.UpdateBalance()`で`agent.state`の残高を常に最新の状態に同期するように変更する。この修正後も注文が行われない場合、`calculateATR`関数や`stopLossATRMultiplier`などのパラメータを再評価する。
-*   **約定情報の取り込みとデータベース更新**:
-    *   **目的**: エージェントが発行した注文が約定したかどうかをリアルタイムに把握し、エージェントの内部状態とデータベースを更新する。
-    *   **検討事項**: WebSocketからの約定通知の受信フォーマットに依存するため、12/30の接続テスト結果を待つ必要がある。
-
-
+    *   **現状**:
+        *   `internal/agent`と`internal/app`のユニットテストは安定してパスしている。
+        *   `internal/infrastructure`配下のテストは、環境設定（`.env`ファイルやDocker）に依存しており、ローカル環境で頻繁に失敗している。
+    *   **次ステップ1（テストの安定化）**:
+        *   `internal/infrastructure/client`のテストを修正し、`TachibanaClient`のテストが`.env`ファイルに依存しないようにする。テスト用の設定値を直接渡すか、テスト専用の設定ファイルを使用するアプローチを検討する。
+        *   `internal/infrastructure/repository`のテストで利用している`testcontainers-go`がDockerに接続できない問題を解決する。Dockerが実行中であることを前提とするか、Dockerが利用できない環境ではテストをスキップするビルドタグ（例: `//go:build integration`）の導入を検討する。
+    *   **次ステップ2（プレースホルダーの実装）**:
+        *   `agent.go`内に残っているプレースホルダー関数`handlePriceData`と`handleStatus`の具体的な実装に着手する。これにより、リアルタイムイベントの処理がより完全なものになる。
+        *   **12/30接続テスト**: 証券会社APIとの接続テストにおいて、WebSocket経由で受信する「約定通知」メッセージの具体的なフォーマット（キーと値）を特定する。
 ---
 
 ## 実装から得られた知見（APIクライアント編）
@@ -407,85 +505,3 @@ APIアカウントロック問題（`2025-12-17`）を受け、証券会社サ�
     -   リアルタイムで大量の時価情報などを配信するEVENT I/Fにおいて、JSON形式の冗長性を排除し、データサイズを削減することで、通信量と処理負荷を低減するパフォーマンス重視の設計思想であると推測される。
     -   この独自形式を処理するためには、`bytes.Split`などのGoの標準機能を用いて手動でメッセージをパースする専用のパーサーを実装する必要がある。従来のJSONデコード処理は適用できない。
     -   12/30の接続テストでは、`p_cmd`の具体的な値や各イベントのデータ項目名と内容を正確に把握することが極めて重要となる。
-
----
-
-
-
-## 開発進捗（2025-12-27, Part2）
-
-
-
-### ATR（Average True Range）に基づく動的なポジションサイジング機能の実装
-
--   **目的**: 固定リスク率による注文数量の決定ロジックを、銘柄のボラティリティを考慮したATRベースの計算に置き換え、リスク管理の精度を向上させる。
-
--   **API拡張**: 履歴価格データを取得するための`GET /price/{symbol}/history`エンドポイントをGoaで設計・実装しました。
-
--   **設定追加**: `agent_config.yaml`にATRの計算期間（`atr_period`）やリスク係数（`risk_per_atr`）などのパラメータを追加しました。
-
--   **ロジック更新**: エージェントの`checkSignalsForEntry`関数内で、`GetPriceHistory`を呼び出してATRを算出し、それに基づいて注文数量を動的に決定するロジックを実装しました。
-
-
-
-### 決済ロジックの単体テスト実装と堅牢化
-
--   エージェントの決済ロジック（`checkPositionsForExit`）に対して、利確、損切り、トレーリングストップの各シナリオを網羅する単体テストを実装しました。
-
--   テストを通じて発見された複数のコンパイルエラーやロジックの不具合を修正し、エージェントの中核機能の安定性を高めました。
-
-
-
----
-
-
-
-## 開発進捗（2025-12-27）
-
-### リアルタイムイベント受信機能の基盤実装とコンパイルエラーの解消
--   **リアルタイムイベント受信機能**: WebSocketクライアントの基盤を実装し、エージェントへの統合を完了しました。これにより、WebSocketへの接続、メッセージの受信、ログ出力までの一連のフローが確立されました。
--   **コンパイルエラーの解消**:
-    -   ロガーの型不一致（`slog`と`zap`）の問題を解消するため、`event_client_impl.go`のロガーを`slog`に統一しました。
-    -   WebSocketの独自メッセージ形式をパースする`ParseMessage`関数が`event_client_impl.go`から欠落していた問題を修正し、テストが通るようにしました。
-
-### エージェントの自律的な決済ロジック（固定レート）の実装
--   **自動損切り・利確ロジック**: `agent.go`の`tick`メソッドを拡張し、保有ポジションの現在価格を監視して、`agent_config.yaml`で設定された`profit_take_rate`（利確率）または`stop_loss_rate`（損切り率）の閾値に達した場合に、自動的に成行の決済売り注文を発行する機能を実装しました。重複注文のチェック機構も組み込まれています。
--   **Helperメソッドの追加**: 注文が未約定であるかを判定する`IsUnexecuted`メソッドを`domain/model/order.go`に追加し、ロジックの可読性と堅牢性を向上させました。
-
-### トレーリングストップ機能の実装着手
--   **設定パラメータの定義**: `agent_config.yaml`と`internal/agent/config.go`に、トレーリングストップの動作を制御する`trailing_stop_trigger_rate`と`trailing_stop_rate`を追加しました。
--   **Positionモデルの拡張**: `domain/model/position.go`の`Position`構造体に、トレーリングストップの追跡に必要な`HighestPrice`と`TrailingStopPrice`フィールドを（メモリ上でのみ利用する`gorm:"-"`タグ付きで）追加しました。
-
----
-## 開発進捗（2025-12-28）
-
-### `HighestPrice`の永続化と決済ロジックの堅牢化
--   **目的**: トレーリングストップ機能の耐障害性を向上させるため、ポジションごとの最高値をデータベースに永続化する。
--   **実装**:
-    -   `domain/model/position.go` の `HighestPrice` フィールドから `gorm:"-"` タグを削除し、データベースのカラムとしてマッピングされるように変更しました。
-    -   `positions` テーブルに `highest_price` カラムを追加するためのデータベースマイグレーションを作成し、適用しました。
-    -   `PositionRepository` を拡張し、`HighestPrice` を更新するメソッドを追加実装しました。
-    -   エージェントの決済ロジック (`checkPositionsForExit`) をリファクタリングし、`HighestPrice` 更新時にデータベースへの保存処理を組み込みました。
--   **堅牢化**: 上記変更に伴い、テストコードを修正し、`PositionRepository` のモックを追加することで、決済ロジックのテストカバレッジと信頼性を維持・向上させました。また、一連の修正過程で発生した複数のコンパイルエラーを解消しました。
-
-### バックテスト環境の構築とデバッグ
--   **目的**: 開発した取引戦略の有効性を評価するためのバックテスト環境を構築し、発生した問題を解消する。
--   **実装**:
-    -   `data/history`ディレクトリの作成。
-    -   `7203.csv`, `6758.csv`, `9984.csv`のダミー履歴価格CSVファイルを作成し、`data/history`に配置。
-    -   CSVを読み込み、パースするためのGoコード（`internal/data/price_history_reader.go`）を実装。
-    -   `agent.TradeService`インターフェースを満たす`internal/agent/backtest_trade_service.go`を実装。
-    -   バックテスト実行エンジン`cmd/backtester/main.go`を実装。
-    -   `internal/agent/agent.go`に`SetLogger`、`Tick`、`SyncInitialState`メソッドを追加。
-    -   `internal/agent/trade_service.go`の`HistoricalPrice.Volume`の型を`int64`に統一。
-    -   `internal/agent/backtest_trade_service.go`のフィールドを公開化し、メソッド内の参照を修正。
-    -   `cmd/backtester/main.go`の`targetSymbols`をサフィックスなしに統一。
-    -   `cmd/backtester/main.go`の`initialCash`を1000万円、`agent_config.yaml`の`trade_risk_percentage`を`0.02`に設定。
-    -   `cmd/backtester/main.go`のループを、全銘柄の履歴データの日付をユニークにしてソートしたリストを基準に回すように修正。
-    -   `internal/agent/backtest_trade_service.go`の`GetPrice`および`GetPriceHistory`メソッドを、指定日付のデータがない場合に直近の過去データを返すように修正。
-    -   `internal/agent/agent.go`の`checkSignalsForEntry`内のポジションサイジングロジックを修正。`riskPerATR`を削除し、`stopLossATRMultiplier`を使用するように統一。
-    -   上記修正に伴い発生した全てのコンパイルエラーを解消。
--   **現在の課題**:
-    -   バックテスト実行時、エージェントの内部状態(`agent.state`)の残高情報が`BacktestTradeService`の残高と同期されておらず、`calculated_quantity=0`となり注文が実行されない問題が残っている。
-    -   `calculated_quantity=0`の根本原因は、`agent.go`の`tick()`サイクル中に`a.state`の`buying_power`が更新されていないため。
----

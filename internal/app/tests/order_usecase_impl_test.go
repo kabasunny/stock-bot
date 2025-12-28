@@ -5,6 +5,7 @@ import (
 	"errors"
 	"stock-bot/domain/model"
 	"stock-bot/internal/app"
+	"stock-bot/internal/app/mocks"
 	"stock-bot/internal/infrastructure/client"
 	"stock-bot/internal/infrastructure/client/dto/order/request"
 	"stock-bot/internal/infrastructure/client/dto/order/response"
@@ -68,31 +69,7 @@ func (m *OrderClientMock) GetOrderListDetail(ctx context.Context, session *clien
 	return args.Get(0).(*response.ResOrderListDetail), args.Error(1)
 }
 
-// Mock for repository.OrderRepository
-type OrderRepositoryMock struct {
-	mock.Mock
-}
 
-func (m *OrderRepositoryMock) Save(ctx context.Context, order *model.Order) error {
-	args := m.Called(ctx, order)
-	return args.Error(0)
-}
-
-func (m *OrderRepositoryMock) FindByID(ctx context.Context, orderID string) (*model.Order, error) {
-	args := m.Called(ctx, orderID)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).(*model.Order), args.Error(1)
-}
-
-func (m *OrderRepositoryMock) FindByStatus(ctx context.Context, status model.OrderStatus) ([]*model.Order, error) {
-	args := m.Called(ctx, status)
-	if args.Get(0) == nil {
-		return nil, args.Error(1)
-	}
-	return args.Get(0).([]*model.Order), args.Error(1)
-}
 
 // OrderUsecaseの実装をテスト
 func TestExecuteOrder_Success(t *testing.T) {
@@ -101,7 +78,7 @@ func TestExecuteOrder_Success(t *testing.T) {
 
 	// Mockのセットアップ
 	orderClientMock := new(OrderClientMock)
-	orderRepositoryMock := new(OrderRepositoryMock)
+	orderRepositoryMock := new(mocks.OrderRepository)
 
 	// Tachibana OrderClient が成功レスポンスを返すように設定
 	expectedResNewOrder := &response.ResNewOrder{
@@ -149,7 +126,7 @@ func TestExecuteOrder_ClientError(t *testing.T) {
 
 	// Mockのセットアップ
 	orderClientMock := new(OrderClientMock)
-	orderRepositoryMock := new(OrderRepositoryMock)
+	orderRepositoryMock := new(mocks.OrderRepository)
 
 	// Tachibana OrderClient がエラーを返すように設定
 	expectedErr := errors.New("failed to call Tachibana API")
@@ -183,7 +160,7 @@ func TestExecuteOrder_RepositoryError(t *testing.T) {
 
 	// Mockのセットアップ
 	orderClientMock := new(OrderClientMock)
-	orderRepositoryMock := new(OrderRepositoryMock)
+	orderRepositoryMock := new(mocks.OrderRepository)
 
 	// Tachibana OrderClient が成功レスポンスを返すように設定
 	expectedResNewOrder := &response.ResNewOrder{

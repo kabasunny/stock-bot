@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"stock-bot/domain/model"
+	"stock-bot/domain/model" // Add this import
 	"stock-bot/internal/infrastructure/client"
 	"strconv"
 	"testing"
@@ -186,16 +186,35 @@ func (m *mockPositionRepository) UpdateHighestPrice(ctx context.Context, symbol 
 	return args.Error(0)
 }
 
+func (m *mockPositionRepository) UpsertPositionByExecution(ctx context.Context, execution *model.Execution) error {
+	args := m.Called(ctx, execution)
+	return args.Error(0)
+}
+
+func (m *mockPositionRepository) DeletePosition(ctx context.Context, symbol string) error {
+	args := m.Called(ctx, symbol)
+	return args.Error(0)
+}
+
+type mockExecutionUseCase struct {
+	mock.Mock
+}
+
+func (m *mockExecutionUseCase) Execute(ctx context.Context, execution *model.Execution) error {
+	args := m.Called(ctx, execution)
+	return args.Error(0)
+}
+
 func TestCheckPositionsForExit(t *testing.T) {
 	// --- Test Setup ---
-	setup := func(t *testing.T) (*Agent, *mockTradeService, *mockPositionRepository) {
+	setup := func(t *testing.T) (*Agent, *mockTradeService, *mockPositionRepository, *mockExecutionUseCase) {
 		// 一時的なagent_config.yamlを作成
 		tmpFile, err := os.CreateTemp("", "agent_config_test_*.yaml")
 		if err != nil {
 			t.Fatalf("Failed to create temp config file: %v", err)
 		}
 		defer os.Remove(tmpFile.Name()) // テスト終了時に削除
-		
+
 		configContent := `
 agent:
   strategy: swingtrade
@@ -221,13 +240,14 @@ strategy_settings:
 
 		mockService := new(mockTradeService)
 		mockRepo := new(mockPositionRepository)
+		mockExecUseCase := new(mockExecutionUseCase) // Initialize mockExecutionUseCase
 
 		// eventClientはこれらのテストでは使われないのでnil
-		agent, err := NewAgent(tmpFile.Name(), mockService, nil, mockRepo)
+		agent, err := NewAgent(tmpFile.Name(), mockService, nil, mockRepo, mockExecUseCase) // Pass mockExecUseCase
 		if err != nil {
 			t.Fatalf("failed to create agent for test: %v", err)
 		}
-		return agent, mockService, mockRepo
+		return agent, mockService, mockRepo, mockExecUseCase
 	}
 
 	basePosition := &model.Position{
@@ -238,11 +258,14 @@ strategy_settings:
 
 	// --- Test Cases ---
 	t.Run("should place profit take order", func(t *testing.T) {
-		agent, mockService, mockRepo := setup(t)
+		agent, mockService, mockRepo, _ := setup(t)
 		pos := *basePosition // Make a copy
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
 		historicalData := make([]*HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
+		for i := range historicalData {
+			historicalData[i] = &HistoricalPrice{}
+		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Maybe()
 
 		currentPrice := 1100.0 // 10% profit
@@ -260,28 +283,31 @@ strategy_settings:
 	})
 
 	t.Run("should place original stop loss order if ATR fails", func(t *testing.T) {
-		agent, mockService, mockRepo := setup(t)
+		agent, mockService, mockRepo, _ := setup(t)
 		pos := *basePosition // Make a copy
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
 		currentPrice := 950.0
 		mockService.On("GetPrice", mock.Anything, "1234").Return(currentPrice, nil).Once()
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(nil, fmt.Errorf("API error")).Once()
-		mockRepo.On("UpdateHighestPrice", mock.Anything, mock.Anything, mock.Anything).Return(nil).Maybe() // Should not be called if GetPriceHistory fails
+		mockRepo.On("UpdateHighestPrice", mock.Anything, "1234", currentPrice).Return(nil).Once()
 
 		agent.checkPositionsForExit(context.Background())
 
 		mockService.AssertExpectations(t)
-		mockRepo.AssertNotCalled(t, "UpdateHighestPrice", mock.Anything, mock.Anything, mock.Anything)
+		mockRepo.AssertExpectations(t)
 		mockService.AssertNotCalled(t, "PlaceOrder", mock.Anything, mock.Anything)
 	})
 
 	t.Run("should activate trailing stop", func(t *testing.T) {
-		agent, mockService, mockRepo := setup(t)
+		agent, mockService, mockRepo, _ := setup(t)
 		pos := *basePosition // copy
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
 		historicalData := make([]*HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
+		for i := range historicalData {
+			historicalData[i] = &HistoricalPrice{}
+		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Maybe()
 
 		currentPrice := 1020.0
@@ -298,13 +324,16 @@ strategy_settings:
 	})
 
 	t.Run("should execute trailing stop order", func(t *testing.T) {
-		agent, mockService, mockRepo := setup(t)
+		agent, mockService, mockRepo, _ := setup(t)
 		pos := *basePosition                        // copy
 		pos.HighestPrice = 1050.0                   // Manually set state as if price rose
 		pos.TrailingStopPrice = 1050.0 * (1 - 0.03) // 1018.5
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
 		historicalData := make([]*HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
+		for i := range historicalData {
+			historicalData[i] = &HistoricalPrice{}
+		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Maybe()
 
 		currentPrice := 1018.0
@@ -321,13 +350,16 @@ strategy_settings:
 	})
 
 	t.Run("should update trailing stop price as price rises", func(t *testing.T) {
-		agent, mockService, mockRepo := setup(t)
+		agent, mockService, mockRepo, _ := setup(t)
 		pos := *basePosition                        // copy
 		pos.HighestPrice = 1020.0                   // Initial activation price
 		pos.TrailingStopPrice = 1020.0 * (1 - 0.03) // 989.4
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
 		historicalData := make([]*HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
+		for i := range historicalData {
+			historicalData[i] = &HistoricalPrice{}
+		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Maybe()
 
 		currentPrice := 1080.0
@@ -344,7 +376,7 @@ strategy_settings:
 	})
 
 	t.Run("should not place order if an open sell order exists", func(t *testing.T) {
-		agent, mockService, _ := setup(t)
+		agent, mockService, _, _ := setup(t)
 		pos := *basePosition // Make a copy
 		agent.state.UpdatePositions([]*model.Position{&pos})
 		agent.state.AddOrder(&model.Order{
@@ -360,11 +392,14 @@ strategy_settings:
 	})
 
 	t.Run("should do nothing if no conditions are met", func(t *testing.T) {
-		agent, mockService, mockRepo := setup(t)
+		agent, mockService, mockRepo, _ := setup(t)
 		pos := *basePosition // Make a copy
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
 		historicalData := make([]*HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
+		for i := range historicalData {
+			historicalData[i] = &HistoricalPrice{}
+		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Maybe()
 
 		currentPrice := 1010.0 // Not enough for profit or trailing trigger
@@ -379,7 +414,7 @@ strategy_settings:
 	})
 
 	t.Run("should place ATR-based stop loss order", func(t *testing.T) {
-		agent, mockService, mockRepo := setup(t)
+		agent, mockService, mockRepo, _ := setup(t)
 		pos := *basePosition // Make a copy
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
@@ -405,7 +440,7 @@ strategy_settings:
 	})
 
 	t.Run("should not place order if GetPrice returns error", func(t *testing.T) {
-		agent, mockService, _ := setup(t)
+		agent, mockService, _, _ := setup(t)
 		pos := *basePosition
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
@@ -417,7 +452,7 @@ strategy_settings:
 	})
 
 	t.Run("should not place order if GetPriceHistory returns error", func(t *testing.T) {
-		agent, mockService, mockRepo := setup(t)
+		agent, mockService, mockRepo, _ := setup(t)
 		pos := *basePosition
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
@@ -432,7 +467,7 @@ strategy_settings:
 	})
 
 	t.Run("should not place order if not enough historical data for ATR", func(t *testing.T) {
-		agent, mockService, mockRepo := setup(t)
+		agent, mockService, mockRepo, _ := setup(t)
 		pos := *basePosition
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
@@ -448,7 +483,7 @@ strategy_settings:
 	})
 
 	t.Run("should not place order if ATR calculation returns error or zero", func(t *testing.T) {
-		agent, mockService, mockRepo := setup(t)
+		agent, mockService, mockRepo, _ := setup(t)
 		pos := *basePosition
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
@@ -470,14 +505,14 @@ strategy_settings:
 
 func TestCheckSignalsForEntry_ATRBasedSizing(t *testing.T) {
 	// --- Test Setup ---
-	setup := func(t *testing.T) (*Agent, *mockTradeService, *mockPositionRepository) {
+	setup := func(t *testing.T) (*Agent, *mockTradeService, *mockPositionRepository, *mockExecutionUseCase) {
 		// 一時的なagent_config.yamlを作成
 		tmpFile, err := os.CreateTemp("", "agent_config_test_*.yaml")
 		if err != nil {
 			t.Fatalf("Failed to create temp config file: %v", err)
 		}
 		defer os.Remove(tmpFile.Name()) // テスト終了時に削除
-		
+
 		configContent := `
 agent:
   strategy: swingtrade
@@ -503,16 +538,17 @@ strategy_settings:
 
 		mockService := new(mockTradeService)
 		mockRepo := new(mockPositionRepository)
+		mockExecUseCase := new(mockExecutionUseCase)
 
-		agent, err := NewAgent(tmpFile.Name(), mockService, nil, mockRepo)
+		agent, err := NewAgent(tmpFile.Name(), mockService, nil, mockRepo, mockExecUseCase)
 		if err != nil {
 			t.Fatalf("failed to create agent for test: %v", err)
 		}
-		return agent, mockService, mockRepo
+		return agent, mockService, mockRepo, mockExecUseCase
 	}
 
 	t.Run("should calculate ATR-based quantity and place buy order", func(t *testing.T) {
-		agent, mockService, _ := setup(t)
+		agent, mockService, _, _ := setup(t)
 
 		// --- Mock Data ---
 		// Signal file
@@ -541,7 +577,7 @@ strategy_settings:
 		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", 15).Return(historicalData, nil)
 
-		expectedQuantity := 1000
+		expectedQuantity := 200
 
 		// Mock PlaceOrder
 		mockService.On("PlaceOrder", mock.Anything, mock.MatchedBy(func(req *PlaceOrderRequest) bool {

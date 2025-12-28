@@ -90,6 +90,7 @@ func main() {
 	var masterSvc mastergen.Service
 	var stockAgent *agent.Agent
 	var goaTradeService *agent.GoaTradeService
+	var executionUseCase app.ExecutionUseCase // Declare executionUseCase
 
 	if !*noDB {
 		// 3a. データベース接続
@@ -151,6 +152,7 @@ func main() {
 	if !*noDB && !*noTachibana {
 		orderUsecase = app.NewOrderUseCaseImpl(tachibanaClient, orderRepo)
 		masterUsecase = app.NewMasterUseCaseImpl(tachibanaClient, masterRepo)
+		executionUseCase = app.NewExecutionUseCaseImpl(orderRepo, positionRepo) // Initialize executionUseCase
 
 		if !*skipSync {
 			slog.Default().Info("Starting initial master data synchronization...")
@@ -232,7 +234,7 @@ func main() {
 
 	// 7-1. エージェントの初期化と起動 (DB依存)
 	if !*noDB && !*noTachibana {
-		stockAgent, err = agent.NewAgent(agentConfigPath, goaTradeService, eventClient, positionRepo)
+		stockAgent, err = agent.NewAgent(agentConfigPath, goaTradeService, eventClient, positionRepo, executionUseCase)
 		if err != nil {
 			slog.Default().Error("failed to create agent", "config", agentConfigPath, slog.Any("error", err))
 			os.Exit(1)

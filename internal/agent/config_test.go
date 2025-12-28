@@ -98,7 +98,7 @@ api:
 	assert.Equal(t, "Asia/Tokyo", cfg.Agent.Timezone)         // デフォルト値
 
 	assert.ElementsMatch(t, []string{"MSFT"}, cfg.StrategySettings.Swingtrade.TargetSymbols)
-	assert.Equal(t, 0.25, cfg.StrategySettings.Swingtrade.TradeRiskPercentage) // デフォルト値
+	assert.Equal(t, 0.02, cfg.StrategySettings.Swingtrade.TradeRiskPercentage) // デフォルト値
 	assert.Equal(t, 100, cfg.StrategySettings.Swingtrade.UnitSize)           // デフォルト値
 	// float64のデフォルト値は0.0なので、ここではテストしないか、初期化された構造体の値を期待する
 	assert.Equal(t, 0.0, cfg.StrategySettings.Swingtrade.ProfitTakeRate)

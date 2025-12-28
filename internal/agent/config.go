@@ -36,17 +36,18 @@ type StrategySettings struct {
 
 // SwingtradeSettings はスイングトレード戦略固有の設定
 type SwingtradeSettings struct {
-	TargetSymbols          []string  `yaml:"target_symbols"`
-	TradeRiskPercentage    float64   `yaml:"trade_risk_percentage"`
-	UnitSize               int       `yaml:"unit_size"`
-	ProfitTakeRate         float64   `yaml:"profit_take_rate"`
-	StopLossRate           float64   `yaml:"stop_loss_rate"`
-	TrailingStopTriggerRate float64 `yaml:"trailing_stop_trigger_rate"`
-	TrailingStopRate       float64   `yaml:"trailing_stop_rate"`
-	SignalFilePattern      string    `yaml:"signal_file_pattern"` // シグナルファイルのパターンを追加
-	ATRPeriod              int       `yaml:"atr_period"`          // New: ATR期間
-	RiskPerATR             float64   `yaml:"risk_per_atr"`        // New: ATR単位でのリスク量
-	StopLossATRMultiplier  float64   `yaml:"stop_loss_atr_multiplier"` // New: ATRを基準とした損切り幅の乗数
+	TargetSymbols             []string  `yaml:"target_symbols"`
+	TradeRiskPercentage       float64   `yaml:"trade_risk_percentage"`
+	MaxPositionSizePercentage float64   `yaml:"max_position_size_percentage"`
+	UnitSize                  int       `yaml:"unit_size"`
+	ProfitTakeRate            float64   `yaml:"profit_take_rate"`
+	StopLossRate              float64   `yaml:"stop_loss_rate"`
+	TrailingStopTriggerRate   float64   `yaml:"trailing_stop_trigger_rate"`
+	TrailingStopRate          float64   `yaml:"trailing_stop_rate"`
+	SignalFilePattern         string    `yaml:"signal_file_pattern"` // シグナルファイルのパターンを追加
+	ATRPeriod                 int       `yaml:"atr_period"`          // New: ATR期間
+	RiskPerATR                float64   `yaml:"risk_per_atr"`        // New: ATR単位でのリスク量
+	StopLossATRMultiplier     float64   `yaml:"stop_loss_atr_multiplier"` // New: ATRを基準とした損切り幅の乗数
 }
 
 // LoadAgentConfig は指定されたYAMLファイルからエージェントの設定を読み込む
@@ -76,7 +77,10 @@ func LoadAgentConfig(configPath string) (*AgentConfig, error) {
 		cfg.StrategySettings.Swingtrade.SignalFilePattern = "./signals/*.bin"
 	}
 	if cfg.StrategySettings.Swingtrade.TradeRiskPercentage == 0 {
-		cfg.StrategySettings.Swingtrade.TradeRiskPercentage = 0.25 // デフォルトは25%
+		cfg.StrategySettings.Swingtrade.TradeRiskPercentage = 0.02 // デフォルトは2%
+	}
+	if cfg.StrategySettings.Swingtrade.MaxPositionSizePercentage == 0 {
+		cfg.StrategySettings.Swingtrade.MaxPositionSizePercentage = 0.25 // デフォルトは25%
 	}
 	if cfg.StrategySettings.Swingtrade.UnitSize == 0 {
 		cfg.StrategySettings.Swingtrade.UnitSize = 100 // デフォルトは100株

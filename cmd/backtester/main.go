@@ -8,6 +8,7 @@ import (
 	"stock-bot/domain/model"
 	"stock-bot/domain/repository"
 	"stock-bot/internal/agent"
+	"stock-bot/internal/app" // Add this import
 	"time"
 )
 
@@ -30,9 +31,10 @@ func main() {
 	}
 
 	// 3. Agentの初期化
-	// バックテストでは実際のDBは使用しないため、ダミーのPositionRepositoryを渡す
+	// バックテストでは実際のDBは使用しないため、ダミーのPositionRepositoryとExecutionUseCaseを渡す
 	dummyPositionRepo := &dummyPositionRepository{}
-	stockAgent, err := agent.NewAgent(configPath, backtestService, nil, dummyPositionRepo)
+	dummyExecutionUseCase := &dummyExecutionUseCase{}
+	stockAgent, err := agent.NewAgent(configPath, backtestService, nil, dummyPositionRepo, dummyExecutionUseCase)
 	if err != nil {
 		logger.Error("failed to create agent for backtest", "error", err)
 		os.Exit(1)
@@ -93,3 +95,15 @@ func (d *dummyPositionRepository) Save(ctx context.Context, position *model.Posi
 func (d *dummyPositionRepository) FindBySymbol(ctx context.Context, symbol string) (*model.Position, error) { return nil, nil }
 func (d *dummyPositionRepository) FindAll(ctx context.Context) ([]*model.Position, error) { return nil, nil }
 func (d *dummyPositionRepository) UpdateHighestPrice(ctx context.Context, symbol string, price float64) error { return nil }
+func (d *dummyPositionRepository) UpsertPositionByExecution(ctx context.Context, execution *model.Execution) error { return nil }
+func (d *dummyPositionRepository) DeletePosition(ctx context.Context, symbol string) error { return nil }
+
+// dummyExecutionUseCase はバックテスト時に使用するダミーのExecutionUseCaseです。
+type dummyExecutionUseCase struct{}
+
+// Ensure dummyExecutionUseCase implements app.ExecutionUseCase
+var _ app.ExecutionUseCase = (*dummyExecutionUseCase)(nil)
+
+func (d *dummyExecutionUseCase) Execute(ctx context.Context, execution *model.Execution) error {
+	return nil // No-op for backtesting
+}
