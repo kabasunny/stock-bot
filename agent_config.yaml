@@ -8,12 +8,15 @@ strategy_settings:
     target_symbols:
       - "7203"
       - "9984"
-    trade_risk_percentage: 0.25 # 1回の取引に利用する買付余力の割合
+    trade_risk_percentage: 0.02 # 1回の取引に利用する買付余力の割合
     unit_size: 100 # 1単元の株数
     profit_take_rate: 5.0
     stop_loss_rate: 2.0
     trailing_stop_trigger_rate: 5.0 # 利益がこの割合に達したらトレーリングストップを開始
     trailing_stop_rate: 2.0      # 最高値からこの割合下落したら売却
+    atr_period: 14               # ATR（Average True Range）の計算期間
+    risk_per_atr: 2.0            # ポジションサイズ計算時のATRリスク係数
+    stop_loss_atr_multiplier: 2.0 # ATRベースの損切りラインを計算するための乗数
     signal_file_pattern: "./signals/*.bin"
 api:
   go_wrapper_url: "http://localhost:8080"

@@ -85,6 +85,7 @@ func main() {
 	var masterRepo repository.MasterRepository
 	var orderUsecase app.OrderUseCase
 	var masterUsecase app.MasterUseCase
+	var positionRepo repository.PositionRepository
 	var orderSvc order.Service
 	var masterSvc mastergen.Service
 	var stockAgent *agent.Agent
@@ -105,6 +106,7 @@ func main() {
 		// 3b. DB依存リポジトリを初期化
 		orderRepo = repository_impl.NewOrderRepository(db)
 		masterRepo = repository_impl.NewMasterRepository(db)
+		positionRepo = repository_impl.NewPositionRepository(db)
 	} else {
 		slog.Default().Warn("database connection is disabled due to --no-db flag")
 	}
@@ -122,13 +124,13 @@ func main() {
 			UserId:   cfg.TachibanaUserID,
 			Password: cfg.TachibanaPassword,
 		}
-		
+
 		appSession, err = tachibanaClient.LoginWithPost(context.Background(), loginReq)
 		if err != nil {
 			slog.Default().Error("failed to login", slog.Any("error", err))
 			os.Exit(1)
 		}
-		
+
 		slog.Default().Info("login successful")
 		appSession.SecondPassword = cfg.TachibanaSecondPassword // configから読み込んだ第二パスワードをSessionに設定
 	} else {
@@ -217,7 +219,6 @@ func main() {
 		slog.Default().Warn("Skipping mounting of all API endpoints due to --no-tachibana flag.")
 	}
 
-
 	fs := http.FileServer(http.Dir("./gen/http/openapi"))
 	mux.Handle("GET", "/swagger/", http.HandlerFunc(http.StripPrefix("/swagger/", fs).ServeHTTP))
 
@@ -231,7 +232,7 @@ func main() {
 
 	// 7-1. エージェントの初期化と起動 (DB依存)
 	if !*noDB && !*noTachibana {
-		stockAgent, err = agent.NewAgent(agentConfigPath, goaTradeService, eventClient)
+		stockAgent, err = agent.NewAgent(agentConfigPath, goaTradeService, eventClient, positionRepo)
 		if err != nil {
 			slog.Default().Error("failed to create agent", "config", agentConfigPath, slog.Any("error", err))
 			os.Exit(1)
@@ -244,7 +245,6 @@ func main() {
 	} else {
 		slog.Default().Warn("Skipping agent initialization due to --no-db or --no-tachibana flag.")
 	}
-
 
 	// 7-2. HTTPサーバーの起動
 	srv := &http.Server{
@@ -287,4 +287,3 @@ func main() {
 	wg.Wait()
 	slog.Default().Info("shutdown complete")
 }
-

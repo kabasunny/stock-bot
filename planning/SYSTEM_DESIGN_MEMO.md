@@ -100,6 +100,10 @@
 
 ---
 
+### 専門ドキュメント
+
+- **[バックテスト環境 設計書](./BACKTEST_DESIGN.md)**: 取引戦略の有効性を評価するためのバックテスト環境に関する設計ドキュメント。
+
 ### 開発標準手順
 
 ### リファクタリング標準手順 (2025-12-09 追記)
@@ -268,21 +272,19 @@ Invoke-WebRequest -Uri http://localhost:8080/order -Method POST  -Headers @{"Con
 1.  **目的**:
     *   WebSocketを利用したリアルタイムイベント受信基盤の動作を確認し、受信したイベントをエージェントの状態更新に利用する。
 2.  **現状と次のステップ**:
-    *   **現状**: `EventClient` (`internal/infrastructure/client/event_client.go` および `event_client_impl.go`)、およびエージェントへの統合 (`internal/agent/agent.go`, `cmd/myapp/main.go`) は完了し、WebSocket接続および受信メッセージのログ出力が可能になっている。
-    *   **次ステップ (12/30接続テスト)**: 12月30日の証券会社APIとの接続テストにおいて、WebSocket経由で受信するメッセージの具体的なフォーマットと内容を特定する。
+    *   **現状**: `EventClient`の基盤実装と、独自メッセージ形式に対応するためのパーサー骨格の実装が完了。
+    *   **次ステップ (12/30接続テスト)**: 12月30日の証券会社APIとの接続テストにおいて、WebSocket経由で受信するメッセージの具体的なフォーマットと内容（特に約定通知）を特定する。
     *   **その後の実装**: メッセージフォーマットが判明次第、`internal/agent/agent.go` の `watchEvents` 関数内で、受信したメッセージをパースし、エージェントの内部状態（ポジション、注文状況など）をリアルタイムに更新するロジックを実装する。
 
 **その他、並行して検討可能なタスク（重要度順）:**
 
+*   **バックテスト環境のデバッグとATRベースのポジションサイジングの最適化 (進行中)**:
+    *   **目的**: バックテスト実行時に`calculated_quantity=0`となる問題を解消し、ATRベースのポジションサイジングが意図通りに機能するようにする。
+    *   **現状**: エージェントの内部状態(`agent.state`)の残高情報が`BacktestTradeService`の残高と同期されておらず、購入可能数量が0と計算されているため、注文数量が`0`になっている。
+    *   **次ステップ**: `internal/agent/agent.go`の`tick()`メソッドの開始時に、`a.tradeService.GetBalance()`を呼び出し、`a.state.UpdateBalance()`で`agent.state`の残高を常に最新の状態に同期するように変更する。この修正後も注文が行われない場合、`calculateATR`関数や`stopLossATRMultiplier`などのパラメータを再評価する。
 *   **約定情報の取り込みとデータベース更新**:
     *   **目的**: エージェントが発行した注文が約定したかどうかをリアルタイムに把握し、エージェントの内部状態とデータベースを更新する。
     *   **検討事項**: WebSocketからの約定通知の受信フォーマットに依存するため、12/30の接続テスト結果を待つ必要がある。
-*   **自動損切り・利確ロジックの実装**:
-    *   **目的**: 設定されたリスク許容度に基づき、保有ポジションに対して自動的に損切り・利確注文を発行する。
-    *   **検討事項**: リアルタイムの価格情報（WebSocketまたはポーリング）とエージェントの内部状態に依存する。
-*   **高度なポジションサイジング (ATRモデル) の導入**:
-    *   **目的**: 銘柄のボラティリティを考慮した、より洗練されたポジションサイジングモデルを導入する。
-    *   **検討事項**: 履歴価格データの取得機能が必要となる。
 
 
 ---
@@ -395,6 +397,17 @@ APIアカウントロック問題（`2025-12-17`）を受け、証券会社サ�
     -   このため、電話認証の確認のような**インタラクティブなプロンプトは、開発者が意図的に対話的に実行するテストファイル内（例: `price_info_client_impl_prod_test.go`）に限定すべきである。**
     -   共通のテストヘルパー関数 (`CreateTestClient`) や、CI/CDで実行される可能性のあるテストファイルには、インタラクティブなプロンプトを含めるべきではない。これにより、テストの実行環境に依存しない安定したテスト運用が可能となる。
 
+### 4. WebSocket EVENT I/F の特殊なデータ形式と効率性 (2025-12-28 追記)
+
+-   **課題**: WebSocket (EVENT I/F) から受信するリアルタイムイベント（注文約定通知、時価配信など）のメッセージ形式が、従来のREST API (REQUEST I/F) で使用されるJSON形式と異なっていた。
+-   **原因**: 提供されたドキュメント「ｅ支店・ＡＰＩ（ｖ４ｒ７）、ブラウザからの利用方法・時価配信情報取得編」を精査した結果、EVENT I/Fは`^A` (0x01) および`^B` (0x02) という制御文字をデリミタとして使用する独自のテキストベースのキーバリュー形式であることが判明した。
+    *   `^A` でキーバリューペアを区切り、`^B` でキーと値を区切る。
+    *   `p_cmd` フィールドがイベントの種類（例: `FD` = 時価配信、`ST` = ステータス通知）を識別する役割を果たす。
+-   **ノウハウ**:
+    -   リアルタイムで大量の時価情報などを配信するEVENT I/Fにおいて、JSON形式の冗長性を排除し、データサイズを削減することで、通信量と処理負荷を低減するパフォーマンス重視の設計思想であると推測される。
+    -   この独自形式を処理するためには、`bytes.Split`などのGoの標準機能を用いて手動でメッセージをパースする専用のパーサーを実装する必要がある。従来のJSONデコード処理は適用できない。
+    -   12/30の接続テストでは、`p_cmd`の具体的な値や各イベントのデータ項目名と内容を正確に把握することが極めて重要となる。
+
 ---
 
 
@@ -442,42 +455,37 @@ APIアカウントロック問題（`2025-12-17`）を受け、証券会社サ�
 ### トレーリングストップ機能の実装着手
 -   **設定パラメータの定義**: `agent_config.yaml`と`internal/agent/config.go`に、トレーリングストップの動作を制御する`trailing_stop_trigger_rate`と`trailing_stop_rate`を追加しました。
 -   **Positionモデルの拡張**: `domain/model/position.go`の`Position`構造体に、トレーリングストップの追跡に必要な`HighestPrice`と`TrailingStopPrice`フィールドを（メモリ上でのみ利用する`gorm:"-"`タグ付きで）追加しました。
+
 ---
+## 開発進捗（2025-12-28）
 
-## 6. �N���I�v�V�����ƈˑ��֌W�̊Ǘ�
+### `HighestPrice`の永続化と決済ロジックの堅牢化
+-   **目的**: トレーリングストップ機能の耐障害性を向上させるため、ポジションごとの最高値をデータベースに永続化する。
+-   **実装**:
+    -   `domain/model/position.go` の `HighestPrice` フィールドから `gorm:"-"` タグを削除し、データベースのカラムとしてマッピングされるように変更しました。
+    -   `positions` テーブルに `highest_price` カラムを追加するためのデータベースマイグレーションを作成し、適用しました。
+    -   `PositionRepository` を拡張し、`HighestPrice` を更新するメソッドを追加実装しました。
+    -   エージェントの決済ロジック (`checkPositionsForExit`) をリファクタリングし、`HighestPrice` 更新時にデータベースへの保存処理を組み込みました。
+-   **堅牢化**: 上記変更に伴い、テストコードを修正し、`PositionRepository` のモックを追加することで、決済ロジックのテストカバレッジと信頼性を維持・向上させました。また、一連の修正過程で発生した複数のコンパイルエラーを解消しました。
 
-���[�J���ł̊J���A�e�X�g�A�����UI�m�F�̌��������コ���邽�߁A�O���ˑ��֌W�i�f�[�^�x�[�X�A�،����API�j�Ȃ��ŃA�v���P�[�V�������N�����邽�߂̃R�}���h���C���t���O�𓱓����܂����B
-
-### 6.1. �ړI
-
--   �f�[�^�x�[�X�R���e�i���N�������ɁAHTTP�T�[�o�[��G�[�W�F���g�̊�{������e�X�g�������B
--   �L���ȏ،����API�̔F�؏��i.env�t�@�C���j���Ȃ����ł��ASwagger UI�̊m�F�ȂǁA�����I�ȋ@�\�𗘗p�������B
-
-### 6.2. �������ꂽ�t���O
-
-cmd/myapp/main.go �ňȉ��̃t���O�����p�\�ł��B
-
--   --no-db
-    -   ���̃t���O��t����ƁAPostgreSQL�f�[�^�x�[�X�ւ̐ڑ������݂܂���B
-    -   �f�[�^�x�[�X�Ɉˑ����邷�ׂẴ��|�W�g���A���[�X�P�[�X�A�����API�T�[�r�X�̏��������X�L�b�v����܂��B
-
--   --no-tachibana
-    -   ���̃t���O��t����ƁA���ԏ،�API�N���C�A���g�̏������ƃ��O�C���������s���܂���B
-    -   .env �t�@�C���̓ǂݍ��݂����s���Ă��i�x���͕\������܂����j�A�v���P�[�V�����͏I�����܂���B
-    -   Tachibana API�Ɉˑ����邷�ׂẴ��[�X�P�[�X��API�T�[�r�X�̏��������X�L�b�v����܂��B
-
-### 6.3. �g�p��
-
-�ȉ��̃R�}���h�ŁA���ׂĂ̊O���ˑ��֌W�𖳌��ɂ���HTTP�T�[�o�[���ŏ����̏�ԂŋN���ł��܂��B
-
-`sh
-go run cmd/myapp/main.go --no-db --no-tachibana
-`
-
-����ɂ��AGoa���񋟂���Swagger UI (http://localhost:8080/swagger/) �ւ̃A�N�Z�X��A�ˑ��֌W�̂Ȃ��R���|�[�l���g�̓���m�F���e�ՂɂȂ�܂��B
-
-### 6.4. �����Ɋւ��钍�L
-
-���̋@�\�́Acmd/myapp/main.go ���̏������V�[�P���X�ɏ�������𓱓����邱�ƂŎ�������Ă��܂��B�e�t���O�̗L���ɉ����āA�ˑ��R���|�[�l���g�i���|�W�g���A�N���C�A���g�A���[�X�P�[�X�A�T�[�r�X�j�̃C���X�^���X�������X�L�b�v���A
-il �̂܂܌㑱�̏����ɐi�݂܂��B
-il �̃T�[�r�X��Goa�T�[�o�[�Ƀ}�E���g����Ȃ��悤�ɁA�G���h�|�C���g�̃}�E���g���������l�ɏ������򂳂�Ă��܂��B
+### バックテスト環境の構築とデバッグ
+-   **目的**: 開発した取引戦略の有効性を評価するためのバックテスト環境を構築し、発生した問題を解消する。
+-   **実装**:
+    -   `data/history`ディレクトリの作成。
+    -   `7203.csv`, `6758.csv`, `9984.csv`のダミー履歴価格CSVファイルを作成し、`data/history`に配置。
+    -   CSVを読み込み、パースするためのGoコード（`internal/data/price_history_reader.go`）を実装。
+    -   `agent.TradeService`インターフェースを満たす`internal/agent/backtest_trade_service.go`を実装。
+    -   バックテスト実行エンジン`cmd/backtester/main.go`を実装。
+    -   `internal/agent/agent.go`に`SetLogger`、`Tick`、`SyncInitialState`メソッドを追加。
+    -   `internal/agent/trade_service.go`の`HistoricalPrice.Volume`の型を`int64`に統一。
+    -   `internal/agent/backtest_trade_service.go`のフィールドを公開化し、メソッド内の参照を修正。
+    -   `cmd/backtester/main.go`の`targetSymbols`をサフィックスなしに統一。
+    -   `cmd/backtester/main.go`の`initialCash`を1000万円、`agent_config.yaml`の`trade_risk_percentage`を`0.02`に設定。
+    -   `cmd/backtester/main.go`のループを、全銘柄の履歴データの日付をユニークにしてソートしたリストを基準に回すように修正。
+    -   `internal/agent/backtest_trade_service.go`の`GetPrice`および`GetPriceHistory`メソッドを、指定日付のデータがない場合に直近の過去データを返すように修正。
+    -   `internal/agent/agent.go`の`checkSignalsForEntry`内のポジションサイジングロジックを修正。`riskPerATR`を削除し、`stopLossATRMultiplier`を使用するように統一。
+    -   上記修正に伴い発生した全てのコンパイルエラーを解消。
+-   **現在の課題**:
+    -   バックテスト実行時、エージェントの内部状態(`agent.state`)の残高情報が`BacktestTradeService`の残高と同期されておらず、`calculated_quantity=0`となり注文が実行されない問題が残っている。
+    -   `calculated_quantity=0`の根本原因は、`agent.go`の`tick()`サイクル中に`a.state`の`buying_power`が更新されていないため。
+---

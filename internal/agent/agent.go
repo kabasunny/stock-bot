@@ -1,12 +1,14 @@
 package agent
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
 	"math"
 	"os"
 	"stock-bot/domain/model"
+	"stock-bot/domain/repository"
 	"stock-bot/internal/infrastructure/client"
 	"time"
 )
@@ -22,11 +24,12 @@ type Agent struct {
 	state         *State
 	tradeService  TradeService
 	eventClient   client.EventClient
+	positionRepo  repository.PositionRepository
 }
 
 // NewAgent は新しいエージェントのインスタンスを作成する
 // tradeService はトレードサービス（Go APIラッパー）の実装
-func NewAgent(configPath string, tradeService TradeService, eventClient client.EventClient) (*Agent, error) {
+func NewAgent(configPath string, tradeService TradeService, eventClient client.EventClient, positionRepo repository.PositionRepository) (*Agent, error) {
 	// 先に設定を読み込んでおく
 	cfg, err := LoadAgentConfig(configPath)
 	if err != nil {
@@ -47,6 +50,7 @@ func NewAgent(configPath string, tradeService TradeService, eventClient client.E
 		state:         NewState(),
 		tradeService:  tradeService,
 		eventClient:   eventClient,
+		positionRepo:  positionRepo,
 	}, nil
 }
 
@@ -98,14 +102,37 @@ func (a *Agent) watchEvents() {
 
 	for {
 		select {
-		case msg, ok := <-messages:
+		case msgBytes, ok := <-messages:
 			if !ok {
 				a.logger.Info("message channel closed, stopping event watcher")
 				return
 			}
-			// 現時点では受信したメッセージをログに出力するだけ
-			a.logger.Info("received websocket event", "message", string(msg))
-			// TODO: 将来的にここでメッセージをパースし、状態を更新する
+			// 1. パース処理
+			parsedMsg, err := a.parseEventMessage(msgBytes)
+			if err != nil {
+				a.logger.Error("failed to parse websocket event", "error", err, "raw_message", string(msgBytes))
+				continue
+			}
+
+			// 2. イベント種別を取得
+			cmd, ok := parsedMsg["p_cmd"]
+			if !ok {
+				a.logger.Warn("p_cmd not found in websocket event", "message", parsedMsg)
+				continue
+			}
+
+			a.logger.Info("received websocket event", "command", cmd)
+
+			// 3. 振り分け
+			switch cmd {
+			case "FD": // 時価配信データ (Feed Data)
+				a.handlePriceData(parsedMsg)
+			case "ST": // ステータス通知 (Status)
+				a.handleStatus(parsedMsg)
+			// TODO: 約定通知など、他のコマンドもここに追加していく
+			default:
+				a.logger.Warn("unhandled websocket event command", "command", cmd, "details", parsedMsg)
+			}
 		case err, ok := <-errs:
 			if !ok {
 				a.logger.Info("error channel closed, stopping event watcher")
@@ -121,10 +148,75 @@ func (a *Agent) watchEvents() {
 	}
 }
 
+// parseEventMessage はWebSocketのカスタムフォーマットメッセージをパースする
+func (a *Agent) parseEventMessage(msg []byte) (map[string]string, error) {
+	result := make(map[string]string)
+	// メッセージが空、または改行コードのみの場合を除外
+	if len(bytes.TrimSpace(msg)) == 0 {
+		return result, nil
+	}
+	pairs := bytes.Split(msg, []byte{0x01}) // ^A で分割
+	for _, pair := range pairs {
+		if len(pair) == 0 {
+			continue
+		}
+		kv := bytes.SplitN(pair, []byte{0x02}, 2) // ^B でキーと値に分割
+		if len(kv) != 2 {
+			// キーだけのペア（例: `p_no^B1`の後ろに`^A`がない場合など）も許容する
+			if len(kv) == 1 && len(kv[0]) > 0 {
+				result[string(kv[0])] = ""
+				continue
+			}
+			// 不正な形式のペアは無視する
+			a.logger.Warn("invalid key-value pair format in websocket message", "pair", string(pair))
+			continue
+		}
+
+		key := string(kv[0])
+		value := string(kv[1])
+		result[key] = value
+	}
+	if len(result) == 0 {
+		return nil, fmt.Errorf("message parsing resulted in no key-value pairs: %s", string(msg))
+	}
+	return result, nil
+}
+
+// --- プレースホルダー関数 ---
+
+// handlePriceData は価格情報（時価配信）イベントを処理する
+func (a *Agent) handlePriceData(data map[string]string) {
+	a.logger.Info("[Placeholder] Handling Price Data", "data", data)
+	// TODO: 価格データをパースし、内部状態を更新する
+	// 例: 銘柄コード、現在値などを抽出し、a.stateを更新
+}
+
+// handleStatus はステータス通知イベントを処理する
+func (a *Agent) handleStatus(data map[string]string) {
+	a.logger.Info("[Placeholder] Handling Status Notification", "data", data)
+	// TODO: セッション状態などを確認し、必要に応じて再接続などの処理を行う
+	// 例: "session inactive" を検知してエージェントを安全に停止させるなど
+}
+
+// SetLogger は外部からロガーを注入するために使用します。
+func (a *Agent) SetLogger(logger *slog.Logger) {
+	a.logger = logger
+}
+
+// Tick はエージェントの単一の評価サイクルを実行します。バックテスト用に公開されています。
+func (a *Agent) Tick() {
+	a.tick()
+}
+
 // Stop はエージェントの実行ループを停止する
 func (a *Agent) Stop() {
 	a.logger.Info("sending stop signal to agent...")
 	a.cancel()
+}
+
+// SyncInitialState はエージェントの初期状態を同期します。バックテスト用に公開されています。
+func (a *Agent) SyncInitialState() {
+	a.syncInitialState()
 }
 
 // syncInitialState はエージェント起動時にトレードサービスから状態を取得し、内部状態を同期する
@@ -188,14 +280,6 @@ func (a *Agent) checkPositionsForExit(ctx context.Context) {
 		return
 	}
 
-	profitTakeRate := a.config.StrategySettings.Swingtrade.ProfitTakeRate
-	// stopLossRate is now replaced by ATR-based calculation
-	// stopLossRate := a.config.StrategySettings.Swingtrade.StopLossRate 
-	trailingStopTriggerRate := a.config.StrategySettings.Swingtrade.TrailingStopTriggerRate
-	trailingStopRate := a.config.StrategySettings.Swingtrade.TrailingStopRate
-	atrPeriod := a.config.StrategySettings.Swingtrade.ATRPeriod
-	stopLossATRMultiplier := a.config.StrategySettings.Swingtrade.StopLossATRMultiplier
-
 	for _, pos := range positions {
 		// すでにこの銘柄に対する決済注文（売り注文）が出ていないか確認
 		hasOpenSellOrder := false
@@ -210,7 +294,6 @@ func (a *Agent) checkPositionsForExit(ctx context.Context) {
 			continue
 		}
 
-		// 現在価格を取得
 		currentPrice, err := a.tradeService.GetPrice(ctx, pos.Symbol)
 		if err != nil {
 			a.logger.Error("failed to get price for exit check", "symbol", pos.Symbol, "error", err)
@@ -220,68 +303,108 @@ func (a *Agent) checkPositionsForExit(ctx context.Context) {
 			a.logger.Warn("skipping exit check because current price is zero", "symbol", pos.Symbol)
 			continue
 		}
-		
-		// ATR計算のための履歴データを取得
-		history, err := a.tradeService.GetPriceHistory(ctx, pos.Symbol, atrPeriod+1)
+
+		atr, err := a.getATRForPosition(ctx, pos.Symbol)
 		if err != nil {
-			a.logger.Error("failed to get price history for ATR stop-loss", "symbol", pos.Symbol, "error", err)
-			continue
-		}
-		atr, err := calculateATR(history, atrPeriod)
-		if err != nil {
-			a.logger.Error("failed to calculate ATR for stop-loss", "symbol", pos.Symbol, "error", err)
-			continue
-		}
-		if atr == 0 {
-			a.logger.Warn("ATR is zero, cannot calculate ATR-based stop-loss", "symbol", pos.Symbol)
+			a.logger.Error("failed to get ATR for exit check", "symbol", pos.Symbol, "error", err)
 			continue
 		}
 
-		// Positional data initialization/update for trailing stop
-		if pos.HighestPrice == 0 || currentPrice > pos.HighestPrice {
-			pos.HighestPrice = currentPrice
-			a.state.UpdatePositionHighestPrice(pos.Symbol, currentPrice)
-		}
+		a.updateTrailingStopState(ctx, pos, currentPrice)
 
-		// 利確・損切り・トレーリングストップの閾値計算
-		profitTakePrice := pos.AveragePrice * (1 + profitTakeRate/100)
-		stopLossPrice := pos.AveragePrice - (atr * stopLossATRMultiplier) // ATRベースの損切り
-		trailingStopTriggerPrice := pos.AveragePrice * (1 + trailingStopTriggerRate/100)
-		
-		// トレーリングストップ価格の計算と更新
-		if pos.HighestPrice > 0 { // HighestPriceが記録されている場合のみ
-			calculatedTrailingStopPrice := pos.HighestPrice * (1 - trailingStopRate/100)
-			if pos.TrailingStopPrice == 0 && currentPrice >= trailingStopTriggerPrice {
-				// トレーリングストップがまだトリガーされておらず、トリガー条件を満たした場合
-				pos.TrailingStopPrice = calculatedTrailingStopPrice
-				a.state.UpdatePositionTrailingStopPrice(pos.Symbol, pos.TrailingStopPrice)
-				a.logger.Info("trailing stop activated", "symbol", pos.Symbol, "trigger_price", trailingStopTriggerPrice, "initial_stop_price", pos.TrailingStopPrice)
-			} else if pos.TrailingStopPrice > 0 && calculatedTrailingStopPrice > pos.TrailingStopPrice {
-				// トレーリングストップが既に有効で、損切りラインが切り上がった場合
-				pos.TrailingStopPrice = calculatedTrailingStopPrice
-				a.state.UpdatePositionTrailingStopPrice(pos.Symbol, pos.TrailingStopPrice)
-				a.logger.Info("trailing stop price updated", "symbol", pos.Symbol, "new_stop_price", pos.TrailingStopPrice)
-			}
-		}
-
-		// 決済条件の判定 (優先順位: 固定損切り -> トレーリングストップ -> 固定利確)
-		if currentPrice <= stopLossPrice {
-			// 1. 固定損切り
-			a.logger.Info("stop loss condition met (fixed)", "symbol", pos.Symbol, "average_price", pos.AveragePrice, "current_price", currentPrice, "target_price", stopLossPrice)
+		// 決済条件の判定 (優先順位: ATRベース損切り -> トレーリングストップ -> 固定利確)
+		if a.shouldStopLossFixed(pos, currentPrice, atr) {
 			a.placeExitOrder(ctx, pos, "STOP_LOSS_FIXED")
-			continue
-		} else if pos.TrailingStopPrice > 0 && currentPrice <= pos.TrailingStopPrice {
-			// 2. トレーリングストップ執行
-			a.logger.Info("stop loss condition met (trailing)", "symbol", pos.Symbol, "highest_price", pos.HighestPrice, "current_price", currentPrice, "trailing_stop_price", pos.TrailingStopPrice)
+		} else if a.shouldStopLossTrailing(pos, currentPrice) {
 			a.placeExitOrder(ctx, pos, "STOP_LOSS_TRAILING")
-			continue
-		} else if currentPrice >= profitTakePrice {
-			// 3. 固定利確
-			a.logger.Info("profit take condition met (fixed)", "symbol", pos.Symbol, "average_price", pos.AveragePrice, "current_price", currentPrice, "target_price", profitTakePrice)
+		} else if a.shouldProfitTakeFixed(pos, currentPrice) {
 			a.placeExitOrder(ctx, pos, "PROFIT_TAKE_FIXED")
-			continue
 		}
 	}
+}
+
+// getATRForPosition は指定された銘柄のATRを計算し、エラーハンドリングを行う
+func (a *Agent) getATRForPosition(ctx context.Context, symbol string) (float64, error) {
+	atrPeriod := a.config.StrategySettings.Swingtrade.ATRPeriod
+	history, err := a.tradeService.GetPriceHistory(ctx, symbol, atrPeriod+1)
+	if err != nil {
+		return 0, fmt.Errorf("failed to get price history for ATR: %w", err)
+	}
+	if len(history) < atrPeriod+1 {
+		return 0, fmt.Errorf("not enough historical data for ATR calculation (required: %d, got: %d)", atrPeriod+1, len(history))
+	}
+	atr, err := calculateATR(history, atrPeriod)
+	if err != nil {
+		return 0, fmt.Errorf("failed to calculate ATR: %w", err)
+	}
+	if atr == 0 {
+		return 0, fmt.Errorf("calculated ATR is zero")
+	}
+	return atr, nil
+}
+
+// updateTrailingStopState はトレーリングストップの状態を更新する
+func (a *Agent) updateTrailingStopState(ctx context.Context, pos *model.Position, currentPrice float64) {
+	trailingStopTriggerRate := a.config.StrategySettings.Swingtrade.TrailingStopTriggerRate
+	trailingStopRate := a.config.StrategySettings.Swingtrade.TrailingStopRate
+
+	// Positional data initialization/update for trailing stop
+	if pos.HighestPrice == 0 || currentPrice > pos.HighestPrice {
+		pos.HighestPrice = currentPrice
+		a.state.UpdatePositionHighestPrice(pos.Symbol, currentPrice)
+		if err := a.positionRepo.UpdateHighestPrice(ctx, pos.Symbol, currentPrice); err != nil {
+			a.logger.Error("failed to update highest price in db", "symbol", pos.Symbol, "error", err)
+			// ここではエラーをログに出力するだけで、処理は続行する
+		}
+	}
+
+	trailingStopTriggerPrice := pos.AveragePrice * (1 + trailingStopTriggerRate/100)
+	
+	if pos.HighestPrice > 0 { // HighestPriceが記録されている場合のみ
+		calculatedTrailingStopPrice := pos.HighestPrice * (1 - trailingStopRate/100)
+		if pos.TrailingStopPrice == 0 && currentPrice >= trailingStopTriggerPrice {
+			// トレーリングストップがまだトリガーされておらず、トリガー条件を満たした場合
+			pos.TrailingStopPrice = calculatedTrailingStopPrice
+			a.state.UpdatePositionTrailingStopPrice(pos.Symbol, pos.TrailingStopPrice)
+			a.logger.Info("trailing stop activated", "symbol", pos.Symbol, "trigger_price", trailingStopTriggerPrice, "initial_stop_price", pos.TrailingStopPrice)
+		} else if pos.TrailingStopPrice > 0 && calculatedTrailingStopPrice > pos.TrailingStopPrice {
+			// トレーリングストップが既に有効で、損切りラインが切り上がった場合
+			pos.TrailingStopPrice = calculatedTrailingStopPrice
+			a.state.UpdatePositionTrailingStopPrice(pos.Symbol, pos.TrailingStopPrice)
+			a.logger.Info("trailing stop price updated", "symbol", pos.Symbol, "new_stop_price", pos.TrailingStopPrice)
+		}
+	}
+}
+
+// shouldProfitTakeFixed は固定利確条件を満たしているか判定する
+func (a *Agent) shouldProfitTakeFixed(pos *model.Position, currentPrice float64) bool {
+	profitTakeRate := a.config.StrategySettings.Swingtrade.ProfitTakeRate
+	profitTakePrice := pos.AveragePrice * (1 + profitTakeRate/100)
+	if currentPrice >= profitTakePrice {
+		a.logger.Info("profit take condition met (fixed)", "symbol", pos.Symbol, "average_price", pos.AveragePrice, "current_price", currentPrice, "target_price", profitTakePrice)
+		return true
+	}
+	return false
+}
+
+// shouldStopLossFixed はATRベースの固定損切り条件を満たしているか判定する
+func (a *Agent) shouldStopLossFixed(pos *model.Position, currentPrice, atr float64) bool {
+	stopLossATRMultiplier := a.config.StrategySettings.Swingtrade.StopLossATRMultiplier
+	stopLossPrice := pos.AveragePrice - (atr * stopLossATRMultiplier) // ATRベースの損切り
+	if currentPrice <= stopLossPrice {
+		a.logger.Info("stop loss condition met (fixed)", "symbol", pos.Symbol, "average_price", pos.AveragePrice, "current_price", currentPrice, "target_price", stopLossPrice)
+		return true
+	}
+	return false
+}
+
+// shouldStopLossTrailing はトレーリングストップ条件を満たしているか判定する
+func (a *Agent) shouldStopLossTrailing(pos *model.Position, currentPrice float64) bool {
+	if pos.TrailingStopPrice > 0 && currentPrice <= pos.TrailingStopPrice {
+		a.logger.Info("stop loss condition met (trailing)", "symbol", pos.Symbol, "highest_price", pos.HighestPrice, "current_price", currentPrice, "trailing_stop_price", pos.TrailingStopPrice)
+		return true
+	}
+	return false
 }
 
 // placeExitOrder は決済注文を生成し、発行するヘルパー関数
@@ -374,9 +497,8 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 				continue
 			}
 
-			// ATRベースで注文数量を計算
 			atrPeriod := a.config.StrategySettings.Swingtrade.ATRPeriod
-			riskPerATR := a.config.StrategySettings.Swingtrade.RiskPerATR
+			stopLossATRMultiplier := a.config.StrategySettings.Swingtrade.StopLossATRMultiplier
 			unitSize := float64(a.config.StrategySettings.Swingtrade.UnitSize)
 
 			// 履歴価格データを取得
@@ -401,17 +523,27 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 			}
 
 			// ポジションサイズをATRに基づいて計算
-			// totalRiskAmount はポートフォリオ全体のリスク許容額
+			// totalRiskAmount はポートフォリオ全体のリスク許容額（許容損失額）
 			totalRiskAmount := balance.BuyingPower * a.config.StrategySettings.Swingtrade.TradeRiskPercentage
 			// 1株あたりのボラティリティリスク (ATRに基づく)
-			riskPerShare := atr * riskPerATR
+			riskPerShare := atr * stopLossATRMultiplier
 			if riskPerShare == 0 {
 				a.logger.Warn("risk per share is zero, skipping sizing", "symbol", symbolStr)
 				continue
 			}
 			
-			// 最大許容株数 (unitSizeの倍数に丸める前)
-			maxShares := totalRiskAmount / riskPerShare
+			// ATRベースで計算される最大許容株数
+			maxSharesByATR := totalRiskAmount / riskPerShare
+
+			// 買付余力から計算される最大購入株数
+			maxSharesByBuyingPower := balance.BuyingPower / currentPrice
+			if maxSharesByBuyingPower <= 0 {
+				a.logger.Warn("insufficient buying power to purchase even one unit", "symbol", symbolStr)
+				continue
+			}
+
+			// 両方の条件のうち小さい方を採用
+			maxShares := math.Min(maxSharesByATR, maxSharesByBuyingPower)
 			
 			// unitSizeの倍数に切り捨て
 			quantity := math.Floor(maxShares / unitSize) * unitSize
@@ -421,7 +553,7 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 				"buying_power", balance.BuyingPower,
 				"trade_risk_percentage", a.config.StrategySettings.Swingtrade.TradeRiskPercentage,
 				"atr_period", atrPeriod,
-				"risk_per_atr", riskPerATR,
+				"stop_loss_atr_multiplier", stopLossATRMultiplier,
 				"calculated_atr", atr,
 				"risk_per_share", riskPerShare,
 				"total_risk_amount", totalRiskAmount,

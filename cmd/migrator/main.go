@@ -1,4 +1,3 @@
-// cmd/migrator/main.go
 package main
 
 import (

@@ -47,3 +47,16 @@ func (r *positionRepositoryImpl) FindAll(ctx context.Context) ([]*model.Position
 	}
 	return positions, nil
 }
+
+func (r *positionRepositoryImpl) UpdateHighestPrice(ctx context.Context, symbol string, price float64) error {
+	result := r.db.WithContext(ctx).Model(&model.Position{}).Where("symbol = ?", symbol).Update("highest_price", price)
+	if result.Error != nil {
+		return errors.Wrap(result.Error, "failed to update highest price")
+	}
+	if result.RowsAffected == 0 {
+		// 見つからないことをエラーとするか、単に何もしないかは設計によるが、
+		// 呼び出し元はポジションが存在することを期待しているはずなのでエラーとする
+		return errors.New("no position found to update highest price for symbol: " + symbol)
+	}
+	return nil
+}

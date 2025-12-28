@@ -35,7 +35,7 @@ type HistoricalPrice struct {
 	High   float64
 	Low    float64
 	Close  float64
-	Volume int
+	Volume int64
 }
 
 // PlaceOrderRequest は注文発行に必要な情報を保持する

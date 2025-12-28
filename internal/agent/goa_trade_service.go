@@ -324,13 +324,13 @@ func (s *GoaTradeService) GetPriceHistory(ctx context.Context, symbol string, da
 			}
 			return f
 		}
-		parseInt := func(val string) int {
+		parseInt64 := func(val string) int64 {
 			if val == "" {
 				return 0
 			}
-			i, err := strconv.Atoi(val)
+			i, err := strconv.ParseInt(val, 10, 64)
 			if err != nil {
-				s.logger.Warn("could not parse int in price history", "raw", val, "error", err)
+				s.logger.Warn("could not parse int64 in price history", "raw", val, "error", err)
 				return 0
 			}
 			return i
@@ -343,7 +343,7 @@ func (s *GoaTradeService) GetPriceHistory(ctx context.Context, symbol string, da
 			High:   parseFloat(item.PDHPxK),
 			Low:    parseFloat(item.PDLPxK),
 			Close:  parseFloat(item.PDPPxK),
-			Volume: parseInt(item.PDVxK),
+			Volume: parseInt64(item.PDVxK),
 		}
 
 		// 重要なOHLCのいずれかが0の場合はスキップ (データ欠損の可能性)
