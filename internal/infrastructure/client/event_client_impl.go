@@ -5,6 +5,7 @@ import (
 	"context"
 	"log/slog"
 	"net/http"
+	"net/url" // 追加
 	"strings"
 	"sync"
 
@@ -42,7 +43,13 @@ func (c *eventClient) Connect(ctx context.Context, session *Session) (<-chan []b
 	// Prepare request headers, especially the Cookie
 	header := http.Header{}
 	if session.CookieJar != nil {
-		cookies := session.CookieJar.Cookies(nil) // URL is nil, gets all cookies
+		eventURL, err := url.Parse(session.EventURL)
+		if err != nil {
+			c.logger.Error("Failed to parse EventURL for cookie retrieval", "error", err, "eventURL", session.EventURL)
+			// エラーを返すか、処理を続行するかは設計によるが、ここではエラーを返す
+			return nil, nil, errors.Wrap(err, "failed to parse EventURL for cookie retrieval")
+		}
+		cookies := session.CookieJar.Cookies(eventURL)
 		for _, cookie := range cookies {
 			header.Add("Cookie", cookie.String())
 		}
@@ -88,6 +95,8 @@ func (c *eventClient) Connect(ctx context.Context, session *Session) (<-chan []b
 				}
 
 				if messageType == websocket.TextMessage || messageType == websocket.BinaryMessage {
+					// Log the raw message for debugging and analysis
+					c.logger.Info("Received raw WebSocket message", "message", string(message))
 					messages <- message
 				}
 			}
