@@ -3,6 +3,7 @@ package client
 import (
 	"bytes"
 	"context"
+	"fmt" // 追加
 	"log/slog"
 	"net/http"
 	"net/url" // 追加
@@ -28,7 +29,7 @@ func NewEventClient(logger *slog.Logger) EventClient {
 }
 
 // Connect establishes a WebSocket connection and starts a message reading goroutine.
-func (c *eventClient) Connect(ctx context.Context, session *Session) (<-chan []byte, <-chan error, error) {
+func (c *eventClient) Connect(ctx context.Context, session *Session, symbols []string) (<-chan []byte, <-chan error, error) {
 	c.mu.Lock()
 	defer c.mu.Unlock()
 
@@ -39,6 +40,50 @@ func (c *eventClient) Connect(ctx context.Context, session *Session) (<-chan []b
 	if session.EventURL == "" {
 		return nil, nil, errors.New("WebSocket EventURL is not available in the session")
 	}
+
+	// Convert http/https to ws/wss
+	wsURL := strings.Replace(session.EventURL, "https://", "wss://", 1)
+	wsURL = strings.Replace(wsURL, "http://", "ws://", 1)
+
+	parsedURL, err := url.Parse(wsURL)
+	if err != nil {
+		c.logger.Error("Failed to parse WebSocket URL", "error", err, "url", wsURL)
+		return nil, nil, errors.Wrap(err, "failed to parse WebSocket URL")
+	}
+
+	// クエリパラメータを追加
+	query := parsedURL.Query()
+	
+	// Pythonサンプルコードで必須とされているパラメータを追加
+	query.Set("p_rid", "22")
+	query.Set("p_board_no", "1000")
+	query.Set("p_eno", "0") // 配信開始したいイベント通知番号、0なら全て
+
+	// p_evt_cmd はST, KP, FD, ECを追加。必要に応じてNS, RR, SS, USも追加可能
+	// ST: エラーステータス情報配信, KP: キープアライブ情報配信, FD: 時価情報配信, EC: 注文約定通知イベント配信
+	query.Set("p_evt_cmd", "ST,KP,FD,EC") 
+
+	if len(symbols) > 0 {
+		// 銘柄コードを追加
+		query.Set("p_issue_code", strings.Join(symbols, ",")) 
+
+		// 行番号 (p_gyou_no) を生成
+		var gyouNos []string
+		for i := 1; i <= len(symbols); i++ {
+			gyouNos = append(gyouNos, fmt.Sprintf("%d", i))
+		}
+		query.Set("p_gyou_no", strings.Join(gyouNos, ","))
+
+		// 市場コード (p_mkt_code) を生成
+		var mktCodes []string
+		for i := 0; i < len(symbols); i++ {
+			mktCodes = append(mktCodes, "00") // 00:東証
+		}
+		query.Set("p_mkt_code", strings.Join(mktCodes, ","))
+	}
+	parsedURL.RawQuery = query.Encode()
+
+	finalWSURL := parsedURL.String()
 
 	// Prepare request headers, especially the Cookie
 	header := http.Header{}
@@ -54,10 +99,10 @@ func (c *eventClient) Connect(ctx context.Context, session *Session) (<-chan []b
 			header.Add("Cookie", cookie.String())
 		}
 	}
-	c.logger.Info("Connecting to WebSocket", "url", session.EventURL)
+	c.logger.Info("Connecting to WebSocket", "url", finalWSURL)
 
 	// Establish WebSocket connection
-	conn, _, err := websocket.DefaultDialer.DialContext(ctx, session.EventURL, header)
+	conn, _, err := websocket.DefaultDialer.DialContext(ctx, finalWSURL, header)
 	if err != nil {
 		c.logger.Error("Failed to connect to WebSocket", "error", err)
 		return nil, nil, errors.Wrap(err, "failed to dial websocket")

@@ -38,66 +38,49 @@ func (a *authClientImpl) LoginWithPost(ctx context.Context, req request.ReqLogin
 		return nil, errors.Wrap(err, "login failed")
 	}
 
+	// デバッグのため、レスポンスマップ全体をログに出力
+	slog.InfoContext(ctx, "login response received", slog.Any("response_map", respMap))
+
 	// 5. レスポンスの処理
 	res, err := ConvertResponse[response.ResLogin](respMap)
 	if err != nil {
-		return nil, err
+		// 失敗した場合、元のマップ情報を含めてエラーを返す
+		return nil, errors.Wrapf(err, "failed to convert login response map: %+v", respMap)
 	}
 
-		// 6. ログイン成功/失敗の判定
+	// 6. ログイン成功/失敗の判定
+	if res.ResultCode == "0" {
 
-		if res.ResultCode == "0" {
+		// ログイン成功時の処理
 
-			// ログイン成功時の処理
+		session := NewSession()
 
-			session := NewSession()
+		session.SetLoginResponse(res) // ResLoginからSessionに情報をコピー
 
-			session.SetLoginResponse(res) // ResLoginからSessionに情報をコピー
+		session.SecondPassword = a.client.sSecondPassword // TachibanaClientImplからSecondPasswordをコピー
 
-			session.SecondPassword = a.client.sSecondPassword // TachibanaClientImplからSecondPasswordをコピー
-
-	
-
-			// p_noの初期値をAPIレスポンスから設定
-
-			if pNoStr, ok := respMap["p_no"].(string); ok {
-
-				if pNo, err := strconv.ParseInt(pNoStr, 10, 32); err == nil {
-
-					session.pNo.Store(int32(pNo))
-
-				}
-
+		// p_noの初期値をAPIレスポンスから設定
+		if pNoStr, ok := respMap["p_no"].(string); ok {
+			if pNo, err := strconv.ParseInt(pNoStr, 10, 32); err == nil {
+				session.pNo.Store(int32(pNo))
 			}
-
-	
-
-			// *** CookieJar のコピー処理 ***
-
-			// クライアントのhttpClient.JarからCookieをコピーし、新しいCookieJarを作成してSessionに設定
-
-			newCookieJar, _ := cookiejar.New(nil)
-
-			if clientJar, ok := a.client.httpClient.Jar.(*cookiejar.Jar); ok {
-
-				// 現在のクライアントのCookieJarから全てのURLのCookieを取得
-
-				allCookies := clientJar.Cookies(a.client.baseURL) // 例: ログインURLのCookieを取得
-
-				newCookieJar.SetCookies(a.client.baseURL, allCookies) // 新しいJarに設定
-
-			}
-
-			session.CookieJar = newCookieJar // 独立したCookieJarをSessionに設定
-
-	
-
-			return session, nil
-
 		}
 
+		// *** CookieJar のコピー処理 ***
+		// クライアントのhttpClient.JarからCookieをコピーし、新しいCookieJarを作成してSessionに設定
+		newCookieJar, _ := cookiejar.New(nil)
+		if clientJar, ok := a.client.httpClient.Jar.(*cookiejar.Jar); ok {
+			// 現在のクライアントのCookieJarから全てのURLのCookieを取得
+			allCookies := clientJar.Cookies(a.client.baseURL) // 例: ログインURLのCookieを取得
+			newCookieJar.SetCookies(a.client.baseURL, allCookies) // 新しいJarに設定
+		}
+		session.CookieJar = newCookieJar // 独立したCookieJarをSessionに設定
+
+		return session, nil
+	}
+
 	// ログイン失敗時の処理
-	return nil, errors.Errorf("login failed with result code %s: %s", res.ResultCode, res.ResultText)
+	return nil, errors.Errorf("login failed with result code '%s': %s. raw response: %+v", res.ResultCode, res.ResultText, respMap)
 }
 
 func (a *authClientImpl) LogoutWithPost(ctx context.Context, session *Session, req request.ReqLogout) (*response.ResLogout, error) {

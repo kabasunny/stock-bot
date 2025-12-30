@@ -4,11 +4,13 @@ package repository
 
 import (
 	"context"
+	"log/slog" // 追加
 	"stock-bot/domain/model"
 	"stock-bot/domain/repository"
 
 	"github.com/cockroachdb/errors"
 	"gorm.io/gorm"
+	"gorm.io/gorm/clause" // 追加
 )
 
 type orderRepositoryImpl struct {
@@ -53,13 +55,24 @@ func (r *orderRepositoryImpl) UpdateOrderStatusByExecution(ctx context.Context, 
 	result := r.db.WithContext(ctx).Where("order_id = ?", execution.OrderID).Preload("Executions").First(&order)
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
-			return errors.Errorf("order with ID %s not found", execution.OrderID)
+			slog.ErrorContext(ctx, "order with ID not found during execution update", "order_id", execution.OrderID, "execution_id", execution.ExecutionID)
+			return errors.Errorf("order with ID %s not found", execution.OrderID) 
 		}
 		return errors.Wrap(result.Error, "failed to find order by ID for status update")
 	}
 
-	// 新しい約定情報を追加
-	order.Executions = append(order.Executions, *execution)
+	// 新しい約定情報をデータベースに保存 (ExecutionID で重複を排除)
+	// ExecutionID は約定ごとにユニークなので ON CONFLICT DO NOTHING で重複挿入を避ける
+	execResult := r.db.WithContext(ctx).Clauses(clause.OnConflict{DoNothing: true}).Create(execution)
+	if execResult.Error != nil {
+		return errors.Wrap(execResult.Error, "failed to save execution")
+	}
+
+	// 新しい約定が実際に挿入された場合のみ、Executions スライスに新しく保存された約定を追加 (Preloadでロードされたものに加えて)
+	// DoNothing が機能した場合 (RowsAffected == 0)、その約定は既にデータベースに存在するため、再度加算しない
+	if execResult.RowsAffected > 0 {
+		order.Executions = append(order.Executions, *execution)
+	}
 
 	// 約定数量の合計を計算
 	totalExecutedQuantity := 0

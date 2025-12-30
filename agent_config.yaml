@@ -1,13 +1,12 @@
 agent:
   strategy: swingtrade
   execution_interval: 10s # 動作確認しやすいように短くする
-  log_level: info
+  log_level: debug # ログレベルをdebugに変更
   timezone: "Asia/Tokyo"
 strategy_settings:
   swingtrade:
     target_symbols:
-      - "7203"
-      - "9984"
+      - "8697"
     trade_risk_percentage: 0.02 # 1回の取引に利用する買付余力の割合
     max_position_size_percentage: 0.25 # 1トレードあたりの最大ポジションサイズ（買付余力に対する割合）
     unit_size: 100 # 1単元の株数

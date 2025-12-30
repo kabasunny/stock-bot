@@ -83,8 +83,9 @@ func (s *Session) GetPNo() int32 {
 func (s *Session) SetLoginResponse(res *response.ResLogin) {
 	s.ResultCode = res.ResultCode
 	s.ResultText = res.ResultText
-	s.RequestURL = res.RequestURL
-	s.MasterURL = res.MasterURL
-	s.PriceURL = res.PriceURL
-	s.EventURL = res.EventURL
+	// ResLoginのフィールド名に合わせて修正
+	s.RequestURL = res.RequestURL // sUrlRequestにマッピングされている
+	s.MasterURL = res.MasterURL   // sUrlMasterにマッピングされている
+	s.PriceURL = res.PriceURL     // sUrlPriceにマッピングされている
+	s.EventURL = res.SUrlEventWebSocket // ここを WebSocket用のURLに修正
 }

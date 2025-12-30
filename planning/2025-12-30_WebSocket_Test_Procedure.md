@@ -66,7 +66,7 @@ INFO Received raw WebSocket message message="p_cmd^BST^Ap_no^B1^A..."
 
 **PowerShellの例:**
 ```powershell
-Invoke-WebRequest -Uri http://localhost:8080/order -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"symbol":"7203","trade_type":"BUY","order_type":"MARKET","quantity":1}'
+Invoke-WebRequest -Uri http://localhost:8080/order -Method POST -Headers @{"Content-Type"="application/json"} -Body '{"symbol":"7203","trade_type":"BUY", "order_type":"MARKET", "quantity":1}'
 ```
 
 **curlの例:**
@@ -92,3 +92,70 @@ curl -X POST -H "Content-Type: application/json" -d '{"symbol":"7203", "trade_ty
 ## 5. テスト後の作業
 
 収集したログデータを基に、`p_cmd`ごとのメッセージ構造を解析し、`agent.go`の`handleExecution`、`handlePriceData`、`handleStatus`関数を実装します。これにより、エージェントがリアルタイムイベントに正しく反応できるようになります。
+
+---
+
+## 6. 本日の開発進捗と成果 (2025-12-30)
+
+本日のWebSocket接続テストおよび関連機能の実装において、以下の課題を特定し、解決または進展させました。
+
+### 6.1. 解決済みの課題と実装された機能
+
+1.  **APIログインエラーの詳細化**:
+    *   **課題**: ログイン失敗時に`result code`が空で、原因特定が困難でした。
+    *   **解決**: `internal/infrastructure/client/auth_client_impl.go`を修正し、APIからの生レスポンス全体をログに出力するように変更。これにより、具体的なエラーコード`10089`とメッセージ「電話認証後、3分以内にログインしてください。」を特定できました。
+
+2.  **WebSocket接続エラーの解消**:
+    *   **課題1**: `malformed ws or wss URL` エラーが発生していました。
+    *   **解決1**: `internal/infrastructure/client/event_client_impl.go`を修正し、`https://`スキーマを`wss://`に変換するロジックを追加しました。
+    *   **課題2**: `websocket: bad handshake` エラーが発生していました。
+    *   **解決2**:
+        *   ログインレスポンスから`sUrlEventWebSocket`を正しく取得するため、`internal/infrastructure/client/dto/auth/response/login.go`の`ResLogin`構造体に`SUrlEventWebSocket`フィールドを追加。
+        *   `internal/infrastructure/client/session.go`の`SetLoginResponse`メソッドで、`session.EventURL`に`res.SUrlEventWebSocket`の値を設定するように修正。
+        *   `fmt`パッケージのインポート漏れを修正(`internal/infrastructure/client/event_client_impl.go`)。
+
+3.  **WebSocket接続後の「parameter error」解消とデータ受信開始**:
+    *   **課題**: 接続後すぐに`close 1000 (normal)`エラーが発生し、WebSocketからのメッセージが受信されませんでした。
+    *   **解決**: Pythonサンプルコード(`e_api_websocket_receive_tel.py`)の分析に基づき、`internal/infrastructure/client/event_client_impl.go`の`Connect`メソッドで、WebSocket URLに以下の必須クエリパラメータを追加しました。
+        *   `p_rid=22`, `p_board_no=1000`, `p_eno=0`
+        *   `p_evt_cmd=ST,KP,FD,EC`
+        *   `p_gyou_no=` (銘柄数に応じた連番), `p_mkt_code=` (銘柄数に応じた`00`)
+        *   これにより、APIからの`KP` (キープアライブ) メッセージ受信が開始され、接続が維持されるようになりました。
+
+4.  **`KP` (キープアライブ) イベントの警告解消**:
+    *   **課題**: `KP`イベントに対して`unhandled websocket event command`の警告が出ていました。
+    *   **解決**: `internal/agent/agent.go`の`watchEvents`メソッドの`switch cmd`ステートメントに`KP`ケースを追加し、Debugログを出力するように修正。
+
+5.  **`FD` (時価配信) イベントの受信と処理の基盤構築**:
+    *   **課題1**: `FD`イベントが受信されず、エージェントがリアルタイム価格を取得できませんでした。
+    *   **解決1**: `agent_config.yaml`の`target_symbols`をPythonサンプルコードで使用されている`'8697'`に変更したところ、`FD`イベントの受信に成功しました。
+    *   **課題2**: `FD`イベントから価格を抽出し、エージェントの内部状態に反映するメカニズムがありませんでした。
+    *   **解決2**:
+        *   `internal/agent/state.go`に`prices`マップと`UpdatePrice`, `GetPrice`メソッドを追加し、銘柄ごとの現在価格を管理できるようにしました。
+        *   `internal/agent/agent.go`の`Agent`構造体に`gyouNoToSymbol`マップを追加し、WebSocketイベントの行番号から銘柄コードを特定できるようにしました。
+        *   `internal/agent/agent.go`の`handlePriceData`関数を実装し、`FD`イベントデータ(`p_N_DPP`)から価格を抽出して`State`を更新するようにしました。
+
+6.  **エージェントの価格情報参照ロジックの改善**:
+    *   **課題**: エージェントが`agent_config.yaml`の`target_symbols`に関わらず、シグナルファイルに記載された銘柄の価格をREST API経由で取得しようとして失敗していました。
+    *   **解決**:
+        *   `internal/agent/agent.go`の`checkSignalsForEntry`関数を修正し、`agent_config.yaml`の`target_symbols`に含まれる銘柄のシグナルのみを処理するようにフィルタリング。
+        *   `checkSignalsForEntry`および`checkPositionsForExit`関数内で、価格取得を`a.tradeService.GetPrice`から`a.state.GetPrice`に変更し、WebSocketからのリアルタイム価格を利用するようにしました。
+
+7.  **`EC` (約定通知) イベントの受信と処理の基盤構築**:
+    *   **課題1**: `EC`イベントが受信されない問題が一時的に発生していましたが、`p_evt_cmd=EC`のみを購読することでデモ環境でも受信できることを確認しました。
+    *   **課題2**: `EC`イベントを受信した際に、データベースの`executions`テーブルに`symbol`や`trade_type`カラムがない、`total executed quantity exceeds order quantity`といったデータベースエラーが発生しました。
+    *   **解決2**:
+        *   `executions`テーブルに`symbol`、`trade_type`カラムを追加し、既存の`execution_time`、`execution_price`、`execution_quantity`カラムを`executed_at`、`price`、`quantity`にリネームするマイグレーションを適用しました。
+        *   `internal/agent/agent.go`の`handleExecution`関数を修正し、`EC`イベントのキー名(`p_ON`, `p_IC`, `p_ST`, `p_NT`, `p_EXPR`, `p_EXDT`)に合わせて`model.Execution`に正しくマッピングするようにしました。
+        *   `internal/agent/agent.go`の`parseTime`ヘルパー関数を修正し、`YYYYMMDDhhmmss`形式のタイムスタンプもパースできるようにしました。
+        *   `internal/infrastructure/repository/order_repository_impl.go`の`UpdateOrderStatusByExecution`関数を修正し、約定数量の重複計上を防ぎ、`EC`イベントの約定を正しくデータベースに永続化するようにしました。
+
+8.  **`EC`イベント処理時のログレベル調整**:
+    *   **課題**: データベースをクリーンアップした後にWebSocketから過去の`EC`イベントが再送されると、データベースに存在しない注文IDに対して`order with ID ... not found`エラーが大量に発生していました。
+    *   **解決**: `internal/agent/agent.go`の`handleExecution`関数のシグネチャを`error`を返すように変更し、エラーパスで`errors.New`または`errors.Wrapf`を使うように修正しました。また、`watchEvents`メソッド内の`case "EC":`ブロックで、`handleExecution`が返すエラーを処理し、`order with ID ... not found`エラーの場合は`WARN`レベルでログを出力するようにしました。
+    *   **成果**: これにより、過去の注文に対する`EC`イベントによるログは`WARN`レベルに抑制され、本当に重要なエラーのみが`ERROR`レベルで表示されるようになり、ログの可読性が大幅に向上しました。
+
+### 6.2. 今後の課題
+
+*   **`ST` (ステータス通知) イベントの処理**: `handleStatus`プレースホルダーを実装し、APIからの重要なステータス変更（例: エラー、セッション無効化）を処理する必要があります。
+*   **REST APIによる価格取得の廃止**: `GoaTradeService.GetPrice`のようなREST API経由の現在価格取得は不要になったため、コードのクリーンアップを検討。

@@ -1,0 +1,1 @@
+ALTER TABLE executions ADD COLUMN trade_type VARCHAR(255) NOT NULL DEFAULT '';

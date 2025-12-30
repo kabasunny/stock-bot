@@ -28,6 +28,7 @@ type ResLogin struct {
 	MasterURL                   string `json:"sUrlMaster"`
 	PriceURL                    string `json:"sUrlPrice"`
 	EventURL                    string `json:"sUrlEvent"`
+	SUrlEventWebSocket          string `json:"sUrlEventWebSocket"` // WebSocket用URLを追加
 	UpdateInformWebDocument     string `json:"sUpdateInformWebDocument"`
 	UpdateInformAPISpecFunction string `json:"sUpdateInformAPISpecFunction"`
 }

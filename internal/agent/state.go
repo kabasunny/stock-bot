@@ -17,6 +17,7 @@ type State struct {
 	mutex     sync.RWMutex
 	positions map[string]*model.Position // キーは銘柄コード(Symbol)
 	orders    map[string]*model.Order    // キーは証券会社の注文ID(OrderID)
+	prices    map[string]float64         // キーは銘柄コード(Symbol), 値は現在の価格
 	balance   *Balance
 }
 
@@ -25,8 +26,25 @@ func NewState() *State {
 	return &State{
 		positions: make(map[string]*model.Position),
 		orders:    make(map[string]*model.Order),
+		prices:    make(map[string]float64), // pricesマップを初期化
 		balance:   &Balance{},
 	}
+}
+
+// UpdatePrice は銘柄の現在価格を更新する
+func (s *State) UpdatePrice(symbol string, price float64) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.prices[symbol] = price
+}
+
+// GetPrice は銘柄の現在価格を取得する
+// 存在しない場合は(0, false)を返す
+func (s *State) GetPrice(symbol string) (float64, bool) {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	price, ok := s.prices[symbol]
+	return price, ok
 }
 
 // UpdatePositions は保有ポジション情報を更新する

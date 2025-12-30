@@ -11,7 +11,10 @@ import (
 	"stock-bot/domain/repository"
 	"stock-bot/internal/app" // Add this import
 	"stock-bot/internal/infrastructure/client"
+	"strings"
 	"time"
+
+	"github.com/cockroachdb/errors"
 )
 
 // Agent は取引エージェントのメイン構造体
@@ -27,6 +30,7 @@ type Agent struct {
 	eventClient      client.EventClient
 	positionRepo     repository.PositionRepository
 	executionUseCase app.ExecutionUseCase // New field
+	gyouNoToSymbol   map[string]string    // 行番号(文字列)から銘柄コードへのマッピング
 }
 
 // NewAgent は新しいエージェントのインスタンスを作成する
@@ -42,6 +46,11 @@ func NewAgent(configPath string, tradeService TradeService, eventClient client.E
 
 	ctx, cancel := context.WithCancel(context.Background())
 
+	gyouNoToSymbol := make(map[string]string)
+	for i, symbol := range cfg.StrategySettings.Swingtrade.TargetSymbols {
+		gyouNoToSymbol[fmt.Sprintf("%d", i+1)] = symbol // 1-indexed
+	}
+
 	return &Agent{
 		configPath:       configPath,
 		config:           cfg,
@@ -54,6 +63,7 @@ func NewAgent(configPath string, tradeService TradeService, eventClient client.E
 		eventClient:      eventClient,
 		positionRepo:     positionRepo,
 		executionUseCase: executionUseCase, // Initialize new field
+		gyouNoToSymbol:   gyouNoToSymbol,   // マッピングを初期化
 	}, nil
 }
 
@@ -96,7 +106,12 @@ func (a *Agent) watchEvents() {
 		return
 	}
 
-	messages, errs, err := a.eventClient.Connect(a.ctx, session)
+	targetSymbols := a.config.StrategySettings.Swingtrade.TargetSymbols
+	if len(targetSymbols) == 0 {
+		a.logger.Warn("no target symbols defined in config for WebSocket subscription, connecting without symbols")
+	}
+
+	messages, errs, err := a.eventClient.Connect(a.ctx, session, targetSymbols)
 	if err != nil {
 		a.logger.Error("failed to connect to event stream", "error", err)
 		return
@@ -132,8 +147,23 @@ func (a *Agent) watchEvents() {
 				a.handlePriceData(parsedMsg)
 			case "ST": // ステータス通知 (Status)
 				a.handleStatus(parsedMsg)
-			case "EX": // 約定通知 (Execution)
-				a.handleExecution(parsedMsg)
+			case "EC": // 約定通知 (Execution)
+				// handleExecution は executionUseCase.Execute を呼び出す
+				// executionUseCase.Execute は orderRepo.UpdateOrderStatusByExecution を呼び出す
+				// orderRepo.UpdateOrderStatusByExecution が order with ID not found エラーを返す場合がある
+
+				err := a.handleExecution(parsedMsg) // handleExecution がエラーを返すように変更した
+				if err != nil {
+					// "order with ID ... not found" エラーの場合は Warn レベルでログを出力
+					if strings.Contains(err.Error(), "order with ID") && strings.Contains(err.Error(), "not found") {
+						a.logger.Warn("execution event for non-existent order received", "error", err)
+					} else {
+						a.logger.Error("failed to handle execution event", "error", err)
+					}
+				}
+			case "KP": // キープアライブ (Keep Alive)
+				// 特段の処理は不要だが、ログの警告を避けるためここに記述
+				a.logger.Debug("received keep alive event", "details", parsedMsg) // Debugレベルでログ出力
 			default:
 				a.logger.Warn("unhandled websocket event command", "command", cmd, "details", parsedMsg)
 			}
@@ -187,110 +217,99 @@ func (a *Agent) parseEventMessage(msg []byte) (map[string]string, error) {
 }
 
 // handleExecution は約定通知イベントを処理する
-func (a *Agent) handleExecution(data map[string]string) {
-	a.logger.Info("handling execution event", "data", data)
+func (a *Agent) handleExecution(data map[string]string) error {
+	// a.logger.Info("handling execution event", "data", data) // 詳細ログを抑制
 
 	// map[string]string を model.Execution に変換
 	execution := &model.Execution{}
 
-	// ExecutionID
-	if val, ok := data["p_id"]; ok {
-		execution.ExecutionID = val
+	// 約定通知 (EC) イベントのキー名に合わせてマッピング
+	// ExecutionID は約定ごとにユニークなIDが必要だが、ECイベントには直接存在しないため、p_ON (注文ID) と p_ENO (連番) を組み合わせる
+	if orderID, ok := data["p_ON"]; ok {
+		execution.OrderID = orderID
+		if executionNo, ok := data["p_ENO"]; ok {
+			execution.ExecutionID = fmt.Sprintf("%s-%s", orderID, executionNo) // 注文ID-約定番号
+		} else {
+			execution.ExecutionID = orderID // 約定番号がない場合は注文IDのみ
+		}
 	} else {
-		a.logger.Error("execution event missing p_id", "data", data)
-		return
-	}
-
-	// OrderID
-	if val, ok := data["p_order_id"]; ok {
-		execution.OrderID = val
-	} else {
-		a.logger.Error("execution event missing p_order_id", "data", data)
-		return
+		a.logger.Error("EC event missing p_ON (OrderID)", "data", data)
+		return errors.New("EC event missing p_ON (OrderID)")
 	}
 
 	// Symbol
-	if val, ok := data["p_symbol"]; ok {
+	if val, ok := data["p_IC"]; ok { // p_IC は銘柄コード
 		execution.Symbol = val
 	} else {
-		a.logger.Error("execution event missing p_symbol", "data", data)
-		return
+		a.logger.Error("EC event missing p_IC (Symbol)", "data", data)
+		return errors.New("EC event missing p_IC (Symbol)")
 	}
 
 	// TradeType
-	if val, ok := data["p_trade_type"]; ok {
-		if val == "BUY" {
+	if val, ok := data["p_ST"]; ok { // p_ST は売買区分 (1:買, 2:売)
+		if val == "1" {
 			execution.TradeType = model.TradeTypeBuy
-		} else if val == "SELL" {
+		} else if val == "2" {
 			execution.TradeType = model.TradeTypeSell
 		} else {
-			a.logger.Error("invalid trade_type in execution event", "trade_type", val, "data", data)
-			return
+			a.logger.Error("invalid p_ST (TradeType) in EC event", "p_ST", val, "data", data)
+			return errors.Errorf("invalid p_ST (TradeType) in EC event: %s", val)
 		}
 	} else {
-		a.logger.Error("execution event missing p_trade_type", "data", data)
-		return
+		a.logger.Error("EC event missing p_ST (TradeType)", "data", data)
+		return errors.New("EC event missing p_ST (TradeType)")
 	}
 
 	// Quantity
-	if val, ok := data["p_qty"]; ok {
+	if val, ok := data["p_NT"]; ok { // p_NT は数量
 		qty, err := parseInt(val)
 		if err != nil {
-			a.logger.Error("invalid quantity in execution event", "quantity", val, "error", err, "data", data)
-			return
+			a.logger.Error("invalid p_NT (Quantity) in EC event", "quantity", val, "error", err, "data", data)
+			return errors.Wrapf(err, "invalid p_NT (Quantity) in EC event: %s", val)
 		}
 		execution.Quantity = qty
 	} else {
-		a.logger.Error("execution event missing p_qty", "data", data)
-		return
+		a.logger.Error("EC event missing p_NT (Quantity)", "data", data)
+		return errors.New("EC event missing p_NT (Quantity)")
 	}
 
 	// Price
-	if val, ok := data["p_price"]; ok {
+	if val, ok := data["p_EXPR"]; ok { // p_EXPR は約定単価
 		price, err := parseFloat(val)
 		if err != nil {
-			a.logger.Error("invalid price in execution event", "price", val, "error", err, "data", data)
-			return
+			a.logger.Error("invalid p_EXPR (Price) in EC event", "price", val, "error", err, "data", data)
+			return errors.Wrapf(err, "invalid p_EXPR (Price) in EC event: %s", val)
 		}
 		execution.Price = price
 	} else {
-		a.logger.Error("execution event missing p_price", "data", data)
-		return
+		a.logger.Error("EC event missing p_EXPR (Price)", "data", data)
+		return errors.New("EC event missing p_EXPR (Price)")
 	}
 
 	// ExecutedAt
-	if val, ok := data["p_executed_at"]; ok {
-		executedAt, err := parseTime(val)
+	if val, ok := data["p_EXDT"]; ok { // p_EXDT は約定日時 YYYYMMDDhhmmss
+		executedAt, err := parseTime(val) // parseTime を使用
 		if err != nil {
-			a.logger.Error("invalid executed_at in execution event", "executed_at", val, "error", err, "data", data)
-			return
+			a.logger.Error("invalid p_EXDT (ExecutedAt) in EC event", "executed_at", val, "error", err, "data", data)
+			return errors.Wrapf(err, "invalid p_EXDT (ExecutedAt) in EC event: %s", val)
 		}
 		execution.ExecutedAt = executedAt
 	} else {
-		// ExecutedAt がない場合は現在時刻を使用（またはエラーとする）
-		a.logger.Warn("execution event missing p_executed_at, using current time", "data", data)
+		a.logger.Warn("EC event missing p_EXDT (ExecutedAt), using current time", "data", data)
 		execution.ExecutedAt = time.Now()
 	}
 
-	// Commission (optional)
-	if val, ok := data["p_commission"]; ok {
-		commission, err := parseFloat(val)
-		if err != nil {
-			a.logger.Warn("invalid commission in execution event, setting to 0", "commission", val, "error", err, "data", data)
-			execution.Commission = 0
-		} else {
-			execution.Commission = commission
-		}
-	} else {
-		execution.Commission = 0
-	}
+	// Commission (optional): ECイベントログには見当たらないため、0とする
+	execution.Commission = 0
 
 	// ExecutionUseCase を実行
 	if err := a.executionUseCase.Execute(a.ctx, execution); err != nil {
 		a.logger.Error("failed to execute execution use case", "execution_id", execution.ExecutionID, "error", err)
+		return errors.Wrapf(err, "failed to execute execution use case for execution_id %s", execution.ExecutionID)
 	} else {
-		a.logger.Info("successfully processed execution event", "execution_id", execution.ExecutionID, "order_id", execution.OrderID)
+		a.logger.Debug("successfully processed execution event", "execution_id", execution.ExecutionID, "order_id", execution.OrderID)
 	}
+	return nil
 }
 
 // parseInt は文字列をintにパースするヘルパー関数
@@ -308,25 +327,56 @@ func parseFloat(s string) (float64, error) {
 }
 
 // parseTime は文字列をtime.Timeにパースするヘルパー関数
-// TODO: 実際のタイムスタンプフォーマットに合わせて調整が必要
 func parseTime(s string) (time.Time, error) {
-	// 例: "2006-01-02T15:04:05Z07:00" (RFC3339)
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		// 他の一般的なフォーマットも試す
-		t, err = time.Parse("2006-01-02 15:04:05", s) // 例: "YYYY-MM-DD HH:MM:SS"
-		if err != nil {
-			t, err = time.Parse(time.RFC3339Nano, s) // 例: ナノ秒まで含む場合
+	layouts := []string{
+		"2006-01-02T15:04:05Z07:00", // RFC3339
+		"2006-01-02 15:04:05",       // YYYY-MM-DD HH:MM:SS
+		"20060102150405",            // YYYYMMDDhhmmss (今回追加)
+		time.RFC3339Nano,
+	}
+
+	for _, layout := range layouts {
+		t, err := time.Parse(layout, s)
+		if err == nil {
+			return t, nil
 		}
 	}
-	return t, err
+	return time.Time{}, fmt.Errorf("failed to parse time string: %s", s)
 }
 
 // handlePriceData は価格情報（時価配信）イベントを処理する
 func (a *Agent) handlePriceData(data map[string]string) {
-	a.logger.Info("[Placeholder] Handling Price Data", "data", data)
-	// TODO: 価格データをパースし、内部状態を更新する
-	// 例: 銘柄コード、現在値などを抽出し、a.stateを更新
+	// a.logger.Info("Handling Price Data", "data", data) // 詳細ログを抑制
+
+	// FDイベントのデータは p_行番号_項目名 という形式で来る
+	// 例: p_1_DPP -> 行番号1の銘柄の現在値
+	// 行番号を特定し、gyouNoToSymbolマップから銘柄コードを取得する
+
+	for key, value := range data {
+		// p_N_DPP の形式を想定 (Nは行番号)
+		if strings.HasPrefix(key, "p_") && strings.HasSuffix(key, "_DPP") {
+			parts := strings.Split(key, "_")
+			if len(parts) != 3 {
+				continue // 予期しない形式
+			}
+			gyouNo := parts[1] // 行番号文字列
+
+			symbol, ok := a.gyouNoToSymbol[gyouNo]
+			if !ok {
+				a.logger.Warn("unknown gyouNo in price data", "gyouNo", gyouNo, "key", key)
+				continue
+			}
+
+			price, err := parseFloat(value) // ヘルパー関数を再利用
+			if err != nil {
+				a.logger.Error("failed to parse price from FD event", "symbol", symbol, "key", key, "value", value, "error", err)
+				continue
+			}
+
+			a.state.UpdatePrice(symbol, price)
+			a.logger.Debug("updated price from FD event", "symbol", symbol, "price", price) // Debugレベルでログ出力
+		}
+	}
 }
 
 // handleStatus はステータス通知イベントを処理する
@@ -639,9 +689,23 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 	}
 
 	a.logger.Info("signals loaded", "count", len(signals))
+
+	// 購読対象の銘柄コードのセットを作成
+	targetSymbolsMap := make(map[string]struct{})
+	for _, s := range a.config.StrategySettings.Swingtrade.TargetSymbols {
+		targetSymbolsMap[s] = struct{}{}
+	}
+
 	for _, s := range signals {
-		a.logger.Info("signal detail", "symbol", s.Symbol, "signal", s.Signal)
 		symbolStr := fmt.Sprintf("%d", s.Symbol)
+
+		// 購読対象の銘柄でなければスキップ
+		if _, ok := targetSymbolsMap[symbolStr]; !ok {
+			a.logger.Info("skipping signal for non-target symbol", "symbol", symbolStr)
+			continue
+		}
+
+		a.logger.Info("processing signal for target symbol", "symbol", symbolStr, "signal", s.Signal)
 
 		// Check for existing open orders for this symbol before processing the signal
 		hasOpenOrder := false
@@ -667,13 +731,15 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 
 			// 買付余力と現在価格を取得
 			balance := a.state.GetBalance()
-			currentPrice, err := a.tradeService.GetPrice(ctx, symbolStr)
-			if err != nil {
-				a.logger.Error("failed to get price for sizing", "symbol", symbolStr, "error", err)
+
+			// WebSocketから取得した現在価格を使用
+			currentPrice, ok := a.state.GetPrice(symbolStr)
+			if !ok {
+				a.logger.Warn("current price not available in state for sizing", "symbol", symbolStr)
 				continue
 			}
 			if currentPrice == 0 {
-				a.logger.Warn("skipping buy signal because current price is zero", "symbol", symbolStr)
+				a.logger.Warn("skipping buy signal because current price in state is zero", "symbol", symbolStr)
 				continue
 			}
 
