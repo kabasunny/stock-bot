@@ -261,16 +261,16 @@ func (a *Agent) handleExecution(data map[string]string) error {
 	}
 
 	// Quantity
-	if val, ok := data["p_NT"]; ok { // p_NT は数量
+	if val, ok := data["p_EXSR"]; ok { // p_EXSR は約定数量
 		qty, err := parseInt(val)
 		if err != nil {
-			a.logger.Error("invalid p_NT (Quantity) in EC event", "quantity", val, "error", err, "data", data)
-			return errors.Wrapf(err, "invalid p_NT (Quantity) in EC event: %s", val)
+			a.logger.Error("invalid p_EXSR (Quantity) in EC event", "quantity", val, "error", err, "data", data)
+			return errors.Wrapf(err, "invalid p_EXSR (Quantity) in EC event: %s", val)
 		}
 		execution.Quantity = qty
 	} else {
-		a.logger.Error("EC event missing p_NT (Quantity)", "data", data)
-		return errors.New("EC event missing p_NT (Quantity)")
+		a.logger.Error("EC event missing p_EXSR (Quantity)", "data", data)
+		return errors.New("EC event missing p_EXSR (Quantity)")
 	}
 
 	// Price
@@ -381,7 +381,7 @@ func (a *Agent) handlePriceData(data map[string]string) {
 
 // handleStatus はステータス通知イベントを処理する
 func (a *Agent) handleStatus(data map[string]string) {
-	a.logger.Info("[Placeholder] Handling Status Notification", "data", data)
+	a.logger.Warn("Received unhandled Status Notification (ST) event", "data", data)
 	// TODO: セッション状態などを確認し、必要に応じて再接続などの処理を行う
 	// 例: "session inactive" を検知してエージェントを安全に停止させるなど
 }
@@ -513,9 +513,9 @@ func (a *Agent) checkPositionsForExit(ctx context.Context) {
 			continue
 		}
 
-		currentPrice, err := a.tradeService.GetPrice(ctx, pos.Symbol)
-		if err != nil {
-			a.logger.Error("failed to get price for exit check", "symbol", pos.Symbol, "error", err)
+		currentPrice, ok := a.state.GetPrice(pos.Symbol)
+		if !ok {
+			a.logger.Error("failed to get price for exit check from state", "symbol", pos.Symbol)
 			continue
 		}
 		if currentPrice == 0 {
@@ -640,10 +640,11 @@ func (a *Agent) shouldStopLossTrailing(pos *model.Position, currentPrice float64
 // placeExitOrder は決済注文を生成し、発行するヘルパー関数
 func (a *Agent) placeExitOrder(ctx context.Context, pos *model.Position, reason string) {
 	req := &PlaceOrderRequest{
-		Symbol:    pos.Symbol,
-		TradeType: model.TradeTypeSell,
-		OrderType: model.OrderTypeMarket,
-		Quantity:  pos.Quantity,
+		Symbol:              pos.Symbol,
+		TradeType:           model.TradeTypeSell,
+		OrderType:           model.OrderTypeMarket,
+		Quantity:            pos.Quantity,
+		PositionAccountType: pos.PositionAccountType,
 	}
 	order, err := a.tradeService.PlaceOrder(ctx, req)
 	if err != nil {
@@ -823,11 +824,12 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 
 			// 注文リクエストを作成
 			req := &PlaceOrderRequest{
-				Symbol:    symbolStr,
-				TradeType: model.TradeTypeBuy,
-				OrderType: model.OrderTypeMarket,
-				Quantity:  int(quantity),
-				Price:     0, // 成行注文のため価格は0
+				Symbol:              symbolStr,
+				TradeType:           model.TradeTypeBuy,
+				OrderType:           model.OrderTypeMarket,
+				Quantity:            int(quantity),
+				Price:               0,                             // 成行注文のため価格は0
+				PositionAccountType: model.PositionAccountTypeCash, // 新規買い注文は現物と仮定
 			}
 
 			// 注文を発行
@@ -849,11 +851,12 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 
 			// 注文リクエストを作成
 			req := &PlaceOrderRequest{
-				Symbol:    symbolStr,
-				TradeType: model.TradeTypeSell,
-				OrderType: model.OrderTypeMarket,
-				Quantity:  position.Quantity, // 保有する全数量を売却
-				Price:     0,                 // 成行注文のため価格は0
+				Symbol:              symbolStr,
+				TradeType:           model.TradeTypeSell,
+				OrderType:           model.OrderTypeMarket,
+				Quantity:            position.Quantity, // 保有する全数量を売却
+				Price:               0,                 // 成行注文のため価格は0
+				PositionAccountType: position.PositionAccountType,
 			}
 
 			// 注文を発行

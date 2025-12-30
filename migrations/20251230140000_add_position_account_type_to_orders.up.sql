@@ -1,0 +1,1 @@
+ALTER TABLE orders ADD COLUMN position_account_type VARCHAR(255) NOT NULL DEFAULT 'CASH';

@@ -77,10 +77,11 @@ func (s *GoaTradeService) GetPositions(ctx context.Context) ([]*model.Position, 
 		}
 
 		positions = append(positions, &model.Position{
-			Symbol:       kabu.UriOrderIssueCode,
-			PositionType: model.PositionTypeLong, // 現物はLONG
-			AveragePrice: avgPrice,
-			Quantity:     quantity,
+			Symbol:              kabu.UriOrderIssueCode,
+			PositionType:        model.PositionTypeLong,  // 現物はLONG
+			PositionAccountType: model.PositionAccountTypeCash, // 現物ポジション
+			AveragePrice:        avgPrice,
+			Quantity:            quantity,
 		})
 	}
 
@@ -119,12 +120,19 @@ func (s *GoaTradeService) GetPositions(ctx context.Context) ([]*model.Position, 
 			continue
 		}
 
-		positions = append(positions, &model.Position{
-			Symbol:       shinyou.OrderIssueCode,
-			PositionType: posType,
-			AveragePrice: avgPrice,
-			Quantity:     quantity,
-		})
+				positions = append(positions, &model.Position{
+
+					Symbol:              shinyou.OrderIssueCode,
+
+					PositionType:        posType,
+
+					PositionAccountType: model.PositionAccountTypeMarginNew, // 信用ポジションをMARGIN_NEWとして設定
+
+					AveragePrice:        avgPrice,
+
+					Quantity:            quantity,
+
+				})
 	}
 
 	return positions, nil
@@ -245,42 +253,7 @@ func (s *GoaTradeService) GetBalance(ctx context.Context) (*Balance, error) {
 	return agentBalance, nil
 }
 
-// GetPrice は指定した銘柄の現在価格を取得する
-func (s *GoaTradeService) GetPrice(ctx context.Context, symbol string) (float64, error) {
-	s.logger.Info("GoaTradeService.GetPrice called", "symbol", symbol)
 
-	// リクエストを作成
-	req := request.ReqGetPriceInfo{
-		CLMID:           "CLMMfdsGetMarketPrice",
-		TargetIssueCode: symbol,
-		TargetColumn:    "CurrentPrice", // 現在値のみ取得
-	}
-
-	// priceClient を使って価格情報を取得
-	res, err := s.priceClient.GetPriceInfo(ctx, s.appSession, req)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get price info for symbol %s: %w", symbol, err)
-	}
-
-	// レスポンスをパースして価格を取得
-	if res == nil || len(res.CLMMfdsMarketPrice) == 0 {
-		return 0, fmt.Errorf("no price info returned for symbol %s", symbol)
-	}
-
-	item := res.CLMMfdsMarketPrice[0] // 最初のアイテムを使用
-
-	priceStr, ok := item.Values["CurrentPrice"]
-	if !ok {
-		return 0, fmt.Errorf("CurrentPrice not found in response for symbol %s", symbol)
-	}
-
-	price, err := strconv.ParseFloat(priceStr, 64)
-	if err != nil {
-		return 0, fmt.Errorf("failed to parse price '%s' for symbol %s: %w", priceStr, symbol, err)
-	}
-
-	return price, nil
-}
 
 // GetPriceHistory は指定した銘柄の過去の価格情報を取得する
 func (s *GoaTradeService) GetPriceHistory(ctx context.Context, symbol string, days int) ([]*HistoricalPrice, error) {
@@ -403,6 +376,21 @@ func (s *GoaTradeService) PlaceOrder(ctx context.Context, req *PlaceOrderRequest
 		return nil, fmt.Errorf("unknown order type: %s", req.OrderType)
 	}
 
+	// GenkinShinyouKubun のマッピング
+	var genkinShinyouKubun string
+	switch req.PositionAccountType {
+	case model.PositionAccountTypeCash:
+		genkinShinyouKubun = "0" // 現物
+	case model.PositionAccountTypeMarginNew:
+		genkinShinyouKubun = "2" // 信用新規
+	case model.PositionAccountTypeMarginRepay:
+		genkinShinyouKubun = "4" // 信用返済
+	default:
+		// デフォルトは現物とするが、不明な場合はログで警告
+		s.logger.Warn("unknown PositionAccountType, defaulting to cash", "position_account_type", req.PositionAccountType)
+		genkinShinyouKubun = "0"
+	}
+
 	// APIクライアントに渡すパラメータを作成
 	params := client.NewOrderParams{
 		ZyoutoekiKazeiC:          "1", // 譲渡益課税区分: 1(特定口座)
@@ -412,7 +400,7 @@ func (s *GoaTradeService) PlaceOrder(ctx context.Context, req *PlaceOrderRequest
 		Condition:                "0", // 指定なし
 		OrderPrice:               orderPrice,
 		OrderSuryou:              strconv.Itoa(req.Quantity),
-		GenkinShinyouKubun:       "0",                // 現物
+		GenkinShinyouKubun:       genkinShinyouKubun, // ここでマッピングした値を使用
 		OrderExpireDay:           "0",                // 当日限り
 		GyakusasiOrderType:       gyakusasiOrderType, // 逆指値注文の種類
 		GyakusasiZyouken:         gyakusasiZyouken,   // 逆指値条件
@@ -432,13 +420,14 @@ func (s *GoaTradeService) PlaceOrder(ctx context.Context, req *PlaceOrderRequest
 
 	// レスポンスをドメインモデルに変換
 	newOrder := &model.Order{
-		OrderID:     res.OrderNumber,
-		Symbol:      req.Symbol,
-		TradeType:   req.TradeType,
-		OrderType:   req.OrderType,
-		Quantity:    req.Quantity,
-		Price:       req.Price,
-		OrderStatus: model.OrderStatusNew,
+		OrderID:             res.OrderNumber,
+		Symbol:              req.Symbol,
+		TradeType:           req.TradeType,
+		OrderType:           req.OrderType,
+		Quantity:            req.Quantity,
+		Price:               req.Price,
+		OrderStatus:         model.OrderStatusNew,
+		PositionAccountType: req.PositionAccountType, // ここでPositionAccountTypeを設定
 		// TimeInForce はgormのデフォルト値'DAY'に任せる
 	}
 

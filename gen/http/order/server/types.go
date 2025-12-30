@@ -26,8 +26,8 @@ type CreateRequestBody struct {
 	Quantity *uint64 `form:"quantity,omitempty" json:"quantity,omitempty" xml:"quantity,omitempty"`
 	// 発注価格 (LIMIT注文の場合)
 	Price *float64 `form:"price,omitempty" json:"price,omitempty" xml:"price,omitempty"`
-	// 信用取引かどうか
-	IsMargin *bool `form:"is_margin,omitempty" json:"is_margin,omitempty" xml:"is_margin,omitempty"`
+	// ポジションの口座区分 (CASH/MARGIN_NEW/MARGIN_REPAY)
+	PositionAccountType *string `form:"position_account_type,omitempty" json:"position_account_type,omitempty" xml:"position_account_type,omitempty"`
 }
 
 // CreateResponseBody is the type of the "order" service "create" endpoint HTTP
@@ -57,14 +57,14 @@ func NewCreatePayload(body *CreateRequestBody) *order.CreatePayload {
 	if body.Price != nil {
 		v.Price = *body.Price
 	}
-	if body.IsMargin != nil {
-		v.IsMargin = *body.IsMargin
+	if body.PositionAccountType != nil {
+		v.PositionAccountType = *body.PositionAccountType
 	}
 	if body.Price == nil {
 		v.Price = 0
 	}
-	if body.IsMargin == nil {
-		v.IsMargin = false
+	if body.PositionAccountType == nil {
+		v.PositionAccountType = "CASH"
 	}
 
 	return v
@@ -92,6 +92,11 @@ func ValidateCreateRequestBody(body *CreateRequestBody) (err error) {
 	if body.OrderType != nil {
 		if !(*body.OrderType == "MARKET" || *body.OrderType == "LIMIT" || *body.OrderType == "STOP" || *body.OrderType == "STOP_LIMIT") {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.order_type", *body.OrderType, []any{"MARKET", "LIMIT", "STOP", "STOP_LIMIT"}))
+		}
+	}
+	if body.PositionAccountType != nil {
+		if !(*body.PositionAccountType == "CASH" || *body.PositionAccountType == "MARGIN_NEW" || *body.PositionAccountType == "MARGIN_REPAY") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.position_account_type", *body.PositionAccountType, []any{"CASH", "MARGIN_NEW", "MARGIN_REPAY"}))
 		}
 	}
 	return

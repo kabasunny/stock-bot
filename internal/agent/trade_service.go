@@ -17,8 +17,6 @@ type TradeService interface {
 	GetOrders(ctx context.Context) ([]*model.Order, error)
 	// GetBalance は口座残高を取得する
 	GetBalance(ctx context.Context) (*Balance, error) // agent.Balance型を使用
-	// GetPrice は指定した銘柄の現在価格を取得する
-	GetPrice(ctx context.Context, symbol string) (float64, error)
 	// GetPriceHistory は指定した銘柄の過去の価格情報を取得する
 	GetPriceHistory(ctx context.Context, symbol string, days int) ([]*HistoricalPrice, error)
 	// PlaceOrder は注文を発行する
@@ -46,4 +44,5 @@ type PlaceOrderRequest struct {
 	Quantity     int
 	Price        float64 // 指値の場合のみ
 	TriggerPrice float64 // 逆指値の場合のみ
+	PositionAccountType model.PositionAccountType // ポジションの口座タイプ（現物/信用）を追加
 }

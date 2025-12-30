@@ -159,3 +159,56 @@ curl -X POST -H "Content-Type: application/json" -d '{"symbol":"7203", "trade_ty
 
 *   **`ST` (ステータス通知) イベントの処理**: `handleStatus`プレースホルダーを実装し、APIからの重要なステータス変更（例: エラー、セッション無効化）を処理する必要があります。
 *   **REST APIによる価格取得の廃止**: `GoaTradeService.GetPrice`のようなREST API経由の現在価格取得は不要になったため、コードのクリーンアップを検討。
+
+---
+
+## 7. 追加の開発進捗と成果 (2025-12-30 - 継続)
+
+これまでの作業で、いくつかの重要な課題が解決され、システムの安定性が向上しました。
+
+### 7.1. 解決済みの課題と実装された機能
+
+1.  **約定数量超過エラー (`total executed quantity exceeds order quantity`) の解決**:
+    *   **課題**: `model.Execution`の`Quantity`が`EC`イベントの`p_NT`から誤ってパースされ、合計約定数量が注文数量を超過するエラーが発生していました。
+    *   **解決**: `internal/agent/agent.go`の`handleExecution`関数を修正し、`model.Execution.Quantity`に`p_NT`ではなく、実際の約定数量を示す`p_EXSR`を使用するように変更しました。
+    *   **成果**: データベースをクリーンアップ (`go run ./cmd/migrator/main.go`) し、`agent_config.yaml`に新しい`target_symbols`を追加した後の**新規注文では約定数量超過エラーが発生しないことを確認しました**。ログに出ていた過去の約定に関するエラーは、データベースクリア前の古いイベントに対するものです。
+
+2.  **価格情報取得失敗エラー (`failed to get price for exit check from state`) への対応 (部分的に解決)**:
+    *   **課題**: エージェントが`a.tradeService.GetPrice`を呼び出し、`a.state`に価格情報が存在しない場合にエラーが発生していました。
+    *   **解決**:
+        *   `internal/agent/agent.go`の`checkPositionsForExit`関数を修正し、`a.tradeService.GetPrice`の代わりに`a.state.GetPrice`を使用するように変更しました。
+        *   `internal/agent/trade_service.go`インターフェースおよび`internal/agent/goa_trade_service.go`実装から、冗長な`GetPrice`メソッドを削除しました。
+        *   `agent_config.yaml`の`StrategySettings.Swingtrade.TargetSymbols`に、エラーが出ていた全ての銘柄（`6504`, `6505`, `9001`, `6501`, `6502`など）を追加し、WebSocket経由で`FD`イベントを購読するように設定しました。
+    *   **成果**: `target_symbols`がWebSocket購読に正しく反映されていることは確認できましたが、**市場が閉まっている（昼休み中）ため、APIから`FD`イベントが送信されず、`a.state.prices`が更新されない状態が続いています。** これにより、「`failed to get price for exit check from state`」エラーが引き続き発生しています。これは市場が開場するまで完全な検証はできません。
+
+3.  **`ST` (ステータス通知) イベントのログレベル調整と内容の記録**:
+    *   **課題**: `handleStatus`がプレースホルダーの実装であったため、`ST`イベントの内容が把握しにくい状況でした。
+    *   **解決**: `internal/agent/agent.go`の`handleStatus`関数を修正し、受信した`ST`イベントの全データを`WARN`レベルでログに出力するように変更しました。
+    *   **成果**: 実際に`p_err:database i/o error.`という内容の`ST`イベントが確認され、その内容がログに記録されることを確認しました。このエラー自体の意味は不明ですが、今後の分析のための基盤は整いました。
+
+### 7.2. 残された課題と次の検証ステップ
+
+1.  **口座区分不一致エラー (`errno: 11481`) の解決**:
+    *   **課題**: 売却注文時、「`選択した口座区分がお預かり銘柄と不一致のため、このご注文はお受けできません。`」というエラーが発生していました。これは、`PlaceOrder`が常に`GenkinShinyouKubun: "0"`（現物）をAPIに送信していたため、信用取引で保有しているポジション（`6504`, `6505`, `9001`など）を売却しようとすると口座区分不一致となったためです。
+    *   **解決**:
+        *   `domain/model/position.go`に`PositionAccountType`フィールドを追加し、ポジションが現物 (`CASH`) か信用 (`MARGIN`) かを区別できるようにしました。
+        *   データベースに`position_account_type`カラムを追加する新しいマイグレーションを適用しました。
+        *   `internal/agent/trade_service.go`の`PlaceOrderRequest`に`PositionAccountType`フィールドを追加しました。
+        *   `internal/agent/goa_trade_service.go`の`GoaTradeService.GetPositions`を修正し、APIからポジションを取得する際に`PositionAccountType`を現物 (`CASH`) または信用 (`MARGIN`) に設定するようにしました。
+        *   `internal/agent/goa_trade_service.go`の`GoaTradeService.PlaceOrder`を修正し、`PlaceOrderRequest`の`PositionAccountType`に基づいて`GenkinShinyouKubun`を`"0"`（現物）または`"1"`（信用）に設定するようにしました。
+        *   `internal/agent/agent.go`の`placeExitOrder`および`checkSignalsForEntry`の`PlaceOrder`呼び出し箇所を修正し、`PlaceOrderRequest`に`model.Position`から取得した`PositionAccountType`を渡すようにしました（買い注文の場合は`model.PositionAccountTypeCash`をデフォルトとしました）。
+    *   **成果**: これにより、口座区分不一致エラーは解消されると期待されます。
+
+2.  **銘柄市場マスタデータエラー (`errno: 11108`)**:
+    *   **課題**: 銘柄`6502`の売却注文時に「`銘柄市場マスタにデータがありません`」というエラーが発生しました。
+    *   **現状**: このエラーは、APIが銘柄`6502`を認識していないことを示唆しています。これはエージェント側のコードで直接解決できる問題ではなく、銘柄コードが有効であるか、APIの提供範囲内であるかを確認する必要があります。
+
+3.  **市場開場後の価格情報 (`FD`) および歴史的価格 (`GetPriceHistory`) の検証**:
+    *   現在発生している「`failed to get price for exit check from state`」エラーは、市場が閉まっているためにAPIから時価情報（`FD`イベント）が提供されていないことが原因と強く推測されます。同様に、`GoaTradeService.GetPriceHistory`も現在データを提供していません。
+    *   **市場が開場した後、再度アプリケーションを起動し、これらのエラーが解消されているかを確認する必要があります。**
+
+4.  **`ST`イベントの内容解析と適切な処理の実装**:
+    *   「`p_err:database i/o error.`」という内容の`ST`イベントが確認されました。これが何を意味し、エージェントがどのように反応すべきか（例: セッションの再確立、特定のエラー通知）は、今後の分析と、APIドキュメント（もしあれば）の参照によって決定する必要があります。
+
+**結論**:
+最もクリティカルであった約定数量超過エラーと、口座区分不一致エラーに対するコード側の修正は完了しました。価格情報に関するエラーは市場の状況に依存するため、開場を待つ必要があります。銘柄`6502`のエラーはAPI側の問題の可能性があります。これらの変更は、エージェントの安定性と正確性を大きく向上させました。

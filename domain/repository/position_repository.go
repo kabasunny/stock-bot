@@ -13,6 +13,6 @@ type PositionRepository interface {
 	// UpsertPositionByExecution は約定情報に基づいてポジションを新規作成または更新します。
 	UpsertPositionByExecution(ctx context.Context, execution *model.Execution) error
 	// DeletePosition はポジションを削除します（例：全株売却時）。
-	DeletePosition(ctx context.Context, symbol string) error
+	DeletePosition(ctx context.Context, symbol string, accountType model.PositionAccountType) error
 	// 他の必要なメソッドを定義
 }

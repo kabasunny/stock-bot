@@ -53,6 +53,20 @@ func (uc *OrderUseCaseImpl) ExecuteOrder(ctx context.Context, session *client.Se
 		return nil, fmt.Errorf("invalid order type: %s", params.OrderType)
 	}
 
+	// GenkinShinyouKubun のマッピング
+	var genkinShinyouKubun string
+	switch params.PositionAccountType {
+	case model.PositionAccountTypeCash:
+		genkinShinyouKubun = "0" // 現物 (Cash)
+	case model.PositionAccountTypeMarginNew:
+		genkinShinyouKubun = "2" // 信用新規 (Margin New)
+	case model.PositionAccountTypeMarginRepay:
+		genkinShinyouKubun = "4" // 信用返済 (Margin Repay)
+	default:
+		// デフォルトは現物とするが、不明な場合は上位層でログ出力済みの前提
+		genkinShinyouKubun = "0"
+	}
+
 	req := client.NewOrderParams{ // Changed to client.NewOrderParams
 		// SecondPassword:           uc.secondPassword, // Removed
 		ZyoutoekiKazeiC:          "1", // 特定口座
@@ -62,13 +76,13 @@ func (uc *OrderUseCaseImpl) ExecuteOrder(ctx context.Context, session *client.Se
 		Condition:                condition,
 		OrderPrice:               orderPrice,
 		OrderSuryou:              fmt.Sprintf("%d", params.Quantity),
-		GenkinShinyouKubun:       "0", // 現物
-		OrderExpireDay:           "0", // 当日
-		GyakusasiOrderType:       "0", // 通常注文
-		GyakusasiZyouken:         "0", // 指定なし
-		GyakusasiPrice:           "*", // 指定なし
-		TatebiType:               "*", // 指定なし
-		TategyokuZyoutoekiKazeiC: "*", // 指定なし
+		GenkinShinyouKubun:       genkinShinyouKubun, // ここでマッピングした値を使用
+		OrderExpireDay:           "0",                // 当日
+		GyakusasiOrderType:       "0",                // 通常注文
+		GyakusasiZyouken:         "0",                // 指定なし
+		GyakusasiPrice:           "*",                // 指定なし
+		TatebiType:               "*",                // 指定なし
+		TategyokuZyoutoekiKazeiC: "*",                // 指定なし
 	}
 
 	// 2. 外部API（証券会社）を呼び出す
@@ -81,23 +95,24 @@ func (uc *OrderUseCaseImpl) ExecuteOrder(ctx context.Context, session *client.Se
 	}
 
 	// 3. 結果をドメインモデルに変換
-	order := &model.Order{
-		OrderID:     res.OrderNumber,
-		Symbol:      params.Symbol,
-		TradeType:   params.TradeType,
-		OrderType:   params.OrderType,
-		Quantity:    int(params.Quantity),
-		Price:       params.Price,
-		OrderStatus: model.OrderStatusNew,
-		IsMargin:    params.IsMargin,
+	newOrder := &model.Order{
+		OrderID:             res.OrderNumber,
+		Symbol:              params.Symbol,
+		TradeType:           params.TradeType,
+		OrderType:           params.OrderType,
+		Quantity:            int(params.Quantity),
+		Price:               params.Price,
+		OrderStatus:         model.OrderStatusNew,
+		IsMargin:            (params.PositionAccountType == model.PositionAccountTypeMarginNew || params.PositionAccountType == model.PositionAccountTypeMarginRepay), // PositionAccountTypeからIsMarginを設定
+		PositionAccountType: params.PositionAccountType,                                      // ここでPositionAccountTypeを設定
 	}
 
 	// 4. リポジトリで永続化
-	if err := uc.orderRepo.Save(ctx, order); err != nil {
+	if err := uc.orderRepo.Save(ctx, newOrder); err != nil {
 		// APIは成功したがDB保存に失敗した場合。
 		// ここではエラーを返すだけだが、実際にはリトライや補正処理を検討するべき。
 		return nil, fmt.Errorf("failed to save order to repository: %w", err)
 	}
 
-	return order, nil
+	return newOrder, nil
 }

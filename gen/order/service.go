@@ -45,8 +45,8 @@ type CreatePayload struct {
 	Quantity uint64
 	// 発注価格 (LIMIT注文の場合)
 	Price float64
-	// 信用取引かどうか
-	IsMargin bool
+	// ポジションの口座区分 (CASH/MARGIN_NEW/MARGIN_REPAY)
+	PositionAccountType string
 }
 
 // ID of the created order

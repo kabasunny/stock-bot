@@ -1,0 +1,1 @@
+ALTER TABLE orders DROP COLUMN position_account_type;

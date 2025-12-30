@@ -37,7 +37,7 @@ func UsageCommands() []string {
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "order create --body '{\n      \"is_margin\": true,\n      \"order_type\": \"LIMIT\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'" + "\n" +
+	return os.Args[0] + " " + "order create --body '{\n      \"order_type\": \"LIMIT\",\n      \"position_account_type\": \"CASH\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'" + "\n" +
 		os.Args[0] + " " + "balance get" + "\n" +
 		os.Args[0] + " " + "price get --symbol \"Quia ut id.\"" + "\n" +
 		os.Args[0] + " " + "position list --type \"margin\"" + "\n" +
@@ -276,7 +276,7 @@ func orderCreateUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"is_margin\": true,\n      \"order_type\": \"LIMIT\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"order_type\": \"LIMIT\",\n      \"position_account_type\": \"CASH\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'")
 }
 
 // balanceUsage displays the usage of the balance command and its subcommands.

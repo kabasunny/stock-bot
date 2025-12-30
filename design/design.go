@@ -37,8 +37,9 @@ var _ = Service("order", func() {
             Attribute("price", Float64, "発注価格 (LIMIT注文の場合)", func() {
                 Default(0)
             })
-            Attribute("is_margin", Boolean, "信用取引かどうか", func() {
-                Default(false)
+            Attribute("position_account_type", String, "ポジションの口座区分 (CASH/MARGIN_NEW/MARGIN_REPAY)", func() {
+                Enum("CASH", "MARGIN_NEW", "MARGIN_REPAY")
+                Default("CASH")
             })
             Required("symbol", "trade_type", "order_type", "quantity")
         })

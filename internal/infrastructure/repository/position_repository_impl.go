@@ -12,11 +12,12 @@ import (
 )
 
 type positionRepositoryImpl struct {
-	db *gorm.DB
+	db        *gorm.DB
+	orderRepo repository.OrderRepository // Add order repository
 }
 
-func NewPositionRepository(db *gorm.DB) repository.PositionRepository {
-	return &positionRepositoryImpl{db: db}
+func NewPositionRepository(db *gorm.DB, orderRepo repository.OrderRepository) repository.PositionRepository {
+	return &positionRepositoryImpl{db: db, orderRepo: orderRepo}
 }
 
 func (r *positionRepositoryImpl) Save(ctx context.Context, position *model.Position) error {
@@ -60,18 +61,33 @@ func (r *positionRepositoryImpl) UpdateHighestPrice(ctx context.Context, symbol 
 }
 
 func (r *positionRepositoryImpl) UpsertPositionByExecution(ctx context.Context, execution *model.Execution) error {
+	// 1. 関連するOrderを取得 (orderRepoは既に注入済み)
+	order, err := r.orderRepo.FindByID(ctx, execution.OrderID)
+	if err != nil {
+		return errors.Wrapf(err, "failed to find order %s for execution %s", execution.OrderID, execution.ExecutionID)
+	}
+	if order == nil {
+		return errors.Errorf("order with ID %s not found for execution %s", execution.OrderID, execution.ExecutionID)
+	}
+
 	var position model.Position
-	result := r.db.WithContext(ctx).Where("symbol = ?", execution.Symbol).First(&position)
+	// ポジションを検索する際に、SymbolだけでなくPositionAccountTypeも検索条件に含める
+	result := r.db.WithContext(ctx).
+		Where("symbol = ?", execution.Symbol).
+		Where("position_account_type = ?", order.PositionAccountType). // Add PositionAccountType to search
+		First(&position)
 
 	if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 		// ポジションが存在しない場合
 		if execution.TradeType == model.TradeTypeBuy {
 			// 買い約定の場合は新規ポジションを作成
 			newPosition := model.Position{
-				Symbol:       execution.Symbol,
-				AveragePrice: execution.Price,
-				Quantity:     execution.Quantity,
-				HighestPrice: execution.Price,
+				Symbol:              execution.Symbol,
+				AveragePrice:        execution.Price,
+				Quantity:            execution.Quantity,
+				HighestPrice:        execution.Price,
+				PositionAccountType: order.PositionAccountType, // OrderからAccountTypeを設定
+				PositionType:        model.PositionTypeLong,    // 買いなのでLongポジション
 			}
 			result := r.db.WithContext(ctx).Create(&newPosition)
 			if result.Error != nil {
@@ -80,10 +96,23 @@ func (r *positionRepositoryImpl) UpsertPositionByExecution(ctx context.Context, 
 			return nil
 		} else {
 			// 売り約定でポジションが存在しない場合はエラー（または無視）
-			return errors.Errorf("sell execution for non-existent position with symbol: %s", execution.Symbol)
+			return errors.Errorf("sell execution for non-existent position with symbol: %s and account type: %s", execution.Symbol, order.PositionAccountType)
 		}
 	} else if result.Error != nil {
 		return errors.Wrap(result.Error, "failed to find position for upsert by execution")
+	}
+
+	// ポジションが存在する場合 (この場合もAccountTypeをOrderから更新しておくが、検索条件にあるので通常は一致)
+	// position.PositionAccountType = order.PositionAccountType // 検索条件にあるので不要だが、念のため
+
+	// ポジションのPositionTypeも更新（売建からの買返済など、タイプが変わりうる場合を考慮）
+	if execution.TradeType == model.TradeTypeBuy {
+		position.PositionType = model.PositionTypeLong
+	} else if execution.TradeType == model.TradeTypeSell {
+		// 売りでQuantityが0になる場合は削除されるが、
+		// 残る場合はPositionTypeShortに変わる可能性も考慮（例：空売り残高）
+		// ただし、このAPIでは返済を別途考慮しているため、基本的にはLongの売却かShortの返済のはず。
+		// ここでは、明示的に変更しない。必要であれば別のロジックで対応。
 	}
 
 	// ポジションが存在する場合
@@ -106,7 +135,7 @@ func (r *positionRepositoryImpl) UpsertPositionByExecution(ctx context.Context, 
 
 	if position.Quantity <= 0 {
 		// 数量が0以下になったらポジションを削除
-		return r.DeletePosition(ctx, position.Symbol)
+		return r.DeletePosition(ctx, position.Symbol, position.PositionAccountType) // DeletePositionはSymbolとAccountTypeで検索するように修正
 	} else {
 		// 数量が正の場合はポジションを更新
 		result = r.db.WithContext(ctx).Save(&position)
@@ -117,13 +146,13 @@ func (r *positionRepositoryImpl) UpsertPositionByExecution(ctx context.Context, 
 	return nil
 }
 
-func (r *positionRepositoryImpl) DeletePosition(ctx context.Context, symbol string) error {
-	result := r.db.WithContext(ctx).Where("symbol = ?", symbol).Delete(&model.Position{})
+func (r *positionRepositoryImpl) DeletePosition(ctx context.Context, symbol string, accountType model.PositionAccountType) error {
+	result := r.db.WithContext(ctx).Where("symbol = ? AND position_account_type = ?", symbol, accountType).Delete(&model.Position{})
 	if result.Error != nil {
 		return errors.Wrap(result.Error, "failed to delete position")
 	}
 	if result.RowsAffected == 0 {
-		return errors.New("no position found to delete for symbol: " + symbol)
+		return errors.Errorf("no position found to delete for symbol: %s with account type: %s", symbol, accountType)
 	}
 	return nil
 }

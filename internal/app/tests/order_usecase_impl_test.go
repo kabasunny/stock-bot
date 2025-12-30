@@ -52,7 +52,6 @@ func (m *OrderClientMock) CancelOrderAll(ctx context.Context, session *client.Se
 	return args.Get(0).(*response.ResCancelOrderAll), args.Error(1)
 }
 
-
 func (m *OrderClientMock) GetOrderList(ctx context.Context, session *client.Session, req request.ReqOrderList) (*response.ResOrderList, error) {
 	args := m.Called(ctx, session, req)
 	if args.Get(0) == nil {
@@ -68,8 +67,6 @@ func (m *OrderClientMock) GetOrderListDetail(ctx context.Context, session *clien
 	}
 	return args.Get(0).(*response.ResOrderListDetail), args.Error(1)
 }
-
-
 
 // OrderUsecaseの実装をテスト
 func TestExecuteOrder_Success(t *testing.T) {
@@ -100,7 +97,7 @@ func TestExecuteOrder_Success(t *testing.T) {
 		OrderType: model.OrderTypeMarket,
 		Quantity:  100,
 		Price:     0,
-		IsMargin:  false,
+		PositionAccountType: model.PositionAccountTypeCash, // IsMarginの代わりにPositionAccountTypeを追加
 	}
 	result, err := uc.ExecuteOrder(ctx, session, orderParams)
 
@@ -113,7 +110,7 @@ func TestExecuteOrder_Success(t *testing.T) {
 		assert.Equal(t, orderParams.OrderType, result.OrderType)
 		assert.Equal(t, int(orderParams.Quantity), result.Quantity)
 		assert.Equal(t, orderParams.Price, result.Price)
-		assert.Equal(t, orderParams.IsMargin, result.IsMargin)
+		assert.Equal(t, orderParams.PositionAccountType, result.PositionAccountType) // IsMarginの代わりにPositionAccountTypeをチェック
 		assert.Equal(t, model.OrderStatusNew, result.OrderStatus)
 	}
 	orderClientMock.AssertExpectations(t)
@@ -142,7 +139,7 @@ func TestExecuteOrder_ClientError(t *testing.T) {
 		OrderType: model.OrderTypeMarket,
 		Quantity:  100,
 		Price:     0,
-		IsMargin:  false,
+		PositionAccountType: model.PositionAccountTypeCash, // IsMarginの代わりにPositionAccountTypeを追加
 	}
 	result, err := uc.ExecuteOrder(ctx, session, orderParams)
 
@@ -176,14 +173,13 @@ func TestExecuteOrder_RepositoryError(t *testing.T) {
 	// Usecaseの初期化
 	uc := app.NewOrderUseCaseImpl(orderClientMock, orderRepositoryMock)
 
-	// 実行
 	orderParams := app.OrderParams{
 		Symbol:    "7203",
 		TradeType: model.TradeTypeBuy,
 		OrderType: model.OrderTypeMarket,
 		Quantity:  100,
 		Price:     0,
-		IsMargin:  false,
+		PositionAccountType: model.PositionAccountTypeCash, // IsMarginの代わりにPositionAccountTypeを追加
 	}
 	result, err := uc.ExecuteOrder(ctx, session, orderParams)
 

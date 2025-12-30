@@ -6,17 +6,18 @@ import (
 
 type Order struct {
 	gorm.Model
-	OrderID      string      `gorm:"uniqueIndex"` // 証券会社固有の注文ID
-	Symbol       string      `gorm:"index"`       // 銘柄コード
-	TradeType    TradeType   `gorm:"index"`       // 買い/売り
-	OrderType    OrderType   `gorm:"index"`       // 成行/指値など
-	Quantity     int         `gorm:"not null"`
-	Price        float64     // 指値の場合
-	TriggerPrice float64     // 逆指値の場合
-	TimeInForce  TimeInForce `gorm:"index;default:'DAY'"`                   // 有効期限
-	OrderStatus  OrderStatus `gorm:"index"`                                 // 注文状態
-	IsMargin     bool        `gorm:"not null;default:false"`                // 信用取引かどうか
-	Executions   []Execution `gorm:"foreignKey:OrderID;references:OrderID"` // 約定情報
+	OrderID             string              `gorm:"uniqueIndex"` // 証券会社固有の注文ID
+	Symbol              string              `gorm:"index"`       // 銘柄コード
+	TradeType           TradeType           `gorm:"index"`       // 買い/売り
+	OrderType           OrderType           `gorm:"index"`       // 成行/指値など
+	Quantity            int                 `gorm:"not null"`
+	Price               float64             // 指値の場合
+	TriggerPrice        float64             // 逆指値の場合
+	TimeInForce         TimeInForce         `gorm:"index;default:'DAY'"`                   // 有効期限
+	OrderStatus         OrderStatus         `gorm:"index"`                                 // 注文状態
+	IsMargin            bool                `gorm:"not null;default:false"`                // 信用取引かどうか
+	PositionAccountType PositionAccountType // 新規: ポジションの口座タイプ (注文時に指定された口座区分)
+	Executions          []Execution         `gorm:"foreignKey:OrderID;references:OrderID"` // 約定情報
 	// Account    Account `gorm:"foreignKey:AccountID;references:ID"`
 }
 

@@ -7,6 +7,11 @@ strategy_settings:
   swingtrade:
     target_symbols:
       - "8697"
+      - "6504"
+      - "6505"
+      - "9001"
+      - "6501"
+      - "6502"
     trade_risk_percentage: 0.02 # 1回の取引に利用する買付余力の割合
     max_position_size_percentage: 0.25 # 1トレードあたりの最大ポジションサイズ（買付余力に対する割合）
     unit_size: 100 # 1単元の株数

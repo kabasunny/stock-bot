@@ -12,10 +12,10 @@ type OrderUseCase interface {
 }
 
 type OrderParams struct {
-	Symbol    string
-	TradeType model.TradeType
-	OrderType model.OrderType
-	Quantity  uint64
-	Price     float64
-	IsMargin  bool
+	Symbol              string
+	TradeType           model.TradeType
+	OrderType           model.OrderType
+	Quantity            uint64
+	Price               float64
+	PositionAccountType model.PositionAccountType
 }

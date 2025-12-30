@@ -107,7 +107,7 @@ func main() {
 		// 3b. DB依存リポジトリを初期化
 		orderRepo = repository_impl.NewOrderRepository(db)
 		masterRepo = repository_impl.NewMasterRepository(db)
-		positionRepo = repository_impl.NewPositionRepository(db)
+		positionRepo = repository_impl.NewPositionRepository(db, orderRepo)
 	} else {
 		slog.Default().Warn("database connection is disabled due to --no-db flag")
 	}

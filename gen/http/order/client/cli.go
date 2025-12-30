@@ -23,7 +23,7 @@ func BuildCreatePayload(orderCreateBody string) (*order.CreatePayload, error) {
 	{
 		err = json.Unmarshal([]byte(orderCreateBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"is_margin\": true,\n      \"order_type\": \"LIMIT\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"order_type\": \"LIMIT\",\n      \"position_account_type\": \"CASH\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'")
 		}
 		if !(body.TradeType == "BUY" || body.TradeType == "SELL") {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.trade_type", body.TradeType, []any{"BUY", "SELL"}))
@@ -31,17 +31,20 @@ func BuildCreatePayload(orderCreateBody string) (*order.CreatePayload, error) {
 		if !(body.OrderType == "MARKET" || body.OrderType == "LIMIT" || body.OrderType == "STOP" || body.OrderType == "STOP_LIMIT") {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.order_type", body.OrderType, []any{"MARKET", "LIMIT", "STOP", "STOP_LIMIT"}))
 		}
+		if !(body.PositionAccountType == "CASH" || body.PositionAccountType == "MARGIN_NEW" || body.PositionAccountType == "MARGIN_REPAY") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.position_account_type", body.PositionAccountType, []any{"CASH", "MARGIN_NEW", "MARGIN_REPAY"}))
+		}
 		if err != nil {
 			return nil, err
 		}
 	}
 	v := &order.CreatePayload{
-		Symbol:    body.Symbol,
-		TradeType: body.TradeType,
-		OrderType: body.OrderType,
-		Quantity:  body.Quantity,
-		Price:     body.Price,
-		IsMargin:  body.IsMargin,
+		Symbol:              body.Symbol,
+		TradeType:           body.TradeType,
+		OrderType:           body.OrderType,
+		Quantity:            body.Quantity,
+		Price:               body.Price,
+		PositionAccountType: body.PositionAccountType,
 	}
 	{
 		var zero float64
@@ -50,9 +53,9 @@ func BuildCreatePayload(orderCreateBody string) (*order.CreatePayload, error) {
 		}
 	}
 	{
-		var zero bool
-		if v.IsMargin == zero {
-			v.IsMargin = false
+		var zero string
+		if v.PositionAccountType == zero {
+			v.PositionAccountType = "CASH"
 		}
 	}
 

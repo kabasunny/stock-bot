@@ -1,0 +1,1 @@
+ALTER TABLE positions DROP COLUMN position_account_type;

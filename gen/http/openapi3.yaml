@@ -81,8 +81,8 @@ paths:
                         schema:
                             $ref: '#/components/schemas/CreateRequestBody'
                         example:
-                            is_margin: true
                             order_type: LIMIT
+                            position_account_type: CASH
                             price: 0.8645194880324857
                             quantity: 2610519601393672180
                             symbol: Facilis mollitia perferendis eaque laboriosam dolore ipsa.
@@ -240,11 +240,6 @@ components:
         CreateRequestBody:
             type: object
             properties:
-                is_margin:
-                    type: boolean
-                    description: 信用取引かどうか
-                    default: false
-                    example: true
                 order_type:
                     type: string
                     description: 注文種別 (MARKET/LIMITなど)
@@ -254,6 +249,15 @@ components:
                         - LIMIT
                         - STOP
                         - STOP_LIMIT
+                position_account_type:
+                    type: string
+                    description: ポジションの口座区分 (CASH/MARGIN_NEW/MARGIN_REPAY)
+                    default: CASH
+                    example: CASH
+                    enum:
+                        - CASH
+                        - MARGIN_NEW
+                        - MARGIN_REPAY
                 price:
                     type: number
                     description: 発注価格 (LIMIT注文の場合)
@@ -277,8 +281,8 @@ components:
                         - BUY
                         - SELL
             example:
-                is_margin: false
                 order_type: MARKET
+                position_account_type: MARGIN_NEW
                 price: 0.7017931812888109
                 quantity: 16593682844626112936
                 symbol: Soluta suscipit sapiente voluptatem ad nihil.

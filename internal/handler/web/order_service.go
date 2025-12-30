@@ -36,7 +36,7 @@ func (s *OrderService) Create(ctx context.Context, p *ordersvr.CreatePayload) (r
 		OrderType: model.OrderType(p.OrderType),
 		Quantity:  p.Quantity,
 		Price:     p.Price,
-		IsMargin:  p.IsMargin,
+		PositionAccountType: model.PositionAccountType(p.PositionAccountType), // ここでPositionAccountTypeをマッピング
 	}
 
 	// UseCaseを呼び出す際にsessionを渡す

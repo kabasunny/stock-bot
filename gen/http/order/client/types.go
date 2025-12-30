@@ -26,8 +26,8 @@ type CreateRequestBody struct {
 	Quantity uint64 `form:"quantity" json:"quantity" xml:"quantity"`
 	// 発注価格 (LIMIT注文の場合)
 	Price float64 `form:"price" json:"price" xml:"price"`
-	// 信用取引かどうか
-	IsMargin bool `form:"is_margin" json:"is_margin" xml:"is_margin"`
+	// ポジションの口座区分 (CASH/MARGIN_NEW/MARGIN_REPAY)
+	PositionAccountType string `form:"position_account_type" json:"position_account_type" xml:"position_account_type"`
 }
 
 // CreateResponseBody is the type of the "order" service "create" endpoint HTTP
@@ -41,12 +41,12 @@ type CreateResponseBody struct {
 // "create" endpoint of the "order" service.
 func NewCreateRequestBody(p *order.CreatePayload) *CreateRequestBody {
 	body := &CreateRequestBody{
-		Symbol:    p.Symbol,
-		TradeType: p.TradeType,
-		OrderType: p.OrderType,
-		Quantity:  p.Quantity,
-		Price:     p.Price,
-		IsMargin:  p.IsMargin,
+		Symbol:              p.Symbol,
+		TradeType:           p.TradeType,
+		OrderType:           p.OrderType,
+		Quantity:            p.Quantity,
+		Price:               p.Price,
+		PositionAccountType: p.PositionAccountType,
 	}
 	{
 		var zero float64
@@ -55,9 +55,9 @@ func NewCreateRequestBody(p *order.CreatePayload) *CreateRequestBody {
 		}
 	}
 	{
-		var zero bool
-		if body.IsMargin == zero {
-			body.IsMargin = false
+		var zero string
+		if body.PositionAccountType == zero {
+			body.PositionAccountType = "CASH"
 		}
 	}
 	return body
