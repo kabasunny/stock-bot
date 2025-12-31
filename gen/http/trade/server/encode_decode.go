@@ -178,6 +178,159 @@ func DecodeCancelOrderRequest(mux goahttp.Muxer, decoder func(*http.Request) goa
 	}
 }
 
+// EncodeCorrectOrderResponse returns an encoder for responses returned by the
+// trade correct_order endpoint.
+func EncodeCorrectOrderResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
+	return func(ctx context.Context, w http.ResponseWriter, v any) error {
+		res, _ := v.(*trade.TradeOrderResult)
+		enc := encoder(ctx, w)
+		body := NewCorrectOrderResponseBody(res)
+		w.WriteHeader(http.StatusOK)
+		return enc.Encode(body)
+	}
+}
+
+// DecodeCorrectOrderRequest returns a decoder for requests sent to the trade
+// correct_order endpoint.
+func DecodeCorrectOrderRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Decoder) func(*http.Request) (*trade.CorrectOrderPayload, error) {
+	return func(r *http.Request) (*trade.CorrectOrderPayload, error) {
+		var (
+			body CorrectOrderRequestBody
+			err  error
+		)
+		err = decoder(r).Decode(&body)
+		if err != nil {
+			if errors.Is(err, io.EOF) {
+				return nil, goa.MissingPayloadError()
+			}
+			var gerr *goa.ServiceError
+			if errors.As(err, &gerr) {
+				return nil, gerr
+			}
+			return nil, goa.DecodePayloadError(err.Error())
+		}
+
+		var (
+			orderID string
+
+			params = mux.Vars(r)
+		)
+		orderID = params["order_id"]
+		payload := NewCorrectOrderPayload(&body, orderID)
+
+		return payload, nil
+	}
+}
+
+// EncodeCancelAllOrdersResponse returns an encoder for responses returned by
+// the trade cancel_all_orders endpoint.
+func EncodeCancelAllOrdersResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
+	return func(ctx context.Context, w http.ResponseWriter, v any) error {
+		res, _ := v.(*trade.CancelAllOrdersResult)
+		enc := encoder(ctx, w)
+		body := NewCancelAllOrdersResponseBody(res)
+		w.WriteHeader(http.StatusOK)
+		return enc.Encode(body)
+	}
+}
+
+// EncodeValidateSymbolResponse returns an encoder for responses returned by
+// the trade validate_symbol endpoint.
+func EncodeValidateSymbolResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
+	return func(ctx context.Context, w http.ResponseWriter, v any) error {
+		res, _ := v.(*trade.ValidateSymbolResult)
+		enc := encoder(ctx, w)
+		body := NewValidateSymbolResponseBody(res)
+		w.WriteHeader(http.StatusOK)
+		return enc.Encode(body)
+	}
+}
+
+// DecodeValidateSymbolRequest returns a decoder for requests sent to the trade
+// validate_symbol endpoint.
+func DecodeValidateSymbolRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Decoder) func(*http.Request) (*trade.ValidateSymbolPayload, error) {
+	return func(r *http.Request) (*trade.ValidateSymbolPayload, error) {
+		var (
+			symbol string
+
+			params = mux.Vars(r)
+		)
+		symbol = params["symbol"]
+		payload := NewValidateSymbolPayload(symbol)
+
+		return payload, nil
+	}
+}
+
+// EncodeGetOrderHistoryResponse returns an encoder for responses returned by
+// the trade get_order_history endpoint.
+func EncodeGetOrderHistoryResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
+	return func(ctx context.Context, w http.ResponseWriter, v any) error {
+		res, _ := v.(*trade.GetOrderHistoryResult)
+		enc := encoder(ctx, w)
+		body := NewGetOrderHistoryResponseBody(res)
+		w.WriteHeader(http.StatusOK)
+		return enc.Encode(body)
+	}
+}
+
+// DecodeGetOrderHistoryRequest returns a decoder for requests sent to the
+// trade get_order_history endpoint.
+func DecodeGetOrderHistoryRequest(mux goahttp.Muxer, decoder func(*http.Request) goahttp.Decoder) func(*http.Request) (*trade.GetOrderHistoryPayload, error) {
+	return func(r *http.Request) (*trade.GetOrderHistoryPayload, error) {
+		var (
+			status *string
+			symbol *string
+			limit  uint
+			err    error
+		)
+		qp := r.URL.Query()
+		statusRaw := qp.Get("status")
+		if statusRaw != "" {
+			status = &statusRaw
+		}
+		if status != nil {
+			if !(*status == "NEW" || *status == "PARTIALLY_FILLED" || *status == "FILLED" || *status == "CANCELLED" || *status == "REJECTED") {
+				err = goa.MergeErrors(err, goa.InvalidEnumValueError("status", *status, []any{"NEW", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "REJECTED"}))
+			}
+		}
+		symbolRaw := qp.Get("symbol")
+		if symbolRaw != "" {
+			symbol = &symbolRaw
+		}
+		{
+			limitRaw := qp.Get("limit")
+			if limitRaw == "" {
+				limit = 100
+			} else {
+				v, err2 := strconv.ParseUint(limitRaw, 10, strconv.IntSize)
+				if err2 != nil {
+					err = goa.MergeErrors(err, goa.InvalidFieldTypeError("limit", limitRaw, "unsigned integer"))
+				}
+				limit = uint(v)
+			}
+		}
+		if err != nil {
+			return nil, err
+		}
+		payload := NewGetOrderHistoryPayload(status, symbol, limit)
+
+		return payload, nil
+	}
+}
+
+// EncodeHealthCheckResponse returns an encoder for responses returned by the
+// trade health_check endpoint.
+func EncodeHealthCheckResponse(encoder func(context.Context, http.ResponseWriter) goahttp.Encoder) func(context.Context, http.ResponseWriter, any) error {
+	return func(ctx context.Context, w http.ResponseWriter, v any) error {
+		res, _ := v.(*trade.HealthCheckResult)
+		enc := encoder(ctx, w)
+		body := NewHealthCheckResponseBody(res)
+		w.WriteHeader(http.StatusOK)
+		return enc.Encode(body)
+	}
+}
+
 // marshalTradeTradePositionResultToTradePositionResultResponseBody builds a
 // value of type *TradePositionResultResponseBody from a value of type
 // *trade.TradePositionResult.
@@ -222,6 +375,53 @@ func marshalTradeTradePriceHistoryItemToTradePriceHistoryItemResponseBody(v *tra
 		Low:    v.Low,
 		Close:  v.Close,
 		Volume: v.Volume,
+	}
+
+	return res
+}
+
+// marshalTradeTradeOrderHistoryResultToTradeOrderHistoryResultResponseBody
+// builds a value of type *TradeOrderHistoryResultResponseBody from a value of
+// type *trade.TradeOrderHistoryResult.
+func marshalTradeTradeOrderHistoryResultToTradeOrderHistoryResultResponseBody(v *trade.TradeOrderHistoryResult) *TradeOrderHistoryResultResponseBody {
+	res := &TradeOrderHistoryResultResponseBody{
+		OrderID:             v.OrderID,
+		Symbol:              v.Symbol,
+		TradeType:           v.TradeType,
+		OrderType:           v.OrderType,
+		Quantity:            v.Quantity,
+		Price:               v.Price,
+		OrderStatus:         v.OrderStatus,
+		PositionAccountType: v.PositionAccountType,
+		CreatedAt:           v.CreatedAt,
+		UpdatedAt:           v.UpdatedAt,
+	}
+	if v.Executions != nil {
+		res.Executions = make([]*TradeExecutionResultResponseBody, len(v.Executions))
+		for i, val := range v.Executions {
+			if val == nil {
+				res.Executions[i] = nil
+				continue
+			}
+			res.Executions[i] = marshalTradeTradeExecutionResultToTradeExecutionResultResponseBody(val)
+		}
+	}
+
+	return res
+}
+
+// marshalTradeTradeExecutionResultToTradeExecutionResultResponseBody builds a
+// value of type *TradeExecutionResultResponseBody from a value of type
+// *trade.TradeExecutionResult.
+func marshalTradeTradeExecutionResultToTradeExecutionResultResponseBody(v *trade.TradeExecutionResult) *TradeExecutionResultResponseBody {
+	if v == nil {
+		return nil
+	}
+	res := &TradeExecutionResultResponseBody{
+		ExecutionID:      v.ExecutionID,
+		ExecutedQuantity: v.ExecutedQuantity,
+		ExecutedPrice:    v.ExecutedPrice,
+		ExecutedAt:       v.ExecutedAt,
 	}
 
 	return res

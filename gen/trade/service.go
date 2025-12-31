@@ -27,6 +27,16 @@ type Service interface {
 	PlaceOrder(context.Context, *PlaceOrderPayload) (res *TradeOrderResult, err error)
 	// Cancel an existing order.
 	CancelOrder(context.Context, *CancelOrderPayload) (err error)
+	// Correct an existing order.
+	CorrectOrder(context.Context, *CorrectOrderPayload) (res *TradeOrderResult, err error)
+	// Cancel all pending orders.
+	CancelAllOrders(context.Context) (res *CancelAllOrdersResult, err error)
+	// Validate if a symbol is tradable and get trading information.
+	ValidateSymbol(context.Context, *ValidateSymbolPayload) (res *ValidateSymbolResult, err error)
+	// Get order history with optional filtering.
+	GetOrderHistory(context.Context, *GetOrderHistoryPayload) (res *GetOrderHistoryResult, err error)
+	// Check service health status.
+	HealthCheck(context.Context) (res *HealthCheckResult, err error)
 }
 
 // APIName is the name of the API as defined in the design.
@@ -43,13 +53,49 @@ const ServiceName = "trade"
 // MethodNames lists the service method names as defined in the design. These
 // are the same values that are set in the endpoint request contexts under the
 // MethodKey key.
-var MethodNames = [7]string{"get_session", "get_positions", "get_orders", "get_balance", "get_price_history", "place_order", "cancel_order"}
+var MethodNames = [12]string{"get_session", "get_positions", "get_orders", "get_balance", "get_price_history", "place_order", "cancel_order", "correct_order", "cancel_all_orders", "validate_symbol", "get_order_history", "health_check"}
+
+// CancelAllOrdersResult is the result type of the trade service
+// cancel_all_orders method.
+type CancelAllOrdersResult struct {
+	// キャンセルされた注文数
+	CancelledCount uint
+}
 
 // CancelOrderPayload is the payload type of the trade service cancel_order
 // method.
 type CancelOrderPayload struct {
 	// 注文ID
 	OrderID string
+}
+
+// CorrectOrderPayload is the payload type of the trade service correct_order
+// method.
+type CorrectOrderPayload struct {
+	// 注文ID
+	OrderID string
+	// 新しい価格
+	Price *float64
+	// 新しい数量
+	Quantity *uint
+}
+
+// GetOrderHistoryPayload is the payload type of the trade service
+// get_order_history method.
+type GetOrderHistoryPayload struct {
+	// 注文状態でフィルタ (NEW/FILLED/CANCELLED)
+	Status *string
+	// 銘柄コードでフィルタ
+	Symbol *string
+	// 取得件数制限
+	Limit uint
+}
+
+// GetOrderHistoryResult is the result type of the trade service
+// get_order_history method.
+type GetOrderHistoryResult struct {
+	// 注文履歴
+	Orders []*TradeOrderHistoryResult
 }
 
 // GetOrdersResult is the result type of the trade service get_orders method.
@@ -93,6 +139,21 @@ type GetSessionResult struct {
 	LoginTime string
 }
 
+// HealthCheckResult is the result type of the trade service health_check
+// method.
+type HealthCheckResult struct {
+	// サービス状態
+	Status string
+	// チェック時刻 (RFC3339)
+	Timestamp string
+	// セッション有効性
+	SessionValid *bool
+	// データベース接続状態
+	DatabaseConnected *bool
+	// WebSocket接続状態
+	WebsocketConnected *bool
+}
+
 // PlaceOrderPayload is the payload type of the trade service place_order
 // method.
 type PlaceOrderPayload struct {
@@ -119,6 +180,44 @@ type TradeBalanceResult struct {
 	Cash float64
 	// 買付余力
 	BuyingPower float64
+}
+
+// Execution information.
+type TradeExecutionResult struct {
+	// 約定ID
+	ExecutionID string
+	// 約定数量
+	ExecutedQuantity uint
+	// 約定価格
+	ExecutedPrice float64
+	// 約定日時 (RFC3339)
+	ExecutedAt string
+}
+
+// Order history information with execution details.
+type TradeOrderHistoryResult struct {
+	// 注文ID
+	OrderID string
+	// 銘柄コード
+	Symbol string
+	// 売買区分
+	TradeType string
+	// 注文種別
+	OrderType string
+	// 数量
+	Quantity uint
+	// 価格
+	Price float64
+	// 注文状態
+	OrderStatus string
+	// 口座区分
+	PositionAccountType *string
+	// 注文日時 (RFC3339)
+	CreatedAt string
+	// 更新日時 (RFC3339)
+	UpdatedAt *string
+	// 約定履歴
+	Executions []*TradeExecutionResult
 }
 
 // TradeOrderResult is the result type of the trade service place_order method.
@@ -169,4 +268,26 @@ type TradePriceHistoryItem struct {
 	Close float64
 	// 出来高
 	Volume uint64
+}
+
+// ValidateSymbolPayload is the payload type of the trade service
+// validate_symbol method.
+type ValidateSymbolPayload struct {
+	// 銘柄コード
+	Symbol string
+}
+
+// ValidateSymbolResult is the result type of the trade service validate_symbol
+// method.
+type ValidateSymbolResult struct {
+	// 取引可能かどうか
+	Valid bool
+	// 銘柄コード
+	Symbol string
+	// 銘柄名
+	Name *string
+	// 売買単位
+	TradingUnit *uint
+	// 市場
+	Market *string
 }

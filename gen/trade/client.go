@@ -22,10 +22,15 @@ type Client struct {
 	GetPriceHistoryEndpoint goa.Endpoint
 	PlaceOrderEndpoint      goa.Endpoint
 	CancelOrderEndpoint     goa.Endpoint
+	CorrectOrderEndpoint    goa.Endpoint
+	CancelAllOrdersEndpoint goa.Endpoint
+	ValidateSymbolEndpoint  goa.Endpoint
+	GetOrderHistoryEndpoint goa.Endpoint
+	HealthCheckEndpoint     goa.Endpoint
 }
 
 // NewClient initializes a "trade" service client given the endpoints.
-func NewClient(getSession, getPositions, getOrders, getBalance, getPriceHistory, placeOrder, cancelOrder goa.Endpoint) *Client {
+func NewClient(getSession, getPositions, getOrders, getBalance, getPriceHistory, placeOrder, cancelOrder, correctOrder, cancelAllOrders, validateSymbol, getOrderHistory, healthCheck goa.Endpoint) *Client {
 	return &Client{
 		GetSessionEndpoint:      getSession,
 		GetPositionsEndpoint:    getPositions,
@@ -34,6 +39,11 @@ func NewClient(getSession, getPositions, getOrders, getBalance, getPriceHistory,
 		GetPriceHistoryEndpoint: getPriceHistory,
 		PlaceOrderEndpoint:      placeOrder,
 		CancelOrderEndpoint:     cancelOrder,
+		CorrectOrderEndpoint:    correctOrder,
+		CancelAllOrdersEndpoint: cancelAllOrders,
+		ValidateSymbolEndpoint:  validateSymbol,
+		GetOrderHistoryEndpoint: getOrderHistory,
+		HealthCheckEndpoint:     healthCheck,
 	}
 }
 
@@ -102,4 +112,56 @@ func (c *Client) PlaceOrder(ctx context.Context, p *PlaceOrderPayload) (res *Tra
 func (c *Client) CancelOrder(ctx context.Context, p *CancelOrderPayload) (err error) {
 	_, err = c.CancelOrderEndpoint(ctx, p)
 	return
+}
+
+// CorrectOrder calls the "correct_order" endpoint of the "trade" service.
+func (c *Client) CorrectOrder(ctx context.Context, p *CorrectOrderPayload) (res *TradeOrderResult, err error) {
+	var ires any
+	ires, err = c.CorrectOrderEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*TradeOrderResult), nil
+}
+
+// CancelAllOrders calls the "cancel_all_orders" endpoint of the "trade"
+// service.
+func (c *Client) CancelAllOrders(ctx context.Context) (res *CancelAllOrdersResult, err error) {
+	var ires any
+	ires, err = c.CancelAllOrdersEndpoint(ctx, nil)
+	if err != nil {
+		return
+	}
+	return ires.(*CancelAllOrdersResult), nil
+}
+
+// ValidateSymbol calls the "validate_symbol" endpoint of the "trade" service.
+func (c *Client) ValidateSymbol(ctx context.Context, p *ValidateSymbolPayload) (res *ValidateSymbolResult, err error) {
+	var ires any
+	ires, err = c.ValidateSymbolEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*ValidateSymbolResult), nil
+}
+
+// GetOrderHistory calls the "get_order_history" endpoint of the "trade"
+// service.
+func (c *Client) GetOrderHistory(ctx context.Context, p *GetOrderHistoryPayload) (res *GetOrderHistoryResult, err error) {
+	var ires any
+	ires, err = c.GetOrderHistoryEndpoint(ctx, p)
+	if err != nil {
+		return
+	}
+	return ires.(*GetOrderHistoryResult), nil
+}
+
+// HealthCheck calls the "health_check" endpoint of the "trade" service.
+func (c *Client) HealthCheck(ctx context.Context) (res *HealthCheckResult, err error) {
+	var ires any
+	ires, err = c.HealthCheckEndpoint(ctx, nil)
+	if err != nil {
+		return
+	}
+	return ires.(*HealthCheckResult), nil
 }

@@ -248,7 +248,21 @@ func TestAuthClientImpl_LoginOnly(t *testing.T) {
 	require.NoError(t, err, "Login should not produce an error")
 	require.NotNil(t, session, "Session should not be nil")
 	require.Equal(t, "0", session.ResultCode, "Login result code should be 0")
+
+	// セッション内容の詳細確認
+	assert.NotEmpty(t, session.RequestURL, "RequestURL should not be empty")
+	assert.NotEmpty(t, session.MasterURL, "MasterURL should not be empty")
+	assert.NotEmpty(t, session.PriceURL, "PriceURL should not be empty")
+	assert.NotEmpty(t, session.EventURL, "EventURL should not be empty")
+	assert.NotNil(t, session.CookieJar, "CookieJar should not be nil")
+
+	// p_noの初期値確認
+	pNo := session.GetPNo()
+	assert.Greater(t, pNo, int32(0), "PNo should be greater than 0")
+
 	t.Logf("TestAuthClientImpl_LoginOnly - ログイン成功")
+	t.Logf("Session details - RequestURL: %s", session.RequestURL)
+	t.Logf("Session details - PNo: %d", pNo)
 }
 
 // TestAuthClientImpl_LogoutOnly は、ログイン後にログアウトのみを行うテストです。
@@ -266,6 +280,10 @@ func TestAuthClientImpl_LogoutOnly(t *testing.T) {
 	require.NotNil(t, session, "Session should not be nil before logout test")
 	t.Logf("TestAuthClientImpl_LogoutOnly - ログイン成功")
 
+	// ログイン直後のp_no確認
+	pNoBeforeLogout := session.GetPNo()
+	t.Logf("PNo before logout: %d", pNoBeforeLogout)
+
 	// 3. ログアウト
 	logoutRes, err := c.LogoutWithPost(context.Background(), session, request_auth.ReqLogout{})
 
@@ -273,7 +291,13 @@ func TestAuthClientImpl_LogoutOnly(t *testing.T) {
 	require.NoError(t, err, "Logout should not produce an error")
 	require.NotNil(t, logoutRes, "Logout response should not be nil")
 	require.Equal(t, "0", logoutRes.ResultCode, "Logout result code should be 0")
+
+	// ログアウト後のp_no確認（インクリメントされているはず）
+	pNoAfterLogout := session.GetPNo()
+	assert.Greater(t, pNoAfterLogout, pNoBeforeLogout, "PNo should increment after logout")
+
 	t.Logf("TestAuthClientImpl_LogoutOnly - ログアウト成功")
+	t.Logf("PNo after logout: %d", pNoAfterLogout)
 }
 
 func TestAuthClientImpl_MultipleSessions(t *testing.T) {
@@ -372,3 +396,81 @@ func TestAuthClientImpl_Sequence_LoginWaitLogoutLogin(t *testing.T) {
 }
 
 // go test -v ./internal/infrastructure/client/tests/auth_client_impl_test.go -run TestAuthClientImpl_Sequence_LoginWaitLogoutLogin
+
+// TestAuthClientImpl_InvalidCredentials は、不正な認証情報でのログインテストです。
+func TestAuthClientImpl_InvalidCredentials(t *testing.T) {
+	c := client.CreateTestClient(t)
+
+	// 不正な認証情報でログイン試行
+	loginReq := request_auth.ReqLogin{
+		UserId:   "invalid_user",
+		Password: "invalid_password",
+	}
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+
+	// ログインの失敗を確認
+	require.Error(t, err, "Login with invalid credentials should produce an error")
+	require.Nil(t, session, "Session should be nil when login fails")
+
+	// エラーメッセージの確認
+	assert.Contains(t, err.Error(), "login failed", "Error message should contain 'login failed'")
+
+	t.Logf("Expected login failure with invalid credentials: %v", err)
+}
+
+// TestAuthClientImpl_EmptyCredentials は、空の認証情報でのログインテストです。
+func TestAuthClientImpl_EmptyCredentials(t *testing.T) {
+	c := client.CreateTestClient(t)
+
+	// 空の認証情報でログイン試行
+	loginReq := request_auth.ReqLogin{
+		UserId:   "",
+		Password: "",
+	}
+	session, err := c.LoginWithPost(context.Background(), loginReq)
+
+	// ログインの失敗を確認
+	require.Error(t, err, "Login with empty credentials should produce an error")
+	require.Nil(t, session, "Session should be nil when login fails")
+
+	t.Logf("Expected login failure with empty credentials: %v", err)
+}
+
+// TestAuthClientImpl_LogoutWithoutLogin は、ログインせずにログアウトを試行するテストです。
+func TestAuthClientImpl_LogoutWithoutLogin(t *testing.T) {
+	c := client.CreateTestClient(t)
+
+	// ダミーセッションを作成（実際にはログインしていない）
+	dummySession := client.NewSession()
+	dummySession.RequestURL = "https://example.com/dummy"
+
+	// ログアウト試行
+	logoutRes, err := c.LogoutWithPost(context.Background(), dummySession, request_auth.ReqLogout{})
+
+	// ログアウトAPIの呼び出し自体は成功するが、ResultCodeでエラーが返される
+	require.NoError(t, err, "Logout API call should not produce an error")
+	require.NotNil(t, logoutRes, "Logout response should not be nil")
+
+	// 無効なセッションなのでResultCodeは"0"以外になるはず
+	assert.NotEqual(t, "0", logoutRes.ResultCode, "Logout with invalid session should fail")
+
+	t.Logf("Expected logout failure with invalid session: ResultCode=%s, ResultText=%s",
+		logoutRes.ResultCode, logoutRes.ResultText)
+}
+
+// TestAuthClientImpl_LogoutWithNilSession は、nilセッションでのログアウトテストです。
+func TestAuthClientImpl_LogoutWithNilSession(t *testing.T) {
+	c := client.CreateTestClient(t)
+
+	// nilセッションでログアウト試行
+	logoutRes, err := c.LogoutWithPost(context.Background(), nil, request_auth.ReqLogout{})
+
+	// nilセッションの場合はエラーが返されるはず
+	require.Error(t, err, "Logout with nil session should produce an error")
+	require.Nil(t, logoutRes, "Logout response should be nil when session is nil")
+
+	// エラーメッセージの確認
+	assert.Contains(t, err.Error(), "session is nil", "Error message should contain 'session is nil'")
+
+	t.Logf("Expected logout failure with nil session: %v", err)
+}

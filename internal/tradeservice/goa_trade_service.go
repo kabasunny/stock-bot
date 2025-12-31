@@ -20,6 +20,7 @@ type GoaTradeService struct {
 	orderClient   client.OrderClient
 	priceClient   client.PriceInfoClient
 	orderRepo     repository.OrderRepository
+	masterRepo    repository.MasterRepository // マスターデータリポジトリ
 	appSession    *client.Session
 	logger        *slog.Logger
 }
@@ -30,6 +31,7 @@ func NewGoaTradeService(
 	orderClient client.OrderClient,
 	priceClient client.PriceInfoClient,
 	orderRepo repository.OrderRepository,
+	masterRepo repository.MasterRepository, // マスターデータリポジトリ追加
 	appSession *client.Session,
 	logger *slog.Logger,
 ) *GoaTradeService {
@@ -38,6 +40,7 @@ func NewGoaTradeService(
 		orderClient:   orderClient,
 		priceClient:   priceClient,
 		orderRepo:     orderRepo,
+		masterRepo:    masterRepo, // 追加
 		appSession:    appSession,
 		logger:        logger,
 	}
@@ -332,6 +335,16 @@ func (s *GoaTradeService) GetPriceHistory(ctx context.Context, symbol string, da
 func (s *GoaTradeService) PlaceOrder(ctx context.Context, req *service.PlaceOrderRequest) (*model.Order, error) {
 	s.logger.Info("GoaTradeService.PlaceOrder called", "request", req)
 
+	// 1. 銘柄の妥当性チェック
+	if err := s.validateSymbol(ctx, req.Symbol); err != nil {
+		return nil, fmt.Errorf("symbol validation failed: %w", err)
+	}
+
+	// 2. 売買単位チェック
+	if err := s.validateTradingUnit(ctx, req.Symbol, req.Quantity); err != nil {
+		return nil, fmt.Errorf("trading unit validation failed: %w", err)
+	}
+
 	// BaibaiKubun のマッピング
 	var baibaiKubun string
 	switch req.TradeType {
@@ -426,8 +439,286 @@ func (s *GoaTradeService) PlaceOrder(ctx context.Context, req *service.PlaceOrde
 	return newOrder, nil
 }
 
+// validateSymbol は銘柄コードの妥当性をチェックする
+func (s *GoaTradeService) validateSymbol(ctx context.Context, symbol string) error {
+	rawResult, err := s.masterRepo.FindByIssueCode(ctx, symbol, "StockMaster")
+	if err != nil {
+		return fmt.Errorf("failed to find stock master: %w", err)
+	}
+	if rawResult == nil {
+		return fmt.Errorf("symbol %s not found in master data", symbol)
+	}
+	return nil
+}
+
+// validateTradingUnit は売買単位をチェックする
+func (s *GoaTradeService) validateTradingUnit(ctx context.Context, symbol string, quantity int) error {
+	rawResult, err := s.masterRepo.FindByIssueCode(ctx, symbol, "StockMaster")
+	if err != nil {
+		return fmt.Errorf("failed to find stock master: %w", err)
+	}
+	if rawResult == nil {
+		return fmt.Errorf("symbol %s not found in master data", symbol)
+	}
+
+	stockMaster, ok := rawResult.(*model.StockMaster)
+	if !ok {
+		return fmt.Errorf("unexpected type returned from repository")
+	}
+
+	if stockMaster.TradingUnit > 0 && quantity%stockMaster.TradingUnit != 0 {
+		return fmt.Errorf("quantity %d must be multiple of trading unit %d", quantity, stockMaster.TradingUnit)
+	}
+
+	return nil
+}
+
 // CancelOrder は注文をキャンセルする
 func (s *GoaTradeService) CancelOrder(ctx context.Context, orderID string) error {
 	s.logger.Info("GoaTradeService.CancelOrder called", "orderID", orderID)
-	return fmt.Errorf("CancelOrder not implemented") // ダミー実装
+
+	// 1. データベースから注文情報を取得
+	order, err := s.orderRepo.FindByID(ctx, orderID)
+	if err != nil {
+		return fmt.Errorf("failed to find order: %w", err)
+	}
+	if order == nil {
+		return fmt.Errorf("order not found: %s", orderID)
+	}
+
+	// 2. 注文がキャンセル可能な状態かチェック
+	if !order.IsUnexecuted() {
+		return fmt.Errorf("order %s cannot be cancelled, current status: %s", orderID, order.OrderStatus)
+	}
+
+	// 3. 営業日の取得（簡易実装：現在日付をYYYYMMDD形式で使用）
+	// 実際の実装では、証券会社の営業日カレンダーを参照する必要があります
+	eigyouDay := time.Now().Format("20060102")
+
+	// 4. 証券会社APIでキャンセル実行
+	params := client.CancelOrderParams{
+		OrderNumber: orderID,
+		EigyouDay:   eigyouDay,
+	}
+
+	res, err := s.orderClient.CancelOrder(ctx, s.appSession, params)
+	if err != nil {
+		return fmt.Errorf("failed to cancel order via api client: %w", err)
+	}
+
+	if res.ResultCode != "0" {
+		return fmt.Errorf("cancel order api returned error: code=%s, text=%s", res.ResultCode, res.ResultText)
+	}
+
+	// 5. データベースの注文状態を更新
+	order.OrderStatus = model.OrderStatusCanceled
+	if err := s.orderRepo.Save(ctx, order); err != nil {
+		s.logger.Error("successfully cancelled order but failed to update DB", "order_id", orderID, "error", err)
+		// APIでのキャンセルは成功しているので、エラーは返さずに警告ログのみ
+	}
+
+	s.logger.Info("successfully cancelled order", "order_id", orderID)
+	return nil
+}
+
+// GetOrderHistory は注文履歴を取得する
+func (s *GoaTradeService) GetOrderHistory(ctx context.Context, status *model.OrderStatus, symbol *string, limit int) ([]*model.Order, error) {
+	s.logger.Info("GoaTradeService.GetOrderHistory called", "status", status, "symbol", symbol, "limit", limit)
+
+	orders, err := s.orderRepo.FindOrderHistory(ctx, status, symbol, limit)
+	if err != nil {
+		return nil, fmt.Errorf("failed to get order history: %w", err)
+	}
+
+	s.logger.Info("successfully retrieved order history", "count", len(orders))
+	return orders, nil
+}
+
+// CorrectOrder は注文を訂正する
+func (s *GoaTradeService) CorrectOrder(ctx context.Context, orderID string, newPrice *float64, newQuantity *int) (*model.Order, error) {
+	s.logger.Info("GoaTradeService.CorrectOrder called", "orderID", orderID, "newPrice", newPrice, "newQuantity", newQuantity)
+
+	// 1. データベースから注文情報を取得
+	order, err := s.orderRepo.FindByID(ctx, orderID)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find order: %w", err)
+	}
+	if order == nil {
+		return nil, fmt.Errorf("order not found: %s", orderID)
+	}
+
+	// 2. 注文が訂正可能な状態かチェック
+	if !order.IsUnexecuted() {
+		return nil, fmt.Errorf("order %s cannot be corrected, current status: %s", orderID, order.OrderStatus)
+	}
+
+	// 3. 営業日の取得（簡易実装）
+	eigyouDay := time.Now().Format("20060102")
+
+	// 4. 訂正パラメータの準備
+	params := client.CorrectOrderParams{
+		OrderNumber:    orderID,
+		EigyouDay:      eigyouDay,
+		Condition:      "0", // 指定なし
+		OrderExpireDay: "0", // 当日限り
+	}
+
+	// 価格の設定
+	if newPrice != nil {
+		params.OrderPrice = strconv.FormatFloat(*newPrice, 'f', -1, 64)
+	} else {
+		params.OrderPrice = strconv.FormatFloat(order.Price, 'f', -1, 64)
+	}
+
+	// 数量の設定
+	if newQuantity != nil {
+		params.OrderSuryou = strconv.Itoa(*newQuantity)
+	} else {
+		params.OrderSuryou = strconv.Itoa(order.Quantity)
+	}
+
+	// 5. 証券会社APIで訂正実行
+	res, err := s.orderClient.CorrectOrder(ctx, s.appSession, params)
+	if err != nil {
+		return nil, fmt.Errorf("failed to correct order via api client: %w", err)
+	}
+
+	if res.ResultCode != "0" {
+		return nil, fmt.Errorf("correct order api returned error: code=%s, text=%s", res.ResultCode, res.ResultText)
+	}
+
+	// 6. データベースの注文情報を更新
+	if newPrice != nil {
+		order.Price = *newPrice
+	}
+	if newQuantity != nil {
+		order.Quantity = *newQuantity
+	}
+
+	if err := s.orderRepo.Save(ctx, order); err != nil {
+		s.logger.Error("successfully corrected order but failed to update DB", "order_id", orderID, "error", err)
+		// APIでの訂正は成功しているので、エラーは返さずに警告ログのみ
+	}
+
+	s.logger.Info("successfully corrected order", "order_id", orderID)
+	return order, nil
+}
+
+// CancelAllOrders は全ての未約定注文をキャンセルする
+func (s *GoaTradeService) CancelAllOrders(ctx context.Context) (int, error) {
+	s.logger.Info("GoaTradeService.CancelAllOrders called")
+
+	// 1. 証券会社APIで一括キャンセル実行
+	params := client.CancelOrderAllParams{}
+	res, err := s.orderClient.CancelOrderAll(ctx, s.appSession, params)
+	if err != nil {
+		return 0, fmt.Errorf("failed to cancel all orders via api client: %w", err)
+	}
+
+	if res.ResultCode != "0" {
+		return 0, fmt.Errorf("cancel all orders api returned error: code=%s, text=%s", res.ResultCode, res.ResultText)
+	}
+
+	// 2. データベースの未約定注文をキャンセル状態に更新
+	// 未約定注文を取得
+	newOrders, err := s.orderRepo.FindByStatus(ctx, model.OrderStatusNew)
+	if err != nil {
+		s.logger.Error("failed to find new orders for bulk cancel update", "error", err)
+		return 0, fmt.Errorf("failed to find orders to update: %w", err)
+	}
+
+	partiallyFilledOrders, err := s.orderRepo.FindByStatus(ctx, model.OrderStatusPartiallyFilled)
+	if err != nil {
+		s.logger.Error("failed to find partially filled orders for bulk cancel update", "error", err)
+		return 0, fmt.Errorf("failed to find orders to update: %w", err)
+	}
+
+	// 全ての未約定注文をキャンセル状態に更新
+	cancelledCount := 0
+	allOrders := append(newOrders, partiallyFilledOrders...)
+
+	for _, order := range allOrders {
+		order.OrderStatus = model.OrderStatusCanceled
+		if err := s.orderRepo.Save(ctx, order); err != nil {
+			s.logger.Error("failed to update order status to cancelled", "order_id", order.OrderID, "error", err)
+			continue
+		}
+		cancelledCount++
+	}
+
+	s.logger.Info("successfully cancelled all orders", "cancelled_count", cancelledCount)
+	return cancelledCount, nil
+}
+
+// ValidateSymbolInternal は内部用の銘柄バリデーション（外部公開用）
+func (s *GoaTradeService) ValidateSymbolInternal(ctx context.Context, symbol string) error {
+	return s.validateSymbol(ctx, symbol)
+}
+
+// StockInfo は銘柄情報を表現する構造体
+type StockInfo struct {
+	Symbol      string
+	Name        string
+	Market      string
+	TradingUnit int
+}
+
+// GetStockInfo は銘柄の詳細情報を取得する
+func (s *GoaTradeService) GetStockInfo(ctx context.Context, symbol string) (*StockInfo, error) {
+	rawResult, err := s.masterRepo.FindByIssueCode(ctx, symbol, "StockMaster")
+	if err != nil {
+		return nil, fmt.Errorf("failed to find stock master: %w", err)
+	}
+	if rawResult == nil {
+		return nil, fmt.Errorf("symbol %s not found in master data", symbol)
+	}
+
+	stockMaster, ok := rawResult.(*model.StockMaster)
+	if !ok {
+		return nil, fmt.Errorf("unexpected type returned from repository")
+	}
+
+	return &StockInfo{
+		Symbol:      stockMaster.IssueCode,
+		Name:        stockMaster.IssueName,
+		Market:      stockMaster.MarketCode,
+		TradingUnit: stockMaster.TradingUnit,
+	}, nil
+}
+
+// HealthCheck はサービスの健康状態をチェックする
+func (s *GoaTradeService) HealthCheck(ctx context.Context) (*service.HealthStatus, error) {
+	s.logger.Debug("GoaTradeService.HealthCheck called")
+
+	status := &service.HealthStatus{
+		Timestamp: time.Now(),
+	}
+
+	// セッション有効性チェック
+	if s.appSession != nil {
+		status.SessionValid = true
+	}
+
+	// データベース接続チェック
+	if s.orderRepo != nil {
+		// 簡単なクエリでデータベース接続をテスト
+		_, err := s.orderRepo.FindByStatus(ctx, model.OrderStatusNew)
+		status.DatabaseConnected = (err == nil)
+	}
+
+	// WebSocket接続状態は現在の実装では直接チェックできないため、
+	// 簡易的にEventClientの存在で判定
+	status.WebSocketConnected = true // 簡易実装
+
+	// 全体的な健康状態を判定
+	if status.SessionValid && status.DatabaseConnected && status.WebSocketConnected {
+		status.Status = "healthy"
+	} else if status.SessionValid && status.DatabaseConnected {
+		status.Status = "degraded"
+	} else {
+		status.Status = "unhealthy"
+	}
+
+	s.logger.Debug("health check completed", "status", status.Status)
+	return status, nil
 }

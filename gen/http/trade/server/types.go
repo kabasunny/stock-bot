@@ -32,6 +32,15 @@ type PlaceOrderRequestBody struct {
 	PositionAccountType *string `form:"position_account_type,omitempty" json:"position_account_type,omitempty" xml:"position_account_type,omitempty"`
 }
 
+// CorrectOrderRequestBody is the type of the "trade" service "correct_order"
+// endpoint HTTP request body.
+type CorrectOrderRequestBody struct {
+	// 新しい価格
+	Price *float64 `form:"price,omitempty" json:"price,omitempty" xml:"price,omitempty"`
+	// 新しい数量
+	Quantity *uint `form:"quantity,omitempty" json:"quantity,omitempty" xml:"quantity,omitempty"`
+}
+
 // GetSessionResponseBody is the type of the "trade" service "get_session"
 // endpoint HTTP response body.
 type GetSessionResponseBody struct {
@@ -96,6 +105,71 @@ type PlaceOrderResponseBody struct {
 	PositionAccountType *string `form:"position_account_type,omitempty" json:"position_account_type,omitempty" xml:"position_account_type,omitempty"`
 }
 
+// CorrectOrderResponseBody is the type of the "trade" service "correct_order"
+// endpoint HTTP response body.
+type CorrectOrderResponseBody struct {
+	// 注文ID
+	OrderID string `form:"order_id" json:"order_id" xml:"order_id"`
+	// 銘柄コード
+	Symbol string `form:"symbol" json:"symbol" xml:"symbol"`
+	// 売買区分
+	TradeType string `form:"trade_type" json:"trade_type" xml:"trade_type"`
+	// 注文種別
+	OrderType string `form:"order_type" json:"order_type" xml:"order_type"`
+	// 数量
+	Quantity uint `form:"quantity" json:"quantity" xml:"quantity"`
+	// 価格
+	Price float64 `form:"price" json:"price" xml:"price"`
+	// 注文状態
+	OrderStatus string `form:"order_status" json:"order_status" xml:"order_status"`
+	// 口座区分
+	PositionAccountType *string `form:"position_account_type,omitempty" json:"position_account_type,omitempty" xml:"position_account_type,omitempty"`
+}
+
+// CancelAllOrdersResponseBody is the type of the "trade" service
+// "cancel_all_orders" endpoint HTTP response body.
+type CancelAllOrdersResponseBody struct {
+	// キャンセルされた注文数
+	CancelledCount uint `form:"cancelled_count" json:"cancelled_count" xml:"cancelled_count"`
+}
+
+// ValidateSymbolResponseBody is the type of the "trade" service
+// "validate_symbol" endpoint HTTP response body.
+type ValidateSymbolResponseBody struct {
+	// 取引可能かどうか
+	Valid bool `form:"valid" json:"valid" xml:"valid"`
+	// 銘柄コード
+	Symbol string `form:"symbol" json:"symbol" xml:"symbol"`
+	// 銘柄名
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// 売買単位
+	TradingUnit *uint `form:"trading_unit,omitempty" json:"trading_unit,omitempty" xml:"trading_unit,omitempty"`
+	// 市場
+	Market *string `form:"market,omitempty" json:"market,omitempty" xml:"market,omitempty"`
+}
+
+// GetOrderHistoryResponseBody is the type of the "trade" service
+// "get_order_history" endpoint HTTP response body.
+type GetOrderHistoryResponseBody struct {
+	// 注文履歴
+	Orders []*TradeOrderHistoryResultResponseBody `form:"orders" json:"orders" xml:"orders"`
+}
+
+// HealthCheckResponseBody is the type of the "trade" service "health_check"
+// endpoint HTTP response body.
+type HealthCheckResponseBody struct {
+	// サービス状態
+	Status string `form:"status" json:"status" xml:"status"`
+	// チェック時刻 (RFC3339)
+	Timestamp string `form:"timestamp" json:"timestamp" xml:"timestamp"`
+	// セッション有効性
+	SessionValid *bool `form:"session_valid,omitempty" json:"session_valid,omitempty" xml:"session_valid,omitempty"`
+	// データベース接続状態
+	DatabaseConnected *bool `form:"database_connected,omitempty" json:"database_connected,omitempty" xml:"database_connected,omitempty"`
+	// WebSocket接続状態
+	WebsocketConnected *bool `form:"websocket_connected,omitempty" json:"websocket_connected,omitempty" xml:"websocket_connected,omitempty"`
+}
+
 // TradePositionResultResponseBody is used to define fields on response body
 // types.
 type TradePositionResultResponseBody struct {
@@ -146,6 +220,46 @@ type TradePriceHistoryItemResponseBody struct {
 	Close float64 `form:"close" json:"close" xml:"close"`
 	// 出来高
 	Volume uint64 `form:"volume" json:"volume" xml:"volume"`
+}
+
+// TradeOrderHistoryResultResponseBody is used to define fields on response
+// body types.
+type TradeOrderHistoryResultResponseBody struct {
+	// 注文ID
+	OrderID string `form:"order_id" json:"order_id" xml:"order_id"`
+	// 銘柄コード
+	Symbol string `form:"symbol" json:"symbol" xml:"symbol"`
+	// 売買区分
+	TradeType string `form:"trade_type" json:"trade_type" xml:"trade_type"`
+	// 注文種別
+	OrderType string `form:"order_type" json:"order_type" xml:"order_type"`
+	// 数量
+	Quantity uint `form:"quantity" json:"quantity" xml:"quantity"`
+	// 価格
+	Price float64 `form:"price" json:"price" xml:"price"`
+	// 注文状態
+	OrderStatus string `form:"order_status" json:"order_status" xml:"order_status"`
+	// 口座区分
+	PositionAccountType *string `form:"position_account_type,omitempty" json:"position_account_type,omitempty" xml:"position_account_type,omitempty"`
+	// 注文日時 (RFC3339)
+	CreatedAt string `form:"created_at" json:"created_at" xml:"created_at"`
+	// 更新日時 (RFC3339)
+	UpdatedAt *string `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+	// 約定履歴
+	Executions []*TradeExecutionResultResponseBody `form:"executions,omitempty" json:"executions,omitempty" xml:"executions,omitempty"`
+}
+
+// TradeExecutionResultResponseBody is used to define fields on response body
+// types.
+type TradeExecutionResultResponseBody struct {
+	// 約定ID
+	ExecutionID string `form:"execution_id" json:"execution_id" xml:"execution_id"`
+	// 約定数量
+	ExecutedQuantity uint `form:"executed_quantity" json:"executed_quantity" xml:"executed_quantity"`
+	// 約定価格
+	ExecutedPrice float64 `form:"executed_price" json:"executed_price" xml:"executed_price"`
+	// 約定日時 (RFC3339)
+	ExecutedAt string `form:"executed_at" json:"executed_at" xml:"executed_at"`
 }
 
 // NewGetSessionResponseBody builds the HTTP response body from the result of
@@ -244,6 +358,76 @@ func NewPlaceOrderResponseBody(res *trade.TradeOrderResult) *PlaceOrderResponseB
 	return body
 }
 
+// NewCorrectOrderResponseBody builds the HTTP response body from the result of
+// the "correct_order" endpoint of the "trade" service.
+func NewCorrectOrderResponseBody(res *trade.TradeOrderResult) *CorrectOrderResponseBody {
+	body := &CorrectOrderResponseBody{
+		OrderID:             res.OrderID,
+		Symbol:              res.Symbol,
+		TradeType:           res.TradeType,
+		OrderType:           res.OrderType,
+		Quantity:            res.Quantity,
+		Price:               res.Price,
+		OrderStatus:         res.OrderStatus,
+		PositionAccountType: res.PositionAccountType,
+	}
+	return body
+}
+
+// NewCancelAllOrdersResponseBody builds the HTTP response body from the result
+// of the "cancel_all_orders" endpoint of the "trade" service.
+func NewCancelAllOrdersResponseBody(res *trade.CancelAllOrdersResult) *CancelAllOrdersResponseBody {
+	body := &CancelAllOrdersResponseBody{
+		CancelledCount: res.CancelledCount,
+	}
+	return body
+}
+
+// NewValidateSymbolResponseBody builds the HTTP response body from the result
+// of the "validate_symbol" endpoint of the "trade" service.
+func NewValidateSymbolResponseBody(res *trade.ValidateSymbolResult) *ValidateSymbolResponseBody {
+	body := &ValidateSymbolResponseBody{
+		Valid:       res.Valid,
+		Symbol:      res.Symbol,
+		Name:        res.Name,
+		TradingUnit: res.TradingUnit,
+		Market:      res.Market,
+	}
+	return body
+}
+
+// NewGetOrderHistoryResponseBody builds the HTTP response body from the result
+// of the "get_order_history" endpoint of the "trade" service.
+func NewGetOrderHistoryResponseBody(res *trade.GetOrderHistoryResult) *GetOrderHistoryResponseBody {
+	body := &GetOrderHistoryResponseBody{}
+	if res.Orders != nil {
+		body.Orders = make([]*TradeOrderHistoryResultResponseBody, len(res.Orders))
+		for i, val := range res.Orders {
+			if val == nil {
+				body.Orders[i] = nil
+				continue
+			}
+			body.Orders[i] = marshalTradeTradeOrderHistoryResultToTradeOrderHistoryResultResponseBody(val)
+		}
+	} else {
+		body.Orders = []*TradeOrderHistoryResultResponseBody{}
+	}
+	return body
+}
+
+// NewHealthCheckResponseBody builds the HTTP response body from the result of
+// the "health_check" endpoint of the "trade" service.
+func NewHealthCheckResponseBody(res *trade.HealthCheckResult) *HealthCheckResponseBody {
+	body := &HealthCheckResponseBody{
+		Status:             res.Status,
+		Timestamp:          res.Timestamp,
+		SessionValid:       res.SessionValid,
+		DatabaseConnected:  res.DatabaseConnected,
+		WebsocketConnected: res.WebsocketConnected,
+	}
+	return body
+}
+
 // NewGetPriceHistoryPayload builds a trade service get_price_history endpoint
 // payload.
 func NewGetPriceHistoryPayload(symbol string, days uint) *trade.GetPriceHistoryPayload {
@@ -288,6 +472,37 @@ func NewPlaceOrderPayload(body *PlaceOrderRequestBody) *trade.PlaceOrderPayload 
 func NewCancelOrderPayload(orderID string) *trade.CancelOrderPayload {
 	v := &trade.CancelOrderPayload{}
 	v.OrderID = orderID
+
+	return v
+}
+
+// NewCorrectOrderPayload builds a trade service correct_order endpoint payload.
+func NewCorrectOrderPayload(body *CorrectOrderRequestBody, orderID string) *trade.CorrectOrderPayload {
+	v := &trade.CorrectOrderPayload{
+		Price:    body.Price,
+		Quantity: body.Quantity,
+	}
+	v.OrderID = orderID
+
+	return v
+}
+
+// NewValidateSymbolPayload builds a trade service validate_symbol endpoint
+// payload.
+func NewValidateSymbolPayload(symbol string) *trade.ValidateSymbolPayload {
+	v := &trade.ValidateSymbolPayload{}
+	v.Symbol = symbol
+
+	return v
+}
+
+// NewGetOrderHistoryPayload builds a trade service get_order_history endpoint
+// payload.
+func NewGetOrderHistoryPayload(status *string, symbol *string, limit uint) *trade.GetOrderHistoryPayload {
+	v := &trade.GetOrderHistoryPayload{}
+	v.Status = status
+	v.Symbol = symbol
+	v.Limit = limit
 
 	return v
 }

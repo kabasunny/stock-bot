@@ -14,6 +14,7 @@ import (
 	"stock-bot/internal/handler/web"
 	"stock-bot/internal/infrastructure/client"
 	repository_impl "stock-bot/internal/infrastructure/repository"
+	"stock-bot/internal/scheduler"
 	"stock-bot/internal/tradeservice"
 	"sync"
 	"syscall"
@@ -81,6 +82,7 @@ func main() {
 	var db *gorm.DB
 	var orderRepo repository.OrderRepository
 	var masterRepo repository.MasterRepository
+	var positionRepo repository.PositionRepository // 追加
 	var orderUsecase app.OrderUseCase
 	var masterUsecase app.MasterUseCase
 	var orderSvc order.Service
@@ -102,7 +104,7 @@ func main() {
 		// 3b. DB依存リポジトリを初期化
 		orderRepo = repository_impl.NewOrderRepository(db)
 		masterRepo = repository_impl.NewMasterRepository(db)
-		// positionRepo は不要（エージェント専用）
+		positionRepo = repository_impl.NewPositionRepository(db, orderRepo) // orderRepoを追加
 	} else {
 		slog.Default().Warn("database connection is disabled due to --no-db flag")
 	}
@@ -111,13 +113,35 @@ func main() {
 	var tachibanaClient *client.TachibanaClientImpl
 	var unifiedClient *client.TachibanaUnifiedClient
 	var unifiedClientAdapter *client.TachibanaUnifiedClientAdapter
+	var eventClient client.EventClient // 追加
 	var appSession *client.Session
+	var orderEventProcessor *tradeservice.OrderEventProcessor // 追加
 
-	// 4-Z. イベントクライアントの初期化は不要（エージェント専用）
+	// 4-Z. 注文イベント処理器の初期化（WebSocket約定通知用）
+	if !*noDB {
+		orderEventProcessor = tradeservice.NewOrderEventProcessor(
+			orderRepo,
+			positionRepo,
+			eventClient, // EventClient
+			appSession,
+			slog.Default(),
+		)
+
+		// WebSocketイベント処理を開始（監視対象銘柄は空で開始）
+		if err := orderEventProcessor.Start(context.Background(), []string{}); err != nil {
+			slog.Default().Error("failed to start order event processor", slog.Any("error", err))
+			// エラーでも続行（WebSocketは必須ではない）
+		} else {
+			slog.Default().Info("order event processor started successfully")
+		}
+	}
 
 	if !*noTachibana {
 		// 4-1. 証券会社APIクライアントを初期化
 		tachibanaClient = client.NewTachibanaClient(cfg)
+
+		// 4-1a. EventClientを初期化
+		eventClient = client.NewEventClient(slog.Default())
 
 		// 4-1b. 統合クライアントを初期化
 		unifiedClient = client.NewTachibanaUnifiedClient(
@@ -126,7 +150,7 @@ func main() {
 			tachibanaClient, // OrderClient
 			tachibanaClient, // PriceInfoClient
 			tachibanaClient, // MasterDataClient
-			nil,             // EventClient (エージェント専用のため不要)
+			eventClient,     // EventClient
 			cfg.TachibanaUserID,
 			cfg.TachibanaPassword,
 			cfg.TachibanaSecondPassword,
@@ -184,9 +208,26 @@ func main() {
 			unifiedClientAdapter, // TachibanaUnifiedClientAdapter implements OrderClient
 			unifiedClientAdapter, // TachibanaUnifiedClientAdapter implements PriceInfoClient
 			orderRepo,
+			masterRepo, // マスターデータリポジトリ追加
 			appSession,
 			slog.Default(),
 		)
+
+		// 4-Z. マスターデータスケジューラーの初期化と開始
+		masterScheduler := scheduler.NewMasterDataScheduler(
+			masterUsecase,
+			appSession,
+			slog.Default(),
+		)
+		masterScheduler.Start()
+
+		// Graceful shutdown時にスケジューラーとイベント処理器も停止
+		defer func() {
+			masterScheduler.Stop()
+			if orderEventProcessor != nil {
+				orderEventProcessor.Stop()
+			}
+		}()
 	}
 
 	// 5. Goaサービスの実装を初期化

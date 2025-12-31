@@ -45,3 +45,28 @@ func PlaceOrderTradePath() string {
 func CancelOrderTradePath(orderID string) string {
 	return fmt.Sprintf("/trade/orders/%v", orderID)
 }
+
+// CorrectOrderTradePath returns the URL path to the trade service correct_order HTTP endpoint.
+func CorrectOrderTradePath(orderID string) string {
+	return fmt.Sprintf("/trade/orders/%v", orderID)
+}
+
+// CancelAllOrdersTradePath returns the URL path to the trade service cancel_all_orders HTTP endpoint.
+func CancelAllOrdersTradePath() string {
+	return "/trade/orders"
+}
+
+// ValidateSymbolTradePath returns the URL path to the trade service validate_symbol HTTP endpoint.
+func ValidateSymbolTradePath(symbol string) string {
+	return fmt.Sprintf("/trade/symbols/%v/validate", symbol)
+}
+
+// GetOrderHistoryTradePath returns the URL path to the trade service get_order_history HTTP endpoint.
+func GetOrderHistoryTradePath() string {
+	return "/trade/orders/history"
+}
+
+// HealthCheckTradePath returns the URL path to the trade service health_check HTTP endpoint.
+func HealthCheckTradePath() string {
+	return "/trade/health"
+}

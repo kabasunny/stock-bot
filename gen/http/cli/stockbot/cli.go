@@ -33,17 +33,17 @@ func UsageCommands() []string {
 		"price (get|get-history)",
 		"position list",
 		"master (get-stock|update)",
-		"trade (get-session|get-positions|get-orders|get-balance|get-price-history|place-order|cancel-order)",
+		"trade (get-session|get-positions|get-orders|get-balance|get-price-history|place-order|cancel-order|correct-order|cancel-all-orders|validate-symbol|get-order-history|health-check)",
 	}
 }
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "order create --body '{\n      \"order_type\": \"MARKET\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.6621056743497284,\n      \"quantity\": 6129373346072046161,\n      \"symbol\": \"Magni eum omnis dolorem non.\",\n      \"trade_type\": \"BUY\"\n   }'" + "\n" +
+	return os.Args[0] + " " + "order create --body '{\n      \"order_type\": \"STOP\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.3316241385405468,\n      \"quantity\": 2990781352540722667,\n      \"symbol\": \"Laboriosam eaque quas aut necessitatibus.\",\n      \"trade_type\": \"BUY\"\n   }'" + "\n" +
 		os.Args[0] + " " + "balance get" + "\n" +
-		os.Args[0] + " " + "price get --symbol \"Quas aut sit est aperiam minus.\"" + "\n" +
+		os.Args[0] + " " + "price get --symbol \"Ad quo reiciendis.\"" + "\n" +
 		os.Args[0] + " " + "position list --type \"margin\"" + "\n" +
-		os.Args[0] + " " + "master get-stock --symbol \"Culpa et et perspiciatis.\"" + "\n" +
+		os.Args[0] + " " + "master get-stock --symbol \"Quod sed non doloremque rerum et.\"" + "\n" +
 		""
 }
 
@@ -106,6 +106,22 @@ func ParseEndpoint(
 
 		tradeCancelOrderFlags       = flag.NewFlagSet("cancel-order", flag.ExitOnError)
 		tradeCancelOrderOrderIDFlag = tradeCancelOrderFlags.String("order-id", "REQUIRED", "注文ID")
+
+		tradeCorrectOrderFlags       = flag.NewFlagSet("correct-order", flag.ExitOnError)
+		tradeCorrectOrderBodyFlag    = tradeCorrectOrderFlags.String("body", "REQUIRED", "")
+		tradeCorrectOrderOrderIDFlag = tradeCorrectOrderFlags.String("order-id", "REQUIRED", "注文ID")
+
+		tradeCancelAllOrdersFlags = flag.NewFlagSet("cancel-all-orders", flag.ExitOnError)
+
+		tradeValidateSymbolFlags      = flag.NewFlagSet("validate-symbol", flag.ExitOnError)
+		tradeValidateSymbolSymbolFlag = tradeValidateSymbolFlags.String("symbol", "REQUIRED", "銘柄コード")
+
+		tradeGetOrderHistoryFlags      = flag.NewFlagSet("get-order-history", flag.ExitOnError)
+		tradeGetOrderHistoryStatusFlag = tradeGetOrderHistoryFlags.String("status", "", "")
+		tradeGetOrderHistorySymbolFlag = tradeGetOrderHistoryFlags.String("symbol", "", "")
+		tradeGetOrderHistoryLimitFlag  = tradeGetOrderHistoryFlags.String("limit", "100", "")
+
+		tradeHealthCheckFlags = flag.NewFlagSet("health-check", flag.ExitOnError)
 	)
 	orderFlags.Usage = orderUsage
 	orderCreateFlags.Usage = orderCreateUsage
@@ -132,6 +148,11 @@ func ParseEndpoint(
 	tradeGetPriceHistoryFlags.Usage = tradeGetPriceHistoryUsage
 	tradePlaceOrderFlags.Usage = tradePlaceOrderUsage
 	tradeCancelOrderFlags.Usage = tradeCancelOrderUsage
+	tradeCorrectOrderFlags.Usage = tradeCorrectOrderUsage
+	tradeCancelAllOrdersFlags.Usage = tradeCancelAllOrdersUsage
+	tradeValidateSymbolFlags.Usage = tradeValidateSymbolUsage
+	tradeGetOrderHistoryFlags.Usage = tradeGetOrderHistoryUsage
+	tradeHealthCheckFlags.Usage = tradeHealthCheckUsage
 
 	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
 		return nil, nil, err
@@ -239,6 +260,21 @@ func ParseEndpoint(
 			case "cancel-order":
 				epf = tradeCancelOrderFlags
 
+			case "correct-order":
+				epf = tradeCorrectOrderFlags
+
+			case "cancel-all-orders":
+				epf = tradeCancelAllOrdersFlags
+
+			case "validate-symbol":
+				epf = tradeValidateSymbolFlags
+
+			case "get-order-history":
+				epf = tradeGetOrderHistoryFlags
+
+			case "health-check":
+				epf = tradeHealthCheckFlags
+
 			}
 
 		}
@@ -320,6 +356,19 @@ func ParseEndpoint(
 			case "cancel-order":
 				endpoint = c.CancelOrder()
 				data, err = tradec.BuildCancelOrderPayload(*tradeCancelOrderOrderIDFlag)
+			case "correct-order":
+				endpoint = c.CorrectOrder()
+				data, err = tradec.BuildCorrectOrderPayload(*tradeCorrectOrderBodyFlag, *tradeCorrectOrderOrderIDFlag)
+			case "cancel-all-orders":
+				endpoint = c.CancelAllOrders()
+			case "validate-symbol":
+				endpoint = c.ValidateSymbol()
+				data, err = tradec.BuildValidateSymbolPayload(*tradeValidateSymbolSymbolFlag)
+			case "get-order-history":
+				endpoint = c.GetOrderHistory()
+				data, err = tradec.BuildGetOrderHistoryPayload(*tradeGetOrderHistoryStatusFlag, *tradeGetOrderHistorySymbolFlag, *tradeGetOrderHistoryLimitFlag)
+			case "health-check":
+				endpoint = c.HealthCheck()
 			}
 		}
 	}
@@ -355,7 +404,7 @@ func orderCreateUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"order_type\": \"MARKET\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.6621056743497284,\n      \"quantity\": 6129373346072046161,\n      \"symbol\": \"Magni eum omnis dolorem non.\",\n      \"trade_type\": \"BUY\"\n   }'")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"order_type\": \"STOP\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.3316241385405468,\n      \"quantity\": 2990781352540722667,\n      \"symbol\": \"Laboriosam eaque quas aut necessitatibus.\",\n      \"trade_type\": \"BUY\"\n   }'")
 }
 
 // balanceUsage displays the usage of the balance command and its subcommands.
@@ -410,7 +459,7 @@ func priceGetUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get --symbol \"Quas aut sit est aperiam minus.\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get --symbol \"Ad quo reiciendis.\"")
 }
 
 func priceGetHistoryUsage() {
@@ -430,7 +479,7 @@ func priceGetHistoryUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get-history --symbol \"In perferendis quia.\" --days 8640151950192558662")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get-history --symbol \"Ipsa molestiae officiis.\" --days 3694419117942512938")
 }
 
 // positionUsage displays the usage of the position command and its subcommands.
@@ -487,7 +536,7 @@ func masterGetStockUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master get-stock --symbol \"Culpa et et perspiciatis.\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master get-stock --symbol \"Quod sed non doloremque rerum et.\"")
 }
 
 func masterUpdateUsage() {
@@ -518,6 +567,11 @@ func tradeUsage() {
 	fmt.Fprintln(os.Stderr, `    get-price-history: Get price history for a symbol.`)
 	fmt.Fprintln(os.Stderr, `    place-order: Place a new order.`)
 	fmt.Fprintln(os.Stderr, `    cancel-order: Cancel an existing order.`)
+	fmt.Fprintln(os.Stderr, `    correct-order: Correct an existing order.`)
+	fmt.Fprintln(os.Stderr, `    cancel-all-orders: Cancel all pending orders.`)
+	fmt.Fprintln(os.Stderr, `    validate-symbol: Validate if a symbol is tradable and get trading information.`)
+	fmt.Fprintln(os.Stderr, `    get-order-history: Get order history with optional filtering.`)
+	fmt.Fprintln(os.Stderr, `    health-check: Check service health status.`)
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Additional help:")
 	fmt.Fprintf(os.Stderr, "    %s trade COMMAND --help\n", os.Args[0])
@@ -603,7 +657,7 @@ func tradeGetPriceHistoryUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade get-price-history --symbol \"Fugiat ut ipsam et.\" --days 2259591567393035264")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade get-price-history --symbol \"Et aut omnis et quaerat hic.\" --days 17316397981120471069")
 }
 
 func tradePlaceOrderUsage() {
@@ -621,7 +675,7 @@ func tradePlaceOrderUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade place-order --body '{\n      \"order_type\": \"MARKET\",\n      \"position_account_type\": \"CASH\",\n      \"price\": 0.5029484076227678,\n      \"quantity\": 11455506375708637715,\n      \"symbol\": \"Laborum earum.\",\n      \"trade_type\": \"BUY\",\n      \"trigger_price\": 0.4347058532188131\n   }'")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade place-order --body '{\n      \"order_type\": \"STOP\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.035352781886726636,\n      \"quantity\": 11753193439472030627,\n      \"symbol\": \"Ab voluptates accusantium ut.\",\n      \"trade_type\": \"BUY\",\n      \"trigger_price\": 0.23317448032527996\n   }'")
 }
 
 func tradeCancelOrderUsage() {
@@ -639,5 +693,97 @@ func tradeCancelOrderUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade cancel-order --order-id \"Vel officia quia.\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade cancel-order --order-id \"Non sint.\"")
+}
+
+func tradeCorrectOrderUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade correct-order", os.Args[0])
+	fmt.Fprint(os.Stderr, " -body JSON")
+	fmt.Fprint(os.Stderr, " -order-id STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Correct an existing order.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -body JSON: `)
+	fmt.Fprintln(os.Stderr, `    -order-id STRING: 注文ID`)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade correct-order --body '{\n      \"price\": 0.21831992093893263,\n      \"quantity\": 3060878601666675377\n   }' --order-id \"Officia quia atque ad reprehenderit sunt.\"")
+}
+
+func tradeCancelAllOrdersUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade cancel-all-orders", os.Args[0])
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Cancel all pending orders.`)
+
+	// Flags list
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade cancel-all-orders")
+}
+
+func tradeValidateSymbolUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade validate-symbol", os.Args[0])
+	fmt.Fprint(os.Stderr, " -symbol STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Validate if a symbol is tradable and get trading information.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -symbol STRING: 銘柄コード`)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade validate-symbol --symbol \"A perspiciatis rerum et fuga veniam accusantium.\"")
+}
+
+func tradeGetOrderHistoryUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade get-order-history", os.Args[0])
+	fmt.Fprint(os.Stderr, " -status STRING")
+	fmt.Fprint(os.Stderr, " -symbol STRING")
+	fmt.Fprint(os.Stderr, " -limit UINT")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Get order history with optional filtering.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -status STRING: `)
+	fmt.Fprintln(os.Stderr, `    -symbol STRING: `)
+	fmt.Fprintln(os.Stderr, `    -limit UINT: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade get-order-history --status \"REJECTED\" --symbol \"Dolorum commodi.\" --limit 16253176959999472498")
+}
+
+func tradeHealthCheckUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade health-check", os.Args[0])
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Check service health status.`)
+
+	// Flags list
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade health-check")
 }

@@ -50,7 +50,7 @@ func BuildPlaceOrderPayload(tradePlaceOrderBody string) (*trade.PlaceOrderPayloa
 	{
 		err = json.Unmarshal([]byte(tradePlaceOrderBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"order_type\": \"MARKET\",\n      \"position_account_type\": \"CASH\",\n      \"price\": 0.5029484076227678,\n      \"quantity\": 11455506375708637715,\n      \"symbol\": \"Laborum earum.\",\n      \"trade_type\": \"BUY\",\n      \"trigger_price\": 0.4347058532188131\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"order_type\": \"STOP\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.035352781886726636,\n      \"quantity\": 11753193439472030627,\n      \"symbol\": \"Ab voluptates accusantium ut.\",\n      \"trade_type\": \"BUY\",\n      \"trigger_price\": 0.23317448032527996\n   }'")
 		}
 		if !(body.TradeType == "BUY" || body.TradeType == "SELL") {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.trade_type", body.TradeType, []any{"BUY", "SELL"}))
@@ -105,6 +105,84 @@ func BuildCancelOrderPayload(tradeCancelOrderOrderID string) (*trade.CancelOrder
 	}
 	v := &trade.CancelOrderPayload{}
 	v.OrderID = orderID
+
+	return v, nil
+}
+
+// BuildCorrectOrderPayload builds the payload for the trade correct_order
+// endpoint from CLI flags.
+func BuildCorrectOrderPayload(tradeCorrectOrderBody string, tradeCorrectOrderOrderID string) (*trade.CorrectOrderPayload, error) {
+	var err error
+	var body CorrectOrderRequestBody
+	{
+		err = json.Unmarshal([]byte(tradeCorrectOrderBody), &body)
+		if err != nil {
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"price\": 0.21831992093893263,\n      \"quantity\": 3060878601666675377\n   }'")
+		}
+	}
+	var orderID string
+	{
+		orderID = tradeCorrectOrderOrderID
+	}
+	v := &trade.CorrectOrderPayload{
+		Price:    body.Price,
+		Quantity: body.Quantity,
+	}
+	v.OrderID = orderID
+
+	return v, nil
+}
+
+// BuildValidateSymbolPayload builds the payload for the trade validate_symbol
+// endpoint from CLI flags.
+func BuildValidateSymbolPayload(tradeValidateSymbolSymbol string) (*trade.ValidateSymbolPayload, error) {
+	var symbol string
+	{
+		symbol = tradeValidateSymbolSymbol
+	}
+	v := &trade.ValidateSymbolPayload{}
+	v.Symbol = symbol
+
+	return v, nil
+}
+
+// BuildGetOrderHistoryPayload builds the payload for the trade
+// get_order_history endpoint from CLI flags.
+func BuildGetOrderHistoryPayload(tradeGetOrderHistoryStatus string, tradeGetOrderHistorySymbol string, tradeGetOrderHistoryLimit string) (*trade.GetOrderHistoryPayload, error) {
+	var err error
+	var status *string
+	{
+		if tradeGetOrderHistoryStatus != "" {
+			status = &tradeGetOrderHistoryStatus
+			if !(*status == "NEW" || *status == "PARTIALLY_FILLED" || *status == "FILLED" || *status == "CANCELLED" || *status == "REJECTED") {
+				err = goa.MergeErrors(err, goa.InvalidEnumValueError("status", *status, []any{"NEW", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "REJECTED"}))
+			}
+			if err != nil {
+				return nil, err
+			}
+		}
+	}
+	var symbol *string
+	{
+		if tradeGetOrderHistorySymbol != "" {
+			symbol = &tradeGetOrderHistorySymbol
+		}
+	}
+	var limit uint
+	{
+		if tradeGetOrderHistoryLimit != "" {
+			var v uint64
+			v, err = strconv.ParseUint(tradeGetOrderHistoryLimit, 10, strconv.IntSize)
+			limit = uint(v)
+			if err != nil {
+				return nil, fmt.Errorf("invalid value for limit, must be UINT")
+			}
+		}
+	}
+	v := &trade.GetOrderHistoryPayload{}
+	v.Status = status
+	v.Symbol = symbol
+	v.Limit = limit
 
 	return v, nil
 }

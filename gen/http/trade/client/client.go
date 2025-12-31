@@ -45,6 +45,26 @@ type Client struct {
 	// cancel_order endpoint.
 	CancelOrderDoer goahttp.Doer
 
+	// CorrectOrder Doer is the HTTP client used to make requests to the
+	// correct_order endpoint.
+	CorrectOrderDoer goahttp.Doer
+
+	// CancelAllOrders Doer is the HTTP client used to make requests to the
+	// cancel_all_orders endpoint.
+	CancelAllOrdersDoer goahttp.Doer
+
+	// ValidateSymbol Doer is the HTTP client used to make requests to the
+	// validate_symbol endpoint.
+	ValidateSymbolDoer goahttp.Doer
+
+	// GetOrderHistory Doer is the HTTP client used to make requests to the
+	// get_order_history endpoint.
+	GetOrderHistoryDoer goahttp.Doer
+
+	// HealthCheck Doer is the HTTP client used to make requests to the
+	// health_check endpoint.
+	HealthCheckDoer goahttp.Doer
+
 	// RestoreResponseBody controls whether the response bodies are reset after
 	// decoding so they can be read again.
 	RestoreResponseBody bool
@@ -72,6 +92,11 @@ func NewClient(
 		GetPriceHistoryDoer: doer,
 		PlaceOrderDoer:      doer,
 		CancelOrderDoer:     doer,
+		CorrectOrderDoer:    doer,
+		CancelAllOrdersDoer: doer,
+		ValidateSymbolDoer:  doer,
+		GetOrderHistoryDoer: doer,
+		HealthCheckDoer:     doer,
 		RestoreResponseBody: restoreBody,
 		scheme:              scheme,
 		host:                host,
@@ -218,6 +243,111 @@ func (c *Client) CancelOrder() goa.Endpoint {
 		resp, err := c.CancelOrderDoer.Do(req)
 		if err != nil {
 			return nil, goahttp.ErrRequestError("trade", "cancel_order", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// CorrectOrder returns an endpoint that makes HTTP requests to the trade
+// service correct_order server.
+func (c *Client) CorrectOrder() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeCorrectOrderRequest(c.encoder)
+		decodeResponse = DecodeCorrectOrderResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildCorrectOrderRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.CorrectOrderDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("trade", "correct_order", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// CancelAllOrders returns an endpoint that makes HTTP requests to the trade
+// service cancel_all_orders server.
+func (c *Client) CancelAllOrders() goa.Endpoint {
+	var (
+		decodeResponse = DecodeCancelAllOrdersResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildCancelAllOrdersRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.CancelAllOrdersDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("trade", "cancel_all_orders", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// ValidateSymbol returns an endpoint that makes HTTP requests to the trade
+// service validate_symbol server.
+func (c *Client) ValidateSymbol() goa.Endpoint {
+	var (
+		decodeResponse = DecodeValidateSymbolResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildValidateSymbolRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.ValidateSymbolDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("trade", "validate_symbol", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// GetOrderHistory returns an endpoint that makes HTTP requests to the trade
+// service get_order_history server.
+func (c *Client) GetOrderHistory() goa.Endpoint {
+	var (
+		encodeRequest  = EncodeGetOrderHistoryRequest(c.encoder)
+		decodeResponse = DecodeGetOrderHistoryResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildGetOrderHistoryRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		err = encodeRequest(req, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.GetOrderHistoryDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("trade", "get_order_history", err)
+		}
+		return decodeResponse(resp)
+	}
+}
+
+// HealthCheck returns an endpoint that makes HTTP requests to the trade
+// service health_check server.
+func (c *Client) HealthCheck() goa.Endpoint {
+	var (
+		decodeResponse = DecodeHealthCheckResponse(c.decoder, c.RestoreResponseBody)
+	)
+	return func(ctx context.Context, v any) (any, error) {
+		req, err := c.BuildHealthCheckRequest(ctx, v)
+		if err != nil {
+			return nil, err
+		}
+		resp, err := c.HealthCheckDoer.Do(req)
+		if err != nil {
+			return nil, goahttp.ErrRequestError("trade", "health_check", err)
 		}
 		return decodeResponse(resp)
 	}

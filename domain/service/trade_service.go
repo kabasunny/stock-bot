@@ -23,6 +23,14 @@ type TradeService interface {
 	PlaceOrder(ctx context.Context, req *PlaceOrderRequest) (*model.Order, error)
 	// CancelOrder は注文をキャンセルする
 	CancelOrder(ctx context.Context, orderID string) error
+	// CorrectOrder は注文を訂正する
+	CorrectOrder(ctx context.Context, orderID string, newPrice *float64, newQuantity *int) (*model.Order, error)
+	// CancelAllOrders は全ての未約定注文をキャンセルする
+	CancelAllOrders(ctx context.Context) (int, error)
+	// GetOrderHistory は注文履歴を取得する
+	GetOrderHistory(ctx context.Context, status *model.OrderStatus, symbol *string, limit int) ([]*model.Order, error)
+	// HealthCheck はサービスの健康状態をチェックする
+	HealthCheck(ctx context.Context) (*HealthStatus, error)
 }
 
 // Balance は残高情報を表現する
@@ -50,4 +58,13 @@ type PlaceOrderRequest struct {
 	Price               float64                   // 指値の場合のみ
 	TriggerPrice        float64                   // 逆指値の場合のみ
 	PositionAccountType model.PositionAccountType // ポジションの口座タイプ（現物/信用）
+}
+
+// HealthStatus はサービスの健康状態を表現する
+type HealthStatus struct {
+	Status             string // healthy, degraded, unhealthy
+	Timestamp          time.Time
+	SessionValid       bool
+	DatabaseConnected  bool
+	WebSocketConnected bool
 }

@@ -21,11 +21,11 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/StockbotBalance'
                             example:
-                                available_cash_for_stock: 0.19608872989821907
-                                available_margin_for_new_position: 0.059998793566151745
-                                has_margin_call: false
-                                margin_maintenance_rate: 0.049347475797107895
-                                withdrawable_cash: 0.9311816439423047
+                                available_cash_for_stock: 0.35469033390882565
+                                available_margin_for_new_position: 0.5002971533889782
+                                has_margin_call: true
+                                margin_maintenance_rate: 0.020635276172446364
+                                withdrawable_cash: 0.39230611040915553
     /master/stocks/{symbol}:
         get:
             tags:
@@ -41,8 +41,8 @@ paths:
                   schema:
                     type: string
                     description: Stock symbol to look up
-                    example: Voluptas doloremque.
-                  example: Dicta qui quae rerum rem.
+                    example: Aliquam doloribus labore est sint.
+                  example: Unde laboriosam.
             responses:
                 "200":
                     description: OK response.
@@ -51,12 +51,12 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/StockbotStockMaster'
                             example:
-                                industry_code: Est voluptate corrupti voluptatem qui quibusdam aut.
-                                industry_name: Corrupti vel.
-                                market: Error earum tempore.
-                                name: Enim ut velit dolorem quia amet.
-                                name_kana: Dolore saepe voluptatem laudantium quia.
-                                symbol: Quia et dolore.
+                                industry_code: Mollitia doloribus sit aperiam.
+                                industry_name: Ex odit.
+                                market: Alias ad omnis et fuga.
+                                name: Fugiat ut ipsam et.
+                                name_kana: Natus repellat assumenda.
+                                symbol: Dolorem asperiores.
     /master/update:
         post:
             tags:
@@ -81,11 +81,11 @@ paths:
                         schema:
                             $ref: '#/components/schemas/CreateRequestBody'
                         example:
-                            order_type: MARKET
+                            order_type: STOP
                             position_account_type: MARGIN_REPAY
-                            price: 0.6621056743497284
-                            quantity: 6129373346072046161
-                            symbol: Magni eum omnis dolorem non.
+                            price: 0.3316241385405468
+                            quantity: 2990781352540722667
+                            symbol: Laboriosam eaque quas aut necessitatibus.
                             trade_type: BUY
             responses:
                 "201":
@@ -95,7 +95,7 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/CreateResponseBody'
                             example:
-                                order_id: Error distinctio vel.
+                                order_id: Quisquam voluptatibus aut commodi sunt nobis.
     /positions:
         get:
             tags:
@@ -112,12 +112,12 @@ paths:
                     type: string
                     description: 取得するポジション種別 (all, cash, margin)
                     default: all
-                    example: margin
+                    example: all
                     enum:
                         - all
                         - cash
                         - margin
-                  example: all
+                  example: cash
             responses:
                 "200":
                     description: OK response.
@@ -127,30 +127,30 @@ paths:
                                 $ref: '#/components/schemas/StockbotPositionCollection'
                             example:
                                 positions:
-                                    - average_cost: 0.20235174436491518
-                                      current_price: 0.35469033390882565
-                                      opened_date: Non maiores rem.
-                                      position_type: CASH
-                                      quantity: 0.8978293485226214
-                                      symbol: Aut commodi sunt nobis maiores veritatis.
-                                      unrealized_pl: 0.5002971533889782
-                                      unrealized_pl_rate: 0.020635276172446364
-                                    - average_cost: 0.20235174436491518
-                                      current_price: 0.35469033390882565
-                                      opened_date: Non maiores rem.
-                                      position_type: CASH
-                                      quantity: 0.8978293485226214
-                                      symbol: Aut commodi sunt nobis maiores veritatis.
-                                      unrealized_pl: 0.5002971533889782
-                                      unrealized_pl_rate: 0.020635276172446364
-                                    - average_cost: 0.20235174436491518
-                                      current_price: 0.35469033390882565
-                                      opened_date: Non maiores rem.
-                                      position_type: CASH
-                                      quantity: 0.8978293485226214
-                                      symbol: Aut commodi sunt nobis maiores veritatis.
-                                      unrealized_pl: 0.5002971533889782
-                                      unrealized_pl_rate: 0.020635276172446364
+                                    - average_cost: 0.6115314622529594
+                                      current_price: 0.28419984245501584
+                                      opened_date: Dolores qui molestiae necessitatibus similique.
+                                      position_type: MARGIN_SHORT
+                                      quantity: 0.8862351183174124
+                                      symbol: Rerum corrupti vel inventore.
+                                      unrealized_pl: 0.9847886274238796
+                                      unrealized_pl_rate: 0.7244570912951388
+                                    - average_cost: 0.6115314622529594
+                                      current_price: 0.28419984245501584
+                                      opened_date: Dolores qui molestiae necessitatibus similique.
+                                      position_type: MARGIN_SHORT
+                                      quantity: 0.8862351183174124
+                                      symbol: Rerum corrupti vel inventore.
+                                      unrealized_pl: 0.9847886274238796
+                                      unrealized_pl_rate: 0.7244570912951388
+                                    - average_cost: 0.6115314622529594
+                                      current_price: 0.28419984245501584
+                                      opened_date: Dolores qui molestiae necessitatibus similique.
+                                      position_type: MARGIN_SHORT
+                                      quantity: 0.8862351183174124
+                                      symbol: Rerum corrupti vel inventore.
+                                      unrealized_pl: 0.9847886274238796
+                                      unrealized_pl_rate: 0.7244570912951388
     /price/{symbol}:
         get:
             tags:
@@ -166,8 +166,8 @@ paths:
                   schema:
                     type: string
                     description: Stock symbol to look up
-                    example: Minus autem mollitia sunt sed impedit fuga.
-                  example: Dolor quis excepturi.
+                    example: Repellendus soluta et dolor.
+                  example: Quia provident beatae tempore.
             responses:
                 "200":
                     description: OK response.
@@ -176,9 +176,9 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/StockbotPrice'
                             example:
-                                price: 0.15237361505796723
-                                symbol: Aut repudiandae veniam.
-                                timestamp: Est facilis illo vel nemo.
+                                price: 0.6600111735958817
+                                symbol: Ad est reiciendis repudiandae ut.
+                                timestamp: Perspiciatis quis sequi iure et.
     /price/{symbol}/history:
         get:
             tags:
@@ -195,9 +195,9 @@ paths:
                     type: integer
                     description: Number of historical days to retrieve (optional)
                     default: 0
-                    example: 8454861558744559146
+                    example: 635422095924788278
                     format: int64
-                  example: 4150731216713360408
+                  example: 1999768465171736157
                 - name: symbol
                   in: path
                   description: Stock symbol to look up
@@ -205,8 +205,8 @@ paths:
                   schema:
                     type: string
                     description: Stock symbol to look up
-                    example: Quibusdam eos ratione.
-                  example: Voluptas incidunt et placeat iure dolorem.
+                    example: Omnis quis fugit vero id.
+                  example: Vero iusto quis quisquam tempora.
             responses:
                 "200":
                     description: OK response.
@@ -216,19 +216,19 @@ paths:
                                 $ref: '#/components/schemas/StockbotHistoricalPrice'
                             example:
                                 history:
-                                    - close: 0.10814366793163242
-                                      date: Suscipit corrupti optio.
-                                      high: 0.2191720837596464
-                                      low: 0.5211799688121446
-                                      open: 0.9168597304305907
-                                      volume: 6978747911951668418
-                                    - close: 0.10814366793163242
-                                      date: Suscipit corrupti optio.
-                                      high: 0.2191720837596464
-                                      low: 0.5211799688121446
-                                      open: 0.9168597304305907
-                                      volume: 6978747911951668418
-                                symbol: Aut necessitatibus repudiandae ab laudantium itaque id.
+                                    - close: 0.1503607572905497
+                                      date: Et soluta quia et dolore sunt enim.
+                                      high: 0.6175028108365918
+                                      low: 0.6867397118167311
+                                      open: 0.03056458947281518
+                                      volume: 13502654749529134925
+                                    - close: 0.1503607572905497
+                                      date: Et soluta quia et dolore sunt enim.
+                                      high: 0.6175028108365918
+                                      low: 0.6867397118167311
+                                      open: 0.03056458947281518
+                                      volume: 13502654749529134925
+                                symbol: Earum tempore quis est voluptate corrupti voluptatem.
     /trade/balance:
         get:
             tags:
@@ -244,9 +244,44 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/TradeBalanceResult'
                             example:
-                                buying_power: 0.7610262751885679
-                                cash: 0.808726872876391
+                                buying_power: 0.9897278430654828
+                                cash: 0.8007260768027451
+    /trade/health:
+        get:
+            tags:
+                - trade
+            summary: health_check trade
+            description: Check service health status.
+            operationId: trade#health_check
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/HealthCheckResponseBody'
+                            example:
+                                database_connected: true
+                                session_valid: false
+                                status: healthy
+                                timestamp: Illum nihil porro dolores.
+                                websocket_connected: true
     /trade/orders:
+        delete:
+            tags:
+                - trade
+            summary: cancel_all_orders trade
+            description: Cancel all pending orders.
+            operationId: trade#cancel_all_orders
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/CancelAllOrdersResponseBody'
+                            example:
+                                cancelled_count: 1602759443323354116
         get:
             tags:
                 - trade
@@ -262,21 +297,37 @@ paths:
                                 $ref: '#/components/schemas/GetOrdersResponseBody'
                             example:
                                 orders:
-                                    - order_id: Ducimus error omnis earum unde aut omnis.
-                                      order_status: PARTIALLY_FILLED
-                                      order_type: STOP
+                                    - order_id: Non veritatis.
+                                      order_status: NEW
+                                      order_type: MARKET
                                       position_account_type: CASH
-                                      price: 0.0058671498883521266
-                                      quantity: 9854671031471039820
-                                      symbol: Deserunt accusamus quas reiciendis esse.
+                                      price: 0.5329769557283097
+                                      quantity: 2734975284091163162
+                                      symbol: Et aut est voluptas expedita vel officia.
                                       trade_type: BUY
-                                    - order_id: Ducimus error omnis earum unde aut omnis.
-                                      order_status: PARTIALLY_FILLED
-                                      order_type: STOP
+                                    - order_id: Non veritatis.
+                                      order_status: NEW
+                                      order_type: MARKET
                                       position_account_type: CASH
-                                      price: 0.0058671498883521266
-                                      quantity: 9854671031471039820
-                                      symbol: Deserunt accusamus quas reiciendis esse.
+                                      price: 0.5329769557283097
+                                      quantity: 2734975284091163162
+                                      symbol: Et aut est voluptas expedita vel officia.
+                                      trade_type: BUY
+                                    - order_id: Non veritatis.
+                                      order_status: NEW
+                                      order_type: MARKET
+                                      position_account_type: CASH
+                                      price: 0.5329769557283097
+                                      quantity: 2734975284091163162
+                                      symbol: Et aut est voluptas expedita vel officia.
+                                      trade_type: BUY
+                                    - order_id: Non veritatis.
+                                      order_status: NEW
+                                      order_type: MARKET
+                                      position_account_type: CASH
+                                      price: 0.5329769557283097
+                                      quantity: 2734975284091163162
+                                      symbol: Et aut est voluptas expedita vel officia.
                                       trade_type: BUY
         post:
             tags:
@@ -291,13 +342,13 @@ paths:
                         schema:
                             $ref: '#/components/schemas/PlaceOrderRequestBody'
                         example:
-                            order_type: MARKET
-                            position_account_type: CASH
-                            price: 0.5029484076227678
-                            quantity: 11455506375708637715
-                            symbol: Laborum earum.
+                            order_type: STOP
+                            position_account_type: MARGIN_REPAY
+                            price: 0.035352781886726636
+                            quantity: 11753193439472030627
+                            symbol: Ab voluptates accusantium ut.
                             trade_type: BUY
-                            trigger_price: 0.4347058532188131
+                            trigger_price: 0.23317448032527996
             responses:
                 "201":
                     description: Created response.
@@ -306,13 +357,13 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/TradeOrderResult'
                             example:
-                                order_id: Consequatur qui vitae numquam dolores officiis.
-                                order_status: FILLED
+                                order_id: Qui saepe occaecati.
+                                order_status: CANCELLED
                                 order_type: MARKET
                                 position_account_type: MARGIN_REPAY
-                                price: 0.680321335185618
-                                quantity: 16956297680375452591
-                                symbol: Id delectus saepe velit cum quia.
+                                price: 0.5298196346098396
+                                quantity: 17467573762902666045
+                                symbol: Alias consectetur id ipsum magnam aut officiis.
                                 trade_type: SELL
     /trade/orders/{order_id}:
         delete:
@@ -329,11 +380,158 @@ paths:
                   schema:
                     type: string
                     description: 注文ID
-                    example: Dolor ut ea est nihil.
-                  example: Ut distinctio neque.
+                    example: Dicta dignissimos fugit minus.
+                  example: Autem eos et alias.
             responses:
                 "204":
                     description: No Content response.
+        put:
+            tags:
+                - trade
+            summary: correct_order trade
+            description: Correct an existing order.
+            operationId: trade#correct_order
+            parameters:
+                - name: order_id
+                  in: path
+                  description: 注文ID
+                  required: true
+                  schema:
+                    type: string
+                    description: 注文ID
+                    example: Nesciunt iure ut doloremque vel at.
+                  example: Quia nam.
+            requestBody:
+                required: true
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/CorrectOrderRequestBody'
+                        example:
+                            price: 0.21831992093893263
+                            quantity: 3060878601666675377
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/TradeOrderResult'
+                            example:
+                                order_id: Repellendus vero quidem.
+                                order_status: REJECTED
+                                order_type: LIMIT
+                                position_account_type: MARGIN_REPAY
+                                price: 0.5887265162713878
+                                quantity: 3306388486030487579
+                                symbol: Ea expedita.
+                                trade_type: BUY
+    /trade/orders/history:
+        get:
+            tags:
+                - trade
+            summary: get_order_history trade
+            description: Get order history with optional filtering.
+            operationId: trade#get_order_history
+            parameters:
+                - name: status
+                  in: query
+                  description: 注文状態でフィルタ (NEW/FILLED/CANCELLED)
+                  allowEmptyValue: true
+                  schema:
+                    type: string
+                    description: 注文状態でフィルタ (NEW/FILLED/CANCELLED)
+                    example: NEW
+                    enum:
+                        - NEW
+                        - PARTIALLY_FILLED
+                        - FILLED
+                        - CANCELLED
+                        - REJECTED
+                  example: CANCELLED
+                - name: symbol
+                  in: query
+                  description: 銘柄コードでフィルタ
+                  allowEmptyValue: true
+                  schema:
+                    type: string
+                    description: 銘柄コードでフィルタ
+                    example: Animi ducimus voluptatibus nesciunt dolorem.
+                  example: Qui itaque.
+                - name: limit
+                  in: query
+                  description: 取得件数制限
+                  allowEmptyValue: true
+                  schema:
+                    type: integer
+                    description: 取得件数制限
+                    default: 100
+                    example: 16801883799205987192
+                    format: int64
+                  example: 4814894865519519324
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/GetOrderHistoryResponseBody'
+                            example:
+                                orders:
+                                    - created_at: Quia nulla quod et illo.
+                                      executions:
+                                        - executed_at: Quia amet.
+                                          executed_price: 0.40563774462858865
+                                          executed_quantity: 12403813217647026300
+                                          execution_id: Sunt soluta suscipit sapiente.
+                                        - executed_at: Quia amet.
+                                          executed_price: 0.40563774462858865
+                                          executed_quantity: 12403813217647026300
+                                          execution_id: Sunt soluta suscipit sapiente.
+                                        - executed_at: Quia amet.
+                                          executed_price: 0.40563774462858865
+                                          executed_quantity: 12403813217647026300
+                                          execution_id: Sunt soluta suscipit sapiente.
+                                        - executed_at: Quia amet.
+                                          executed_price: 0.40563774462858865
+                                          executed_quantity: 12403813217647026300
+                                          execution_id: Sunt soluta suscipit sapiente.
+                                      order_id: Et optio.
+                                      order_status: PARTIALLY_FILLED
+                                      order_type: MARKET
+                                      position_account_type: MARGIN_REPAY
+                                      price: 0.10427564949767608
+                                      quantity: 8272586495395915313
+                                      symbol: Vel quis at doloribus dicta sequi.
+                                      trade_type: SELL
+                                      updated_at: Maiores tempore voluptatem enim natus.
+                                    - created_at: Quia nulla quod et illo.
+                                      executions:
+                                        - executed_at: Quia amet.
+                                          executed_price: 0.40563774462858865
+                                          executed_quantity: 12403813217647026300
+                                          execution_id: Sunt soluta suscipit sapiente.
+                                        - executed_at: Quia amet.
+                                          executed_price: 0.40563774462858865
+                                          executed_quantity: 12403813217647026300
+                                          execution_id: Sunt soluta suscipit sapiente.
+                                        - executed_at: Quia amet.
+                                          executed_price: 0.40563774462858865
+                                          executed_quantity: 12403813217647026300
+                                          execution_id: Sunt soluta suscipit sapiente.
+                                        - executed_at: Quia amet.
+                                          executed_price: 0.40563774462858865
+                                          executed_quantity: 12403813217647026300
+                                          execution_id: Sunt soluta suscipit sapiente.
+                                      order_id: Et optio.
+                                      order_status: PARTIALLY_FILLED
+                                      order_type: MARKET
+                                      position_account_type: MARGIN_REPAY
+                                      price: 0.10427564949767608
+                                      quantity: 8272586495395915313
+                                      symbol: Vel quis at doloribus dicta sequi.
+                                      trade_type: SELL
+                                      updated_at: Maiores tempore voluptatem enim natus.
     /trade/positions:
         get:
             tags:
@@ -350,26 +548,26 @@ paths:
                                 $ref: '#/components/schemas/GetPositionsResponseBody'
                             example:
                                 positions:
-                                    - average_price: 0.8940087992526612
-                                      position_account_type: MARGIN_REPAY
-                                      position_type: LONG
-                                      quantity: 17213088909018602424
-                                      symbol: Quod sed non doloremque rerum et.
-                                    - average_price: 0.8940087992526612
-                                      position_account_type: MARGIN_REPAY
-                                      position_type: LONG
-                                      quantity: 17213088909018602424
-                                      symbol: Quod sed non doloremque rerum et.
-                                    - average_price: 0.8940087992526612
-                                      position_account_type: MARGIN_REPAY
-                                      position_type: LONG
-                                      quantity: 17213088909018602424
-                                      symbol: Quod sed non doloremque rerum et.
-                                    - average_price: 0.8940087992526612
-                                      position_account_type: MARGIN_REPAY
-                                      position_type: LONG
-                                      quantity: 17213088909018602424
-                                      symbol: Quod sed non doloremque rerum et.
+                                    - average_price: 0.8384054782373985
+                                      position_account_type: CASH
+                                      position_type: SHORT
+                                      quantity: 15498228815881510188
+                                      symbol: Id delectus saepe velit cum quia.
+                                    - average_price: 0.8384054782373985
+                                      position_account_type: CASH
+                                      position_type: SHORT
+                                      quantity: 15498228815881510188
+                                      symbol: Id delectus saepe velit cum quia.
+                                    - average_price: 0.8384054782373985
+                                      position_account_type: CASH
+                                      position_type: SHORT
+                                      quantity: 15498228815881510188
+                                      symbol: Id delectus saepe velit cum quia.
+                                    - average_price: 0.8384054782373985
+                                      position_account_type: CASH
+                                      position_type: SHORT
+                                      quantity: 15498228815881510188
+                                      symbol: Id delectus saepe velit cum quia.
     /trade/price-history/{symbol}:
         get:
             tags:
@@ -386,9 +584,9 @@ paths:
                     type: integer
                     description: 取得日数
                     default: 30
-                    example: 1266256088891091394
+                    example: 9684236430805324498
                     format: int64
-                  example: 11974613496833987907
+                  example: 7833144035337945094
                 - name: symbol
                   in: path
                   description: 銘柄コード
@@ -396,8 +594,8 @@ paths:
                   schema:
                     type: string
                     description: 銘柄コード
-                    example: Quae possimus magni alias ea nam esse.
-                  example: Dolor sint enim.
+                    example: Earum et cupiditate velit unde et.
+                  example: Fugit eaque saepe fugiat.
             responses:
                 "200":
                     description: OK response.
@@ -407,19 +605,25 @@ paths:
                                 $ref: '#/components/schemas/GetPriceHistoryResponseBody'
                             example:
                                 history:
-                                    - close: 0.020616266686586945
-                                      date: Repellat assumenda aliquam alias ad omnis.
-                                      high: 0.41180445206199423
-                                      low: 0.9975469495170005
-                                      open: 0.5741371277619516
-                                      volume: 14205415875966356517
-                                    - close: 0.020616266686586945
-                                      date: Repellat assumenda aliquam alias ad omnis.
-                                      high: 0.41180445206199423
-                                      low: 0.9975469495170005
-                                      open: 0.5741371277619516
-                                      volume: 14205415875966356517
-                                symbol: Aperiam fugiat ex.
+                                    - close: 0.022087843578465507
+                                      date: Debitis est recusandae eum error quisquam.
+                                      high: 0.6790591333563315
+                                      low: 0.4676894673958747
+                                      open: 0.4691351649419781
+                                      volume: 4226662194350992254
+                                    - close: 0.022087843578465507
+                                      date: Debitis est recusandae eum error quisquam.
+                                      high: 0.6790591333563315
+                                      low: 0.4676894673958747
+                                      open: 0.4691351649419781
+                                      volume: 4226662194350992254
+                                    - close: 0.022087843578465507
+                                      date: Debitis est recusandae eum error quisquam.
+                                      high: 0.6790591333563315
+                                      low: 0.4676894673958747
+                                      open: 0.4691351649419781
+                                      volume: 4226662194350992254
+                                symbol: Eum magnam enim omnis.
     /trade/session:
         get:
             tags:
@@ -435,11 +639,69 @@ paths:
                             schema:
                                 $ref: '#/components/schemas/GetSessionResponseBody'
                             example:
-                                login_time: Tenetur rerum dignissimos.
-                                session_id: Odit quibusdam impedit nemo accusamus sequi commodi.
-                                user_id: Qui molestiae necessitatibus similique quod.
+                                login_time: Consequatur qui vitae numquam dolores officiis.
+                                session_id: Laborum earum.
+                                user_id: Aliquid voluptas quas non est.
+    /trade/symbols/{symbol}/validate:
+        get:
+            tags:
+                - trade
+            summary: validate_symbol trade
+            description: Validate if a symbol is tradable and get trading information.
+            operationId: trade#validate_symbol
+            parameters:
+                - name: symbol
+                  in: path
+                  description: 銘柄コード
+                  required: true
+                  schema:
+                    type: string
+                    description: 銘柄コード
+                    example: Iure ut.
+                  example: Ut rem dignissimos nesciunt accusantium ipsum.
+            responses:
+                "200":
+                    description: OK response.
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ValidateSymbolResponseBody'
+                            example:
+                                market: Ea delectus explicabo dolores accusamus rem beatae.
+                                name: Quam velit modi.
+                                symbol: Harum quis.
+                                trading_unit: 16800353711328048946
+                                valid: true
 components:
     schemas:
+        CancelAllOrdersResponseBody:
+            type: object
+            properties:
+                cancelled_count:
+                    type: integer
+                    description: キャンセルされた注文数
+                    example: 9085561573989351027
+                    format: int64
+            example:
+                cancelled_count: 15752101251931254705
+            required:
+                - cancelled_count
+        CorrectOrderRequestBody:
+            type: object
+            properties:
+                price:
+                    type: number
+                    description: 新しい価格
+                    example: 0.92165727323376
+                    format: double
+                quantity:
+                    type: integer
+                    description: 新しい数量
+                    example: 7583038310906471794
+                    format: int64
+            example:
+                price: 0.9975526902986801
+                quantity: 9807652522003104802
         CreateRequestBody:
             type: object
             properties:
@@ -465,17 +727,17 @@ components:
                     type: number
                     description: 発注価格 (LIMIT注文の場合)
                     default: 0
-                    example: 0.7189598510357572
+                    example: 0.6472127986116736
                     format: double
                 quantity:
                     type: integer
                     description: 発注数量
-                    example: 17365599122411229834
+                    example: 14573235134456837803
                     format: int64
                 symbol:
                     type: string
                     description: '銘柄コード (例: 7203)'
-                    example: Esse eos ducimus.
+                    example: Quae enim.
                 trade_type:
                     type: string
                     description: 売買区分 (BUY/SELL)
@@ -484,12 +746,12 @@ components:
                         - BUY
                         - SELL
             example:
-                order_type: MARKET
+                order_type: STOP_LIMIT
                 position_account_type: CASH
-                price: 0.7887851367434308
-                quantity: 17661499801675234291
-                symbol: Rerum hic quae molestias consequatur placeat.
-                trade_type: SELL
+                price: 0.4447741383984083
+                quantity: 950247719971307740
+                symbol: Harum doloribus.
+                trade_type: BUY
             required:
                 - symbol
                 - trade_type
@@ -501,12 +763,160 @@ components:
                 order_id:
                     type: string
                     description: 受付済み注文ID
-                    example: Dolore laudantium animi ipsam.
+                    example: Soluta nobis necessitatibus iste dolorem.
             description: ID of the created order
             example:
-                order_id: Nihil dolorum quae.
+                order_id: Consequatur laboriosam.
             required:
                 - order_id
+        GetOrderHistoryResponseBody:
+            type: object
+            properties:
+                orders:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/TradeOrderHistoryResult'
+                    description: 注文履歴
+                    example:
+                        - created_at: Quia nulla quod et illo.
+                          executions:
+                            - executed_at: Quia amet.
+                              executed_price: 0.40563774462858865
+                              executed_quantity: 12403813217647026300
+                              execution_id: Sunt soluta suscipit sapiente.
+                            - executed_at: Quia amet.
+                              executed_price: 0.40563774462858865
+                              executed_quantity: 12403813217647026300
+                              execution_id: Sunt soluta suscipit sapiente.
+                            - executed_at: Quia amet.
+                              executed_price: 0.40563774462858865
+                              executed_quantity: 12403813217647026300
+                              execution_id: Sunt soluta suscipit sapiente.
+                            - executed_at: Quia amet.
+                              executed_price: 0.40563774462858865
+                              executed_quantity: 12403813217647026300
+                              execution_id: Sunt soluta suscipit sapiente.
+                          order_id: Et optio.
+                          order_status: PARTIALLY_FILLED
+                          order_type: MARKET
+                          position_account_type: MARGIN_REPAY
+                          price: 0.10427564949767608
+                          quantity: 8272586495395915313
+                          symbol: Vel quis at doloribus dicta sequi.
+                          trade_type: SELL
+                          updated_at: Maiores tempore voluptatem enim natus.
+                        - created_at: Quia nulla quod et illo.
+                          executions:
+                            - executed_at: Quia amet.
+                              executed_price: 0.40563774462858865
+                              executed_quantity: 12403813217647026300
+                              execution_id: Sunt soluta suscipit sapiente.
+                            - executed_at: Quia amet.
+                              executed_price: 0.40563774462858865
+                              executed_quantity: 12403813217647026300
+                              execution_id: Sunt soluta suscipit sapiente.
+                            - executed_at: Quia amet.
+                              executed_price: 0.40563774462858865
+                              executed_quantity: 12403813217647026300
+                              execution_id: Sunt soluta suscipit sapiente.
+                            - executed_at: Quia amet.
+                              executed_price: 0.40563774462858865
+                              executed_quantity: 12403813217647026300
+                              execution_id: Sunt soluta suscipit sapiente.
+                          order_id: Et optio.
+                          order_status: PARTIALLY_FILLED
+                          order_type: MARKET
+                          position_account_type: MARGIN_REPAY
+                          price: 0.10427564949767608
+                          quantity: 8272586495395915313
+                          symbol: Vel quis at doloribus dicta sequi.
+                          trade_type: SELL
+                          updated_at: Maiores tempore voluptatem enim natus.
+            example:
+                orders:
+                    - created_at: Quia nulla quod et illo.
+                      executions:
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                      order_id: Et optio.
+                      order_status: PARTIALLY_FILLED
+                      order_type: MARKET
+                      position_account_type: MARGIN_REPAY
+                      price: 0.10427564949767608
+                      quantity: 8272586495395915313
+                      symbol: Vel quis at doloribus dicta sequi.
+                      trade_type: SELL
+                      updated_at: Maiores tempore voluptatem enim natus.
+                    - created_at: Quia nulla quod et illo.
+                      executions:
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                      order_id: Et optio.
+                      order_status: PARTIALLY_FILLED
+                      order_type: MARKET
+                      position_account_type: MARGIN_REPAY
+                      price: 0.10427564949767608
+                      quantity: 8272586495395915313
+                      symbol: Vel quis at doloribus dicta sequi.
+                      trade_type: SELL
+                      updated_at: Maiores tempore voluptatem enim natus.
+                    - created_at: Quia nulla quod et illo.
+                      executions:
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                        - executed_at: Quia amet.
+                          executed_price: 0.40563774462858865
+                          executed_quantity: 12403813217647026300
+                          execution_id: Sunt soluta suscipit sapiente.
+                      order_id: Et optio.
+                      order_status: PARTIALLY_FILLED
+                      order_type: MARKET
+                      position_account_type: MARGIN_REPAY
+                      price: 0.10427564949767608
+                      quantity: 8272586495395915313
+                      symbol: Vel quis at doloribus dicta sequi.
+                      trade_type: SELL
+                      updated_at: Maiores tempore voluptatem enim natus.
+            required:
+                - orders
         GetOrdersResponseBody:
             type: object
             properties:
@@ -516,55 +926,55 @@ components:
                         $ref: '#/components/schemas/TradeOrderResult'
                     description: 注文のリスト
                     example:
-                        - order_id: Ducimus error omnis earum unde aut omnis.
-                          order_status: PARTIALLY_FILLED
-                          order_type: STOP
+                        - order_id: Non veritatis.
+                          order_status: NEW
+                          order_type: MARKET
                           position_account_type: CASH
-                          price: 0.0058671498883521266
-                          quantity: 9854671031471039820
-                          symbol: Deserunt accusamus quas reiciendis esse.
+                          price: 0.5329769557283097
+                          quantity: 2734975284091163162
+                          symbol: Et aut est voluptas expedita vel officia.
                           trade_type: BUY
-                        - order_id: Ducimus error omnis earum unde aut omnis.
-                          order_status: PARTIALLY_FILLED
-                          order_type: STOP
+                        - order_id: Non veritatis.
+                          order_status: NEW
+                          order_type: MARKET
                           position_account_type: CASH
-                          price: 0.0058671498883521266
-                          quantity: 9854671031471039820
-                          symbol: Deserunt accusamus quas reiciendis esse.
+                          price: 0.5329769557283097
+                          quantity: 2734975284091163162
+                          symbol: Et aut est voluptas expedita vel officia.
                           trade_type: BUY
-                        - order_id: Ducimus error omnis earum unde aut omnis.
-                          order_status: PARTIALLY_FILLED
-                          order_type: STOP
+                        - order_id: Non veritatis.
+                          order_status: NEW
+                          order_type: MARKET
                           position_account_type: CASH
-                          price: 0.0058671498883521266
-                          quantity: 9854671031471039820
-                          symbol: Deserunt accusamus quas reiciendis esse.
+                          price: 0.5329769557283097
+                          quantity: 2734975284091163162
+                          symbol: Et aut est voluptas expedita vel officia.
                           trade_type: BUY
             example:
                 orders:
-                    - order_id: Ducimus error omnis earum unde aut omnis.
-                      order_status: PARTIALLY_FILLED
-                      order_type: STOP
+                    - order_id: Non veritatis.
+                      order_status: NEW
+                      order_type: MARKET
                       position_account_type: CASH
-                      price: 0.0058671498883521266
-                      quantity: 9854671031471039820
-                      symbol: Deserunt accusamus quas reiciendis esse.
+                      price: 0.5329769557283097
+                      quantity: 2734975284091163162
+                      symbol: Et aut est voluptas expedita vel officia.
                       trade_type: BUY
-                    - order_id: Ducimus error omnis earum unde aut omnis.
-                      order_status: PARTIALLY_FILLED
-                      order_type: STOP
+                    - order_id: Non veritatis.
+                      order_status: NEW
+                      order_type: MARKET
                       position_account_type: CASH
-                      price: 0.0058671498883521266
-                      quantity: 9854671031471039820
-                      symbol: Deserunt accusamus quas reiciendis esse.
+                      price: 0.5329769557283097
+                      quantity: 2734975284091163162
+                      symbol: Et aut est voluptas expedita vel officia.
                       trade_type: BUY
-                    - order_id: Ducimus error omnis earum unde aut omnis.
-                      order_status: PARTIALLY_FILLED
-                      order_type: STOP
+                    - order_id: Non veritatis.
+                      order_status: NEW
+                      order_type: MARKET
                       position_account_type: CASH
-                      price: 0.0058671498883521266
-                      quantity: 9854671031471039820
-                      symbol: Deserunt accusamus quas reiciendis esse.
+                      price: 0.5329769557283097
+                      quantity: 2734975284091163162
+                      symbol: Et aut est voluptas expedita vel officia.
                       trade_type: BUY
             required:
                 - orders
@@ -577,33 +987,48 @@ components:
                         $ref: '#/components/schemas/TradePositionResult'
                     description: 保有ポジションのリスト
                     example:
-                        - average_price: 0.8940087992526612
-                          position_account_type: MARGIN_REPAY
-                          position_type: LONG
-                          quantity: 17213088909018602424
-                          symbol: Quod sed non doloremque rerum et.
-                        - average_price: 0.8940087992526612
-                          position_account_type: MARGIN_REPAY
-                          position_type: LONG
-                          quantity: 17213088909018602424
-                          symbol: Quod sed non doloremque rerum et.
-                        - average_price: 0.8940087992526612
-                          position_account_type: MARGIN_REPAY
-                          position_type: LONG
-                          quantity: 17213088909018602424
-                          symbol: Quod sed non doloremque rerum et.
+                        - average_price: 0.8384054782373985
+                          position_account_type: CASH
+                          position_type: SHORT
+                          quantity: 15498228815881510188
+                          symbol: Id delectus saepe velit cum quia.
+                        - average_price: 0.8384054782373985
+                          position_account_type: CASH
+                          position_type: SHORT
+                          quantity: 15498228815881510188
+                          symbol: Id delectus saepe velit cum quia.
+                        - average_price: 0.8384054782373985
+                          position_account_type: CASH
+                          position_type: SHORT
+                          quantity: 15498228815881510188
+                          symbol: Id delectus saepe velit cum quia.
+                        - average_price: 0.8384054782373985
+                          position_account_type: CASH
+                          position_type: SHORT
+                          quantity: 15498228815881510188
+                          symbol: Id delectus saepe velit cum quia.
             example:
                 positions:
-                    - average_price: 0.8940087992526612
-                      position_account_type: MARGIN_REPAY
-                      position_type: LONG
-                      quantity: 17213088909018602424
-                      symbol: Quod sed non doloremque rerum et.
-                    - average_price: 0.8940087992526612
-                      position_account_type: MARGIN_REPAY
-                      position_type: LONG
-                      quantity: 17213088909018602424
-                      symbol: Quod sed non doloremque rerum et.
+                    - average_price: 0.8384054782373985
+                      position_account_type: CASH
+                      position_type: SHORT
+                      quantity: 15498228815881510188
+                      symbol: Id delectus saepe velit cum quia.
+                    - average_price: 0.8384054782373985
+                      position_account_type: CASH
+                      position_type: SHORT
+                      quantity: 15498228815881510188
+                      symbol: Id delectus saepe velit cum quia.
+                    - average_price: 0.8384054782373985
+                      position_account_type: CASH
+                      position_type: SHORT
+                      quantity: 15498228815881510188
+                      symbol: Id delectus saepe velit cum quia.
+                    - average_price: 0.8384054782373985
+                      position_account_type: CASH
+                      position_type: SHORT
+                      quantity: 15498228815881510188
+                      symbol: Id delectus saepe velit cum quia.
             required:
                 - positions
         GetPriceHistoryResponseBody:
@@ -615,55 +1040,43 @@ components:
                         $ref: '#/components/schemas/TradePriceHistoryItem'
                     description: 価格履歴
                     example:
-                        - close: 0.020616266686586945
-                          date: Repellat assumenda aliquam alias ad omnis.
-                          high: 0.41180445206199423
-                          low: 0.9975469495170005
-                          open: 0.5741371277619516
-                          volume: 14205415875966356517
-                        - close: 0.020616266686586945
-                          date: Repellat assumenda aliquam alias ad omnis.
-                          high: 0.41180445206199423
-                          low: 0.9975469495170005
-                          open: 0.5741371277619516
-                          volume: 14205415875966356517
-                        - close: 0.020616266686586945
-                          date: Repellat assumenda aliquam alias ad omnis.
-                          high: 0.41180445206199423
-                          low: 0.9975469495170005
-                          open: 0.5741371277619516
-                          volume: 14205415875966356517
-                        - close: 0.020616266686586945
-                          date: Repellat assumenda aliquam alias ad omnis.
-                          high: 0.41180445206199423
-                          low: 0.9975469495170005
-                          open: 0.5741371277619516
-                          volume: 14205415875966356517
+                        - close: 0.022087843578465507
+                          date: Debitis est recusandae eum error quisquam.
+                          high: 0.6790591333563315
+                          low: 0.4676894673958747
+                          open: 0.4691351649419781
+                          volume: 4226662194350992254
+                        - close: 0.022087843578465507
+                          date: Debitis est recusandae eum error quisquam.
+                          high: 0.6790591333563315
+                          low: 0.4676894673958747
+                          open: 0.4691351649419781
+                          volume: 4226662194350992254
                 symbol:
                     type: string
                     description: 銘柄コード
-                    example: Sit aut autem.
+                    example: Commodi fugit quia.
             example:
                 history:
-                    - close: 0.020616266686586945
-                      date: Repellat assumenda aliquam alias ad omnis.
-                      high: 0.41180445206199423
-                      low: 0.9975469495170005
-                      open: 0.5741371277619516
-                      volume: 14205415875966356517
-                    - close: 0.020616266686586945
-                      date: Repellat assumenda aliquam alias ad omnis.
-                      high: 0.41180445206199423
-                      low: 0.9975469495170005
-                      open: 0.5741371277619516
-                      volume: 14205415875966356517
-                    - close: 0.020616266686586945
-                      date: Repellat assumenda aliquam alias ad omnis.
-                      high: 0.41180445206199423
-                      low: 0.9975469495170005
-                      open: 0.5741371277619516
-                      volume: 14205415875966356517
-                symbol: Quam est veritatis optio necessitatibus ut rem.
+                    - close: 0.022087843578465507
+                      date: Debitis est recusandae eum error quisquam.
+                      high: 0.6790591333563315
+                      low: 0.4676894673958747
+                      open: 0.4691351649419781
+                      volume: 4226662194350992254
+                    - close: 0.022087843578465507
+                      date: Debitis est recusandae eum error quisquam.
+                      high: 0.6790591333563315
+                      low: 0.4676894673958747
+                      open: 0.4691351649419781
+                      volume: 4226662194350992254
+                    - close: 0.022087843578465507
+                      date: Debitis est recusandae eum error quisquam.
+                      high: 0.6790591333563315
+                      low: 0.4676894673958747
+                      open: 0.4691351649419781
+                      volume: 4226662194350992254
+                symbol: Eum soluta provident odio quis ea.
             required:
                 - symbol
                 - history
@@ -673,63 +1086,99 @@ components:
                 login_time:
                     type: string
                     description: ログイン時刻 (RFC3339)
-                    example: Nemo dolores dolores et reprehenderit.
+                    example: Quaerat blanditiis dolores quos a corrupti a.
                 session_id:
                     type: string
                     description: セッションID
-                    example: Blanditiis voluptatibus atque.
+                    example: Et et alias voluptas.
                 user_id:
                     type: string
                     description: ユーザーID
-                    example: Est nobis ut quia veniam ducimus.
+                    example: Iusto doloremque quos omnis eos nisi.
             example:
-                login_time: Est praesentium ratione nihil et.
-                session_id: Aut aliquam reprehenderit totam ea molestiae ab.
-                user_id: Aut qui quia.
+                login_time: Pariatur recusandae saepe nesciunt assumenda.
+                session_id: Pariatur aut exercitationem id quos.
+                user_id: Cum quia.
             required:
                 - session_id
                 - user_id
                 - login_time
+        HealthCheckResponseBody:
+            type: object
+            properties:
+                database_connected:
+                    type: boolean
+                    description: データベース接続状態
+                    example: true
+                session_valid:
+                    type: boolean
+                    description: セッション有効性
+                    example: false
+                status:
+                    type: string
+                    description: サービス状態
+                    example: healthy
+                    enum:
+                        - healthy
+                        - degraded
+                        - unhealthy
+                timestamp:
+                    type: string
+                    description: チェック時刻 (RFC3339)
+                    example: Atque qui nemo nihil alias iusto quam.
+                websocket_connected:
+                    type: boolean
+                    description: WebSocket接続状態
+                    example: false
+            example:
+                database_connected: true
+                session_valid: false
+                status: unhealthy
+                timestamp: Numquam minus assumenda.
+                websocket_connected: false
+            required:
+                - status
+                - timestamp
         HistoricalPriceItem:
             type: object
             properties:
                 close:
                     type: number
                     description: 終値
-                    example: 0.7037912164332724
+                    example: 0.8090230882256886
                     format: double
                 date:
                     type: string
                     description: 日付 (YYYY-MM-DD)
-                    example: Necessitatibus quae facere rerum.
+                    example: Suscipit consequatur.
                 high:
                     type: number
                     description: 高値
-                    example: 0.8815346450207732
+                    example: 0.2353104297711908
                     format: double
                 low:
                     type: number
                     description: 安値
-                    example: 0.010708991048246491
+                    example: 0.6217106032008924
                     format: double
                 open:
                     type: number
                     description: 始値
-                    example: 0.1551204290810788
+                    example: 0.17183688511103337
                     format: double
                 volume:
                     type: integer
                     description: 出来高
-                    example: 12301886196417156849
+                    example: 10469181429289022198
                     format: int64
             description: A single historical price data point.
             example:
-                close: 0.14658333063035303
-                date: Et ut aut rerum.
-                high: 0.002108626032156028
-                low: 0.7989011384318411
-                open: 0.37778233283909446
-                volume: 11003617503387365400
+                close: 0.6058732117632667
+                date: Minus autem mollitia sunt sed impedit fuga.
+                high: 0.7961175790769536
+                low: 0.3446414993030389
+                open: 0.8195613730642125
+                volume: 8454861558744559146
             required:
                 - date
                 - open
@@ -742,7 +1191,7 @@ components:
                 order_type:
                     type: string
                     description: 注文種別
-                    example: MARKET
+                    example: LIMIT
                     enum:
                         - MARKET
                         - LIMIT
@@ -760,17 +1209,17 @@ components:
                     type: number
                     description: 価格 (指値の場合)
                     default: 0
-                    example: 0.6668016456449366
+                    example: 0.884267388546336
                     format: double
                 quantity:
                     type: integer
                     description: 数量
-                    example: 4665847874330874349
+                    example: 1751507656066127631
                     format: int64
                 symbol:
                     type: string
                     description: 銘柄コード
-                    example: Accusamus omnis aspernatur.
+                    example: Excepturi dolorum nihil et aliquid corporis.
                 trade_type:
                     type: string
                     description: 売買区分
@@ -782,16 +1231,16 @@ components:
                     type: number
                     description: トリガー価格 (逆指値の場合)
                     default: 0
-                    example: 0.04740602739516814
+                    example: 0.6572855451569828
                     format: double
             example:
-                order_type: LIMIT
-                position_account_type: CASH
-                price: 0.6217106032008924
-                quantity: 11393727674786656636
-                symbol: Cupiditate dolor incidunt nesciunt eius suscipit.
-                trade_type: BUY
-                trigger_price: 0.8090230882256886
+                order_type: MARKET
+                position_account_type: MARGIN_NEW
+                price: 0.499660116502031
+                quantity: 3676548180469711423
+                symbol: Consequatur debitis facere fuga labore nisi adipisci.
+                trade_type: SELL
+                trigger_price: 0.7105946258789325
             required:
                 - symbol
                 - trade_type
@@ -803,17 +1252,17 @@ components:
                 average_cost:
                     type: number
                     description: 平均取得単価
-                    example: 0.901285607765323
+                    example: 0.30244811721765974
                     format: double
                 current_price:
                     type: number
                     description: 現在値
-                    example: 0.7390920806451466
+                    example: 0.8116670252456761
                     format: double
                 opened_date:
                     type: string
                     description: 建日 (信用取引の場合 YYYYMMDD)
-                    example: Aliquam sed dignissimos nobis aut quia similique.
+                    example: Iure dolorem.
                 position_type:
                     type: string
                     description: ポジション種別 (CASH, MARGIN_LONG, MARGIN_SHORT)
@@ -825,32 +1274,32 @@ components:
                 quantity:
                     type: number
                     description: 保有数量
-                    example: 0.3931726700756945
+                    example: 0.218033150040318
                     format: double
                 symbol:
                     type: string
                     description: 銘柄コード
-                    example: Ut dolores maiores sed autem.
+                    example: Quo quibusdam.
                 unrealized_pl:
                     type: number
                     description: 評価損益
-                    example: 0.7512265390502573
+                    example: 0.6062271735062597
                     format: double
                 unrealized_pl_rate:
                     type: number
                     description: 評価損益率(%)
-                    example: 0.7511845150673093
+                    example: 0.8515030080524613
                     format: double
             description: A single trading position.
             example:
-                average_cost: 0.02384974359959296
-                current_price: 0.24018331207404164
-                opened_date: Eum sed earum.
-                position_type: CASH
-                quantity: 0.7615239018670558
-                symbol: Aut cumque deleniti.
-                unrealized_pl: 0.3332193837733577
-                unrealized_pl_rate: 0.4851045670494064
+                average_cost: 0.7683063632111605
+                current_price: 0.8492533552161299
+                opened_date: Rem repellat laborum suscipit quae possimus.
+                position_type: MARGIN_LONG
+                quantity: 0.057087934665629954
+                symbol: Ullam alias.
+                unrealized_pl: 0.05330609646981596
+                unrealized_pl_rate: 0.5783893778718848
             required:
                 - symbol
                 - position_type
@@ -862,12 +1311,12 @@ components:
                 available_cash_for_stock:
                     type: number
                     description: 現物株式買付可能額
-                    example: 0.3514294900153512
+                    example: 0.3318414174554845
                     format: double
                 available_margin_for_new_position:
                     type: number
                     description: 信用新規建可能額
-                    example: 0.5817774579512561
+                    example: 0.003528726083805016
                     format: double
                 has_margin_call:
                     type: boolean
@@ -876,20 +1325,20 @@ components:
                 margin_maintenance_rate:
                     type: number
                     description: 委託保証金率(%)
-                    example: 0.007120158300584318
+                    example: 0.5231995272267529
                     format: double
                 withdrawable_cash:
                     type: number
                     description: 出金可能額
-                    example: 0.5760541435625052
+                    example: 0.24598072645242308
                     format: double
             description: A summary of the account balance.
             example:
-                available_cash_for_stock: 0.30179621189895733
-                available_margin_for_new_position: 0.7783096615069511
+                available_cash_for_stock: 0.5521888696217566
+                available_margin_for_new_position: 0.7906016338813907
                 has_margin_call: true
-                margin_maintenance_rate: 0.18684942543149677
-                withdrawable_cash: 0.9690886093750832
+                margin_maintenance_rate: 0.07695831524613306
+                withdrawable_cash: 0.049707908309078425
             required:
                 - available_cash_for_stock
                 - available_margin_for_new_position
@@ -917,10 +1366,16 @@ components:
                           low: 0.4299912980212158
                           open: 0.36896146900825927
                           volume: 13556978941330540991
+                        - close: 0.2737470145137035
+                          date: Ipsa hic rem dolor voluptatem qui dicta.
+                          high: 0.9756334718189932
+                          low: 0.4299912980212158
+                          open: 0.36896146900825927
+                          volume: 13556978941330540991
                 symbol:
                     type: string
                     description: 銘柄コード
-                    example: Delectus nam ab ea.
+                    example: Iste maiores iste neque vel voluptas.
             description: Historical price information for a stock.
             example:
                 history:
@@ -948,7 +1403,7 @@ components:
                       low: 0.4299912980212158
                       open: 0.36896146900825927
                       volume: 13556978941330540991
-                symbol: Cumque dolor placeat nihil et neque.
+                symbol: Voluptas odio esse.
             required:
                 - symbol
                 - history
@@ -1028,21 +1483,21 @@ components:
                 price:
                     type: number
                     description: 現在値
-                    example: 0.6661841100061571
+                    example: 0.18239233018943202
                     format: double
                 symbol:
                     type: string
                     description: 銘柄コード
-                    example: Explicabo adipisci cum deserunt nisi molestias totam.
+                    example: At impedit aut.
                 timestamp:
                     type: string
                     description: 価格取得日時 (RFC3339)
-                    example: Velit corporis recusandae.
+                    example: Repellendus ut eveniet.
             description: The current price information for a stock.
             example:
-                price: 0.24119571229839987
-                symbol: Reprehenderit corporis accusamus et et.
-                timestamp: Omnis cum ut officia unde et.
+                price: 0.28572808916604303
+                symbol: Ratione sint.
+                timestamp: Corrupti ullam autem.
             required:
                 - symbol
                 - price
@@ -1053,35 +1508,35 @@ components:
                 industry_code:
                     type: string
                     description: 業種コード
-                    example: Beatae illo.
+                    example: Reiciendis eligendi iste deserunt ipsum sunt at.
                 industry_name:
                     type: string
                     description: 業種コード名
-                    example: Praesentium sequi quia molestias.
+                    example: Quod ex omnis ad mollitia in.
                 market:
                     type: string
                     description: 優先市場
-                    example: Quis dolores doloribus voluptatibus a nesciunt.
+                    example: Et odit a ut a repudiandae.
                 name:
                     type: string
                     description: 銘柄名
-                    example: Reiciendis cumque.
+                    example: Eius neque suscipit animi ut ut.
                 name_kana:
                     type: string
                     description: 銘柄名（カナ）
-                    example: Quam perferendis est ea.
+                    example: Maxime qui id nulla.
                 symbol:
                     type: string
                     description: 銘柄コード
-                    example: In eos.
+                    example: Quis rerum velit ullam sed est est.
             description: Basic master data for a single stock.
             example:
-                industry_code: Excepturi rem velit at cum minima.
-                industry_name: Consequuntur corporis voluptas.
-                market: Sunt dolor.
-                name: Est doloremque tempora.
-                name_kana: Repellendus rerum aliquam velit numquam qui.
-                symbol: Quia facilis eos.
+                industry_code: Ullam architecto eum.
+                industry_name: Voluptatem quia est aut aut facere voluptas.
+                market: Sequi sunt et alias laborum.
+                name: Aut eos est.
+                name_kana: Sit sint repellat hic excepturi at.
+                symbol: Recusandae sed praesentium dolores fuga quo.
             required:
                 - symbol
                 - name
@@ -1092,31 +1547,81 @@ components:
                 buying_power:
                     type: number
                     description: 買付余力
-                    example: 0.8338209059172053
+                    example: 0.4578192714007639
                     format: double
                 cash:
                     type: number
                     description: 現金残高
-                    example: 0.3043655298654924
+                    example: 0.9429888935872107
                     format: double
             description: Account balance information.
             example:
-                buying_power: 0.7291488460082843
-                cash: 0.4052771745516066
+                buying_power: 0.4505870018479915
+                cash: 0.43116510534212216
             required:
                 - cash
                 - buying_power
-        TradeOrderResult:
+        TradeExecutionResult:
             type: object
             properties:
+                executed_at:
+                    type: string
+                    description: 約定日時 (RFC3339)
+                    example: Exercitationem assumenda qui ut.
+                executed_price:
+                    type: number
+                    description: 約定価格
+                    example: 0.3151761943672314
+                    format: double
+                executed_quantity:
+                    type: integer
+                    description: 約定数量
+                    example: 4928973092827132721
+                    format: int64
+                execution_id:
+                    type: string
+                    description: 約定ID
+                    example: Aut est quae blanditiis unde.
+            description: Execution information.
+            example:
+                executed_at: Aspernatur vero et sequi totam expedita.
+                executed_price: 0.7265781997419424
+                executed_quantity: 2633932756642787883
+                execution_id: Quo dolor consequuntur reiciendis.
+            required:
+                - execution_id
+                - executed_quantity
+                - executed_price
+                - executed_at
+        TradeOrderHistoryResult:
+            type: object
+            properties:
+                created_at:
+                    type: string
+                    description: 注文日時 (RFC3339)
+                    example: Voluptas non quisquam inventore quisquam quae et.
+                executions:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/TradeExecutionResult'
+                    description: 約定履歴
+                    example:
+                        - executed_at: Eveniet pariatur suscipit corrupti.
+                          executed_price: 0.4944308050558556
+                          executed_quantity: 13649559545904860552
+                          execution_id: Magnam et temporibus.
+                        - executed_at: Eveniet pariatur suscipit corrupti.
+                          executed_price: 0.4944308050558556
+                          executed_quantity: 13649559545904860552
+                          execution_id: Magnam et temporibus.
                 order_id:
                     type: string
                     description: 注文ID
-                    example: Explicabo mollitia natus.
+                    example: Eos nemo qui laudantium tenetur molestias.
                 order_status:
                     type: string
                     description: 注文状態
-                    example: CANCELLED
+                    example: FILLED
                     enum:
                         - NEW
                         - PARTIALLY_FILLED
@@ -1134,7 +1639,7 @@ components:
                 position_account_type:
                     type: string
                     description: 口座区分
-                    example: MARGIN_NEW
+                    example: CASH
                     enum:
                         - CASH
                         - MARGIN_NEW
@@ -1142,17 +1647,113 @@ components:
                 price:
                     type: number
                     description: 価格
-                    example: 0.1885631305672877
+                    example: 0.4482269052674119
                     format: double
                 quantity:
                     type: integer
                     description: 数量
-                    example: 1673773204936125410
+                    example: 374330867845614707
                     format: int64
                 symbol:
                     type: string
                     description: 銘柄コード
-                    example: Veritatis fugit maiores animi cumque qui.
+                    example: Et similique fuga.
+                trade_type:
+                    type: string
+                    description: 売買区分
+                    example: BUY
+                    enum:
+                        - BUY
+                        - SELL
+                updated_at:
+                    type: string
+                    description: 更新日時 (RFC3339)
+                    example: Cum iusto beatae.
+            description: Order history information with execution details.
+            example:
+                created_at: Vero animi aliquam.
+                executions:
+                    - executed_at: Eveniet pariatur suscipit corrupti.
+                      executed_price: 0.4944308050558556
+                      executed_quantity: 13649559545904860552
+                      execution_id: Magnam et temporibus.
+                    - executed_at: Eveniet pariatur suscipit corrupti.
+                      executed_price: 0.4944308050558556
+                      executed_quantity: 13649559545904860552
+                      execution_id: Magnam et temporibus.
+                    - executed_at: Eveniet pariatur suscipit corrupti.
+                      executed_price: 0.4944308050558556
+                      executed_quantity: 13649559545904860552
+                      execution_id: Magnam et temporibus.
+                    - executed_at: Eveniet pariatur suscipit corrupti.
+                      executed_price: 0.4944308050558556
+                      executed_quantity: 13649559545904860552
+                      execution_id: Magnam et temporibus.
+                order_id: Rem earum.
+                order_status: NEW
+                order_type: MARKET
+                position_account_type: MARGIN_NEW
+                price: 0.4507492593120759
+                quantity: 15473658412851363779
+                symbol: Voluptatibus sit nihil expedita suscipit doloremque.
+                trade_type: BUY
+                updated_at: Veniam ea porro voluptatem.
+            required:
+                - order_id
+                - symbol
+                - trade_type
+                - order_type
+                - quantity
+                - price
+                - order_status
+                - created_at
+        TradeOrderResult:
+            type: object
+            properties:
+                order_id:
+                    type: string
+                    description: 注文ID
+                    example: Id autem.
+                order_status:
+                    type: string
+                    description: 注文状態
+                    example: PARTIALLY_FILLED
+                    enum:
+                        - NEW
+                        - PARTIALLY_FILLED
+                        - FILLED
+                        - CANCELLED
+                        - REJECTED
+                order_type:
+                    type: string
+                    description: 注文種別
+                    example: LIMIT
+                    enum:
+                        - MARKET
+                        - LIMIT
+                        - STOP
+                position_account_type:
+                    type: string
+                    description: 口座区分
+                    example: MARGIN_REPAY
+                    enum:
+                        - CASH
+                        - MARGIN_NEW
+                        - MARGIN_REPAY
+                price:
+                    type: number
+                    description: 価格
+                    example: 0.9737601395783244
+                    format: double
+                quantity:
+                    type: integer
+                    description: 数量
+                    example: 9770277880179828818
+                    format: int64
+                symbol:
+                    type: string
+                    description: 銘柄コード
+                    example: Qui alias et.
                 trade_type:
                     type: string
                     description: 売買区分
@@ -1162,13 +1763,13 @@ components:
                         - SELL
             description: Trading order information.
             example:
-                order_id: Repellendus consequatur nobis maxime eum vitae sed.
-                order_status: NEW
-                order_type: STOP
-                position_account_type: MARGIN_REPAY
-                price: 0.7146948245274504
-                quantity: 4260298473020387570
-                symbol: Aut sed non veritatis.
+                order_id: Suscipit quasi ad dolore omnis.
+                order_status: PARTIALLY_FILLED
+                order_type: MARKET
+                position_account_type: CASH
+                price: 0.788311371847271
+                quantity: 861344697858877013
+                symbol: Rerum in.
                 trade_type: SELL
             required:
                 - order_id
@@ -1184,7 +1785,7 @@ components:
                 average_price:
                     type: number
                     description: 平均取得価格
-                    example: 0.3764268231281139
+                    example: 0.7500725468799104
                     format: double
                 position_account_type:
                     type: string
@@ -1197,26 +1798,26 @@ components:
                 position_type:
                     type: string
                     description: ポジション種別
-                    example: SHORT
+                    example: LONG
                     enum:
                         - LONG
                         - SHORT
                 quantity:
                     type: integer
                     description: 数量
-                    example: 7862249195462345683
+                    example: 14343856072097130068
                     format: int64
                 symbol:
                     type: string
                     description: 銘柄コード
-                    example: Dolorum nihil saepe quidem est excepturi impedit.
+                    example: Alias ea nam esse.
             description: Trading position information.
             example:
-                average_price: 0.5427217145471391
+                average_price: 0.006083839336881662
                 position_account_type: MARGIN_REPAY
-                position_type: LONG
-                quantity: 2348015047669624892
-                symbol: Facilis harum.
+                position_type: SHORT
+                quantity: 519740652147421060
+                symbol: Dolor ut ea est nihil.
             required:
                 - symbol
                 - position_type
@@ -1229,40 +1830,40 @@ components:
                 close:
                     type: number
                     description: 終値
-                    example: 0.08283390212394603
+                    example: 0.3596922387477228
                     format: double
                 date:
                     type: string
                     description: 日付 (RFC3339)
-                    example: Expedita et tenetur quam.
+                    example: Omnis quos est.
                 high:
                     type: number
                     description: 高値
-                    example: 0.9551137146962924
+                    example: 0.45011005327168285
                     format: double
                 low:
                     type: number
                     description: 安値
-                    example: 0.24842263970291453
+                    example: 0.43999906972933506
                     format: double
                 open:
                     type: number
                     description: 始値
-                    example: 0.5713885775042499
+                    example: 0.657685022761403
                     format: double
                 volume:
                     type: integer
                     description: 出来高
-                    example: 7525303466574996446
+                    example: 7724301660491108274
                     format: int64
             description: Historical price data point.
             example:
-                close: 0.8396232777048004
-                date: Dolores voluptates doloribus.
-                high: 0.8155693557381968
-                low: 0.01893294683495083
-                open: 0.9989545887321235
-                volume: 2017391531504267936
+                close: 0.431184169091997
+                date: Et dolorum sed id iste repellendus.
+                high: 0.21503754258478663
+                low: 0.2544963929211838
+                open: 0.7974895256331324
+                volume: 15981614040841689762
             required:
                 - date
                 - open
@@ -1270,6 +1871,39 @@ components:
                 - low
                 - close
                 - volume
+        ValidateSymbolResponseBody:
+            type: object
+            properties:
+                market:
+                    type: string
+                    description: 市場
+                    example: Ut laborum consequatur.
+                name:
+                    type: string
+                    description: 銘柄名
+                    example: Magnam sapiente ullam sed aut eos rerum.
+                symbol:
+                    type: string
+                    description: 銘柄コード
+                    example: Voluptas est aut atque adipisci est.
+                trading_unit:
+                    type: integer
+                    description: 売買単位
+                    example: 1781520891153698500
+                    format: int64
+                valid:
+                    type: boolean
+                    description: 取引可能かどうか
+                    example: true
+            example:
+                market: Voluptas maxime dolorem nihil nulla.
+                name: Aliquam enim.
+                symbol: Dignissimos ipsam.
+                trading_unit: 317459041876801516
+                valid: false
+            required:
+                - valid
+                - symbol
 tags:
     - name: order
       description: The order service handles placing stock orders.

@@ -385,6 +385,107 @@ var _ = Service("trade", func() {
 			Response(StatusNoContent)
 		})
 	})
+
+	// PUT /trade/orders/{order_id}
+	Method("correct_order", func() {
+		Description("Correct an existing order.")
+		Payload(func() {
+			Attribute("order_id", String, "注文ID")
+			Attribute("price", Float64, "新しい価格")
+			Attribute("quantity", UInt, "新しい数量")
+			Required("order_id")
+		})
+		Result(TradeOrderResult)
+
+		HTTP(func() {
+			PUT("/trade/orders/{order_id}")
+			Response(StatusOK)
+		})
+	})
+
+	// DELETE /trade/orders
+	Method("cancel_all_orders", func() {
+		Description("Cancel all pending orders.")
+		Payload(Empty)
+		Result(func() {
+			Attribute("cancelled_count", UInt, "キャンセルされた注文数")
+			Required("cancelled_count")
+		})
+
+		HTTP(func() {
+			DELETE("/trade/orders")
+			Response(StatusOK)
+		})
+	})
+
+	// GET /trade/symbols/{symbol}/validate
+	Method("validate_symbol", func() {
+		Description("Validate if a symbol is tradable and get trading information.")
+		Payload(func() {
+			Attribute("symbol", String, "銘柄コード")
+			Required("symbol")
+		})
+		Result(func() {
+			Attribute("valid", Boolean, "取引可能かどうか")
+			Attribute("symbol", String, "銘柄コード")
+			Attribute("name", String, "銘柄名")
+			Attribute("trading_unit", UInt, "売買単位")
+			Attribute("market", String, "市場")
+			Required("valid", "symbol")
+		})
+
+		HTTP(func() {
+			GET("/trade/symbols/{symbol}/validate")
+			Response(StatusOK)
+		})
+	})
+
+	// GET /trade/orders/history
+	Method("get_order_history", func() {
+		Description("Get order history with optional filtering.")
+		Payload(func() {
+			Attribute("status", String, "注文状態でフィルタ (NEW/FILLED/CANCELLED)", func() {
+				Enum("NEW", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "REJECTED")
+			})
+			Attribute("symbol", String, "銘柄コードでフィルタ")
+			Attribute("limit", UInt, "取得件数制限", func() {
+				Default(100)
+			})
+		})
+		Result(func() {
+			Attribute("orders", ArrayOf(TradeOrderHistoryResult), "注文履歴")
+			Required("orders")
+		})
+
+		HTTP(func() {
+			GET("/trade/orders/history")
+			Param("status")
+			Param("symbol")
+			Param("limit")
+			Response(StatusOK)
+		})
+	})
+
+	// GET /trade/health
+	Method("health_check", func() {
+		Description("Check service health status.")
+		Payload(Empty)
+		Result(func() {
+			Attribute("status", String, "サービス状態", func() {
+				Enum("healthy", "degraded", "unhealthy")
+			})
+			Attribute("timestamp", String, "チェック時刻 (RFC3339)")
+			Attribute("session_valid", Boolean, "セッション有効性")
+			Attribute("database_connected", Boolean, "データベース接続状態")
+			Attribute("websocket_connected", Boolean, "WebSocket接続状態")
+			Required("status", "timestamp")
+		})
+
+		HTTP(func() {
+			GET("/trade/health")
+			Response(StatusOK)
+		})
+	})
 })
 
 // TradeService用の型定義
@@ -439,4 +540,37 @@ var TradePriceHistoryItem = Type("TradePriceHistoryItem", func() {
 	Attribute("close", Float64, "終値")
 	Attribute("volume", UInt64, "出来高")
 	Required("date", "open", "high", "low", "close", "volume")
+})
+
+var TradeOrderHistoryResult = Type("TradeOrderHistoryResult", func() {
+	Description("Order history information with execution details.")
+	Attribute("order_id", String, "注文ID")
+	Attribute("symbol", String, "銘柄コード")
+	Attribute("trade_type", String, "売買区分", func() {
+		Enum("BUY", "SELL")
+	})
+	Attribute("order_type", String, "注文種別", func() {
+		Enum("MARKET", "LIMIT", "STOP")
+	})
+	Attribute("quantity", UInt, "数量")
+	Attribute("price", Float64, "価格")
+	Attribute("order_status", String, "注文状態", func() {
+		Enum("NEW", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "REJECTED")
+	})
+	Attribute("position_account_type", String, "口座区分", func() {
+		Enum("CASH", "MARGIN_NEW", "MARGIN_REPAY")
+	})
+	Attribute("created_at", String, "注文日時 (RFC3339)")
+	Attribute("updated_at", String, "更新日時 (RFC3339)")
+	Attribute("executions", ArrayOf(TradeExecutionResult), "約定履歴")
+	Required("order_id", "symbol", "trade_type", "order_type", "quantity", "price", "order_status", "created_at")
+})
+
+var TradeExecutionResult = Type("TradeExecutionResult", func() {
+	Description("Execution information.")
+	Attribute("execution_id", String, "約定ID")
+	Attribute("executed_quantity", UInt, "約定数量")
+	Attribute("executed_price", Float64, "約定価格")
+	Attribute("executed_at", String, "約定日時 (RFC3339)")
+	Required("execution_id", "executed_quantity", "executed_price", "executed_at")
 })

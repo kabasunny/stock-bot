@@ -56,7 +56,7 @@ func (r *orderRepositoryImpl) UpdateOrderStatusByExecution(ctx context.Context, 
 	if result.Error != nil {
 		if errors.Is(result.Error, gorm.ErrRecordNotFound) {
 			slog.ErrorContext(ctx, "order with ID not found during execution update", "order_id", execution.OrderID, "execution_id", execution.ExecutionID)
-			return errors.Errorf("order with ID %s not found", execution.OrderID) 
+			return errors.Errorf("order with ID %s not found", execution.OrderID)
 		}
 		return errors.Wrap(result.Error, "failed to find order by ID for status update")
 	}
@@ -98,4 +98,32 @@ func (r *orderRepositoryImpl) UpdateOrderStatusByExecution(ctx context.Context, 
 	}
 
 	return nil
+}
+
+// FindOrderHistory は注文履歴を取得する（フィルタリング・制限付き）
+func (r *orderRepositoryImpl) FindOrderHistory(ctx context.Context, status *model.OrderStatus, symbol *string, limit int) ([]*model.Order, error) {
+	query := r.db.WithContext(ctx).Preload("Executions").Order("created_at DESC")
+
+	// ステータスでフィルタ
+	if status != nil {
+		query = query.Where("order_status = ?", *status)
+	}
+
+	// 銘柄でフィルタ
+	if symbol != nil && *symbol != "" {
+		query = query.Where("symbol = ?", *symbol)
+	}
+
+	// 制限
+	if limit > 0 {
+		query = query.Limit(limit)
+	}
+
+	var orders []*model.Order
+	result := query.Find(&orders)
+	if result.Error != nil {
+		return nil, errors.Wrap(result.Error, "failed to find order history")
+	}
+
+	return orders, nil
 }

@@ -22,6 +22,11 @@ type Endpoints struct {
 	GetPriceHistory goa.Endpoint
 	PlaceOrder      goa.Endpoint
 	CancelOrder     goa.Endpoint
+	CorrectOrder    goa.Endpoint
+	CancelAllOrders goa.Endpoint
+	ValidateSymbol  goa.Endpoint
+	GetOrderHistory goa.Endpoint
+	HealthCheck     goa.Endpoint
 }
 
 // NewEndpoints wraps the methods of the "trade" service with endpoints.
@@ -34,6 +39,11 @@ func NewEndpoints(s Service) *Endpoints {
 		GetPriceHistory: NewGetPriceHistoryEndpoint(s),
 		PlaceOrder:      NewPlaceOrderEndpoint(s),
 		CancelOrder:     NewCancelOrderEndpoint(s),
+		CorrectOrder:    NewCorrectOrderEndpoint(s),
+		CancelAllOrders: NewCancelAllOrdersEndpoint(s),
+		ValidateSymbol:  NewValidateSymbolEndpoint(s),
+		GetOrderHistory: NewGetOrderHistoryEndpoint(s),
+		HealthCheck:     NewHealthCheckEndpoint(s),
 	}
 }
 
@@ -46,6 +56,11 @@ func (e *Endpoints) Use(m func(goa.Endpoint) goa.Endpoint) {
 	e.GetPriceHistory = m(e.GetPriceHistory)
 	e.PlaceOrder = m(e.PlaceOrder)
 	e.CancelOrder = m(e.CancelOrder)
+	e.CorrectOrder = m(e.CorrectOrder)
+	e.CancelAllOrders = m(e.CancelAllOrders)
+	e.ValidateSymbol = m(e.ValidateSymbol)
+	e.GetOrderHistory = m(e.GetOrderHistory)
+	e.HealthCheck = m(e.HealthCheck)
 }
 
 // NewGetSessionEndpoint returns an endpoint function that calls the method
@@ -104,5 +119,48 @@ func NewCancelOrderEndpoint(s Service) goa.Endpoint {
 	return func(ctx context.Context, req any) (any, error) {
 		p := req.(*CancelOrderPayload)
 		return nil, s.CancelOrder(ctx, p)
+	}
+}
+
+// NewCorrectOrderEndpoint returns an endpoint function that calls the method
+// "correct_order" of service "trade".
+func NewCorrectOrderEndpoint(s Service) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*CorrectOrderPayload)
+		return s.CorrectOrder(ctx, p)
+	}
+}
+
+// NewCancelAllOrdersEndpoint returns an endpoint function that calls the
+// method "cancel_all_orders" of service "trade".
+func NewCancelAllOrdersEndpoint(s Service) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		return s.CancelAllOrders(ctx)
+	}
+}
+
+// NewValidateSymbolEndpoint returns an endpoint function that calls the method
+// "validate_symbol" of service "trade".
+func NewValidateSymbolEndpoint(s Service) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*ValidateSymbolPayload)
+		return s.ValidateSymbol(ctx, p)
+	}
+}
+
+// NewGetOrderHistoryEndpoint returns an endpoint function that calls the
+// method "get_order_history" of service "trade".
+func NewGetOrderHistoryEndpoint(s Service) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		p := req.(*GetOrderHistoryPayload)
+		return s.GetOrderHistory(ctx, p)
+	}
+}
+
+// NewHealthCheckEndpoint returns an endpoint function that calls the method
+// "health_check" of service "trade".
+func NewHealthCheckEndpoint(s Service) goa.Endpoint {
+	return func(ctx context.Context, req any) (any, error) {
+		return s.HealthCheck(ctx)
 	}
 }

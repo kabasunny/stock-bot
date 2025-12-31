@@ -32,6 +32,15 @@ type PlaceOrderRequestBody struct {
 	PositionAccountType string `form:"position_account_type" json:"position_account_type" xml:"position_account_type"`
 }
 
+// CorrectOrderRequestBody is the type of the "trade" service "correct_order"
+// endpoint HTTP request body.
+type CorrectOrderRequestBody struct {
+	// 新しい価格
+	Price *float64 `form:"price,omitempty" json:"price,omitempty" xml:"price,omitempty"`
+	// 新しい数量
+	Quantity *uint `form:"quantity,omitempty" json:"quantity,omitempty" xml:"quantity,omitempty"`
+}
+
 // GetSessionResponseBody is the type of the "trade" service "get_session"
 // endpoint HTTP response body.
 type GetSessionResponseBody struct {
@@ -96,6 +105,71 @@ type PlaceOrderResponseBody struct {
 	PositionAccountType *string `form:"position_account_type,omitempty" json:"position_account_type,omitempty" xml:"position_account_type,omitempty"`
 }
 
+// CorrectOrderResponseBody is the type of the "trade" service "correct_order"
+// endpoint HTTP response body.
+type CorrectOrderResponseBody struct {
+	// 注文ID
+	OrderID *string `form:"order_id,omitempty" json:"order_id,omitempty" xml:"order_id,omitempty"`
+	// 銘柄コード
+	Symbol *string `form:"symbol,omitempty" json:"symbol,omitempty" xml:"symbol,omitempty"`
+	// 売買区分
+	TradeType *string `form:"trade_type,omitempty" json:"trade_type,omitempty" xml:"trade_type,omitempty"`
+	// 注文種別
+	OrderType *string `form:"order_type,omitempty" json:"order_type,omitempty" xml:"order_type,omitempty"`
+	// 数量
+	Quantity *uint `form:"quantity,omitempty" json:"quantity,omitempty" xml:"quantity,omitempty"`
+	// 価格
+	Price *float64 `form:"price,omitempty" json:"price,omitempty" xml:"price,omitempty"`
+	// 注文状態
+	OrderStatus *string `form:"order_status,omitempty" json:"order_status,omitempty" xml:"order_status,omitempty"`
+	// 口座区分
+	PositionAccountType *string `form:"position_account_type,omitempty" json:"position_account_type,omitempty" xml:"position_account_type,omitempty"`
+}
+
+// CancelAllOrdersResponseBody is the type of the "trade" service
+// "cancel_all_orders" endpoint HTTP response body.
+type CancelAllOrdersResponseBody struct {
+	// キャンセルされた注文数
+	CancelledCount *uint `form:"cancelled_count,omitempty" json:"cancelled_count,omitempty" xml:"cancelled_count,omitempty"`
+}
+
+// ValidateSymbolResponseBody is the type of the "trade" service
+// "validate_symbol" endpoint HTTP response body.
+type ValidateSymbolResponseBody struct {
+	// 取引可能かどうか
+	Valid *bool `form:"valid,omitempty" json:"valid,omitempty" xml:"valid,omitempty"`
+	// 銘柄コード
+	Symbol *string `form:"symbol,omitempty" json:"symbol,omitempty" xml:"symbol,omitempty"`
+	// 銘柄名
+	Name *string `form:"name,omitempty" json:"name,omitempty" xml:"name,omitempty"`
+	// 売買単位
+	TradingUnit *uint `form:"trading_unit,omitempty" json:"trading_unit,omitempty" xml:"trading_unit,omitempty"`
+	// 市場
+	Market *string `form:"market,omitempty" json:"market,omitempty" xml:"market,omitempty"`
+}
+
+// GetOrderHistoryResponseBody is the type of the "trade" service
+// "get_order_history" endpoint HTTP response body.
+type GetOrderHistoryResponseBody struct {
+	// 注文履歴
+	Orders []*TradeOrderHistoryResultResponseBody `form:"orders,omitempty" json:"orders,omitempty" xml:"orders,omitempty"`
+}
+
+// HealthCheckResponseBody is the type of the "trade" service "health_check"
+// endpoint HTTP response body.
+type HealthCheckResponseBody struct {
+	// サービス状態
+	Status *string `form:"status,omitempty" json:"status,omitempty" xml:"status,omitempty"`
+	// チェック時刻 (RFC3339)
+	Timestamp *string `form:"timestamp,omitempty" json:"timestamp,omitempty" xml:"timestamp,omitempty"`
+	// セッション有効性
+	SessionValid *bool `form:"session_valid,omitempty" json:"session_valid,omitempty" xml:"session_valid,omitempty"`
+	// データベース接続状態
+	DatabaseConnected *bool `form:"database_connected,omitempty" json:"database_connected,omitempty" xml:"database_connected,omitempty"`
+	// WebSocket接続状態
+	WebsocketConnected *bool `form:"websocket_connected,omitempty" json:"websocket_connected,omitempty" xml:"websocket_connected,omitempty"`
+}
+
 // TradePositionResultResponseBody is used to define fields on response body
 // types.
 type TradePositionResultResponseBody struct {
@@ -148,6 +222,46 @@ type TradePriceHistoryItemResponseBody struct {
 	Volume *uint64 `form:"volume,omitempty" json:"volume,omitempty" xml:"volume,omitempty"`
 }
 
+// TradeOrderHistoryResultResponseBody is used to define fields on response
+// body types.
+type TradeOrderHistoryResultResponseBody struct {
+	// 注文ID
+	OrderID *string `form:"order_id,omitempty" json:"order_id,omitempty" xml:"order_id,omitempty"`
+	// 銘柄コード
+	Symbol *string `form:"symbol,omitempty" json:"symbol,omitempty" xml:"symbol,omitempty"`
+	// 売買区分
+	TradeType *string `form:"trade_type,omitempty" json:"trade_type,omitempty" xml:"trade_type,omitempty"`
+	// 注文種別
+	OrderType *string `form:"order_type,omitempty" json:"order_type,omitempty" xml:"order_type,omitempty"`
+	// 数量
+	Quantity *uint `form:"quantity,omitempty" json:"quantity,omitempty" xml:"quantity,omitempty"`
+	// 価格
+	Price *float64 `form:"price,omitempty" json:"price,omitempty" xml:"price,omitempty"`
+	// 注文状態
+	OrderStatus *string `form:"order_status,omitempty" json:"order_status,omitempty" xml:"order_status,omitempty"`
+	// 口座区分
+	PositionAccountType *string `form:"position_account_type,omitempty" json:"position_account_type,omitempty" xml:"position_account_type,omitempty"`
+	// 注文日時 (RFC3339)
+	CreatedAt *string `form:"created_at,omitempty" json:"created_at,omitempty" xml:"created_at,omitempty"`
+	// 更新日時 (RFC3339)
+	UpdatedAt *string `form:"updated_at,omitempty" json:"updated_at,omitempty" xml:"updated_at,omitempty"`
+	// 約定履歴
+	Executions []*TradeExecutionResultResponseBody `form:"executions,omitempty" json:"executions,omitempty" xml:"executions,omitempty"`
+}
+
+// TradeExecutionResultResponseBody is used to define fields on response body
+// types.
+type TradeExecutionResultResponseBody struct {
+	// 約定ID
+	ExecutionID *string `form:"execution_id,omitempty" json:"execution_id,omitempty" xml:"execution_id,omitempty"`
+	// 約定数量
+	ExecutedQuantity *uint `form:"executed_quantity,omitempty" json:"executed_quantity,omitempty" xml:"executed_quantity,omitempty"`
+	// 約定価格
+	ExecutedPrice *float64 `form:"executed_price,omitempty" json:"executed_price,omitempty" xml:"executed_price,omitempty"`
+	// 約定日時 (RFC3339)
+	ExecutedAt *string `form:"executed_at,omitempty" json:"executed_at,omitempty" xml:"executed_at,omitempty"`
+}
+
 // NewPlaceOrderRequestBody builds the HTTP request body from the payload of
 // the "place_order" endpoint of the "trade" service.
 func NewPlaceOrderRequestBody(p *trade.PlaceOrderPayload) *PlaceOrderRequestBody {
@@ -177,6 +291,16 @@ func NewPlaceOrderRequestBody(p *trade.PlaceOrderPayload) *PlaceOrderRequestBody
 		if body.PositionAccountType == zero {
 			body.PositionAccountType = "CASH"
 		}
+	}
+	return body
+}
+
+// NewCorrectOrderRequestBody builds the HTTP request body from the payload of
+// the "correct_order" endpoint of the "trade" service.
+func NewCorrectOrderRequestBody(p *trade.CorrectOrderPayload) *CorrectOrderRequestBody {
+	body := &CorrectOrderRequestBody{
+		Price:    p.Price,
+		Quantity: p.Quantity,
 	}
 	return body
 }
@@ -266,6 +390,77 @@ func NewPlaceOrderTradeOrderResultCreated(body *PlaceOrderResponseBody) *trade.T
 		Price:               *body.Price,
 		OrderStatus:         *body.OrderStatus,
 		PositionAccountType: body.PositionAccountType,
+	}
+
+	return v
+}
+
+// NewCorrectOrderTradeOrderResultOK builds a "trade" service "correct_order"
+// endpoint result from a HTTP "OK" response.
+func NewCorrectOrderTradeOrderResultOK(body *CorrectOrderResponseBody) *trade.TradeOrderResult {
+	v := &trade.TradeOrderResult{
+		OrderID:             *body.OrderID,
+		Symbol:              *body.Symbol,
+		TradeType:           *body.TradeType,
+		OrderType:           *body.OrderType,
+		Quantity:            *body.Quantity,
+		Price:               *body.Price,
+		OrderStatus:         *body.OrderStatus,
+		PositionAccountType: body.PositionAccountType,
+	}
+
+	return v
+}
+
+// NewCancelAllOrdersResultOK builds a "trade" service "cancel_all_orders"
+// endpoint result from a HTTP "OK" response.
+func NewCancelAllOrdersResultOK(body *CancelAllOrdersResponseBody) *trade.CancelAllOrdersResult {
+	v := &trade.CancelAllOrdersResult{
+		CancelledCount: *body.CancelledCount,
+	}
+
+	return v
+}
+
+// NewValidateSymbolResultOK builds a "trade" service "validate_symbol"
+// endpoint result from a HTTP "OK" response.
+func NewValidateSymbolResultOK(body *ValidateSymbolResponseBody) *trade.ValidateSymbolResult {
+	v := &trade.ValidateSymbolResult{
+		Valid:       *body.Valid,
+		Symbol:      *body.Symbol,
+		Name:        body.Name,
+		TradingUnit: body.TradingUnit,
+		Market:      body.Market,
+	}
+
+	return v
+}
+
+// NewGetOrderHistoryResultOK builds a "trade" service "get_order_history"
+// endpoint result from a HTTP "OK" response.
+func NewGetOrderHistoryResultOK(body *GetOrderHistoryResponseBody) *trade.GetOrderHistoryResult {
+	v := &trade.GetOrderHistoryResult{}
+	v.Orders = make([]*trade.TradeOrderHistoryResult, len(body.Orders))
+	for i, val := range body.Orders {
+		if val == nil {
+			v.Orders[i] = nil
+			continue
+		}
+		v.Orders[i] = unmarshalTradeOrderHistoryResultResponseBodyToTradeTradeOrderHistoryResult(val)
+	}
+
+	return v
+}
+
+// NewHealthCheckResultOK builds a "trade" service "health_check" endpoint
+// result from a HTTP "OK" response.
+func NewHealthCheckResultOK(body *HealthCheckResponseBody) *trade.HealthCheckResult {
+	v := &trade.HealthCheckResult{
+		Status:             *body.Status,
+		Timestamp:          *body.Timestamp,
+		SessionValid:       body.SessionValid,
+		DatabaseConnected:  body.DatabaseConnected,
+		WebsocketConnected: body.WebsocketConnected,
 	}
 
 	return v
@@ -396,6 +591,107 @@ func ValidatePlaceOrderResponseBody(body *PlaceOrderResponseBody) (err error) {
 	return
 }
 
+// ValidateCorrectOrderResponseBody runs the validations defined on
+// correct_order_response_body
+func ValidateCorrectOrderResponseBody(body *CorrectOrderResponseBody) (err error) {
+	if body.OrderID == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("order_id", "body"))
+	}
+	if body.Symbol == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("symbol", "body"))
+	}
+	if body.TradeType == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("trade_type", "body"))
+	}
+	if body.OrderType == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("order_type", "body"))
+	}
+	if body.Quantity == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("quantity", "body"))
+	}
+	if body.Price == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("price", "body"))
+	}
+	if body.OrderStatus == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("order_status", "body"))
+	}
+	if body.TradeType != nil {
+		if !(*body.TradeType == "BUY" || *body.TradeType == "SELL") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.trade_type", *body.TradeType, []any{"BUY", "SELL"}))
+		}
+	}
+	if body.OrderType != nil {
+		if !(*body.OrderType == "MARKET" || *body.OrderType == "LIMIT" || *body.OrderType == "STOP") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.order_type", *body.OrderType, []any{"MARKET", "LIMIT", "STOP"}))
+		}
+	}
+	if body.OrderStatus != nil {
+		if !(*body.OrderStatus == "NEW" || *body.OrderStatus == "PARTIALLY_FILLED" || *body.OrderStatus == "FILLED" || *body.OrderStatus == "CANCELLED" || *body.OrderStatus == "REJECTED") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.order_status", *body.OrderStatus, []any{"NEW", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "REJECTED"}))
+		}
+	}
+	if body.PositionAccountType != nil {
+		if !(*body.PositionAccountType == "CASH" || *body.PositionAccountType == "MARGIN_NEW" || *body.PositionAccountType == "MARGIN_REPAY") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.position_account_type", *body.PositionAccountType, []any{"CASH", "MARGIN_NEW", "MARGIN_REPAY"}))
+		}
+	}
+	return
+}
+
+// ValidateCancelAllOrdersResponseBody runs the validations defined on
+// cancel_all_orders_response_body
+func ValidateCancelAllOrdersResponseBody(body *CancelAllOrdersResponseBody) (err error) {
+	if body.CancelledCount == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("cancelled_count", "body"))
+	}
+	return
+}
+
+// ValidateValidateSymbolResponseBody runs the validations defined on
+// validate_symbol_response_body
+func ValidateValidateSymbolResponseBody(body *ValidateSymbolResponseBody) (err error) {
+	if body.Valid == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("valid", "body"))
+	}
+	if body.Symbol == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("symbol", "body"))
+	}
+	return
+}
+
+// ValidateGetOrderHistoryResponseBody runs the validations defined on
+// get_order_history_response_body
+func ValidateGetOrderHistoryResponseBody(body *GetOrderHistoryResponseBody) (err error) {
+	if body.Orders == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("orders", "body"))
+	}
+	for _, e := range body.Orders {
+		if e != nil {
+			if err2 := ValidateTradeOrderHistoryResultResponseBody(e); err2 != nil {
+				err = goa.MergeErrors(err, err2)
+			}
+		}
+	}
+	return
+}
+
+// ValidateHealthCheckResponseBody runs the validations defined on
+// health_check_response_body
+func ValidateHealthCheckResponseBody(body *HealthCheckResponseBody) (err error) {
+	if body.Status == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("status", "body"))
+	}
+	if body.Timestamp == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("timestamp", "body"))
+	}
+	if body.Status != nil {
+		if !(*body.Status == "healthy" || *body.Status == "degraded" || *body.Status == "unhealthy") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.status", *body.Status, []any{"healthy", "degraded", "unhealthy"}))
+		}
+	}
+	return
+}
+
 // ValidateTradePositionResultResponseBody runs the validations defined on
 // TradePositionResultResponseBody
 func ValidateTradePositionResultResponseBody(body *TradePositionResultResponseBody) (err error) {
@@ -494,6 +790,81 @@ func ValidateTradePriceHistoryItemResponseBody(body *TradePriceHistoryItemRespon
 	}
 	if body.Volume == nil {
 		err = goa.MergeErrors(err, goa.MissingFieldError("volume", "body"))
+	}
+	return
+}
+
+// ValidateTradeOrderHistoryResultResponseBody runs the validations defined on
+// TradeOrderHistoryResultResponseBody
+func ValidateTradeOrderHistoryResultResponseBody(body *TradeOrderHistoryResultResponseBody) (err error) {
+	if body.OrderID == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("order_id", "body"))
+	}
+	if body.Symbol == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("symbol", "body"))
+	}
+	if body.TradeType == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("trade_type", "body"))
+	}
+	if body.OrderType == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("order_type", "body"))
+	}
+	if body.Quantity == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("quantity", "body"))
+	}
+	if body.Price == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("price", "body"))
+	}
+	if body.OrderStatus == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("order_status", "body"))
+	}
+	if body.CreatedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("created_at", "body"))
+	}
+	if body.TradeType != nil {
+		if !(*body.TradeType == "BUY" || *body.TradeType == "SELL") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.trade_type", *body.TradeType, []any{"BUY", "SELL"}))
+		}
+	}
+	if body.OrderType != nil {
+		if !(*body.OrderType == "MARKET" || *body.OrderType == "LIMIT" || *body.OrderType == "STOP") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.order_type", *body.OrderType, []any{"MARKET", "LIMIT", "STOP"}))
+		}
+	}
+	if body.OrderStatus != nil {
+		if !(*body.OrderStatus == "NEW" || *body.OrderStatus == "PARTIALLY_FILLED" || *body.OrderStatus == "FILLED" || *body.OrderStatus == "CANCELLED" || *body.OrderStatus == "REJECTED") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.order_status", *body.OrderStatus, []any{"NEW", "PARTIALLY_FILLED", "FILLED", "CANCELLED", "REJECTED"}))
+		}
+	}
+	if body.PositionAccountType != nil {
+		if !(*body.PositionAccountType == "CASH" || *body.PositionAccountType == "MARGIN_NEW" || *body.PositionAccountType == "MARGIN_REPAY") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.position_account_type", *body.PositionAccountType, []any{"CASH", "MARGIN_NEW", "MARGIN_REPAY"}))
+		}
+	}
+	for _, e := range body.Executions {
+		if e != nil {
+			if err2 := ValidateTradeExecutionResultResponseBody(e); err2 != nil {
+				err = goa.MergeErrors(err, err2)
+			}
+		}
+	}
+	return
+}
+
+// ValidateTradeExecutionResultResponseBody runs the validations defined on
+// TradeExecutionResultResponseBody
+func ValidateTradeExecutionResultResponseBody(body *TradeExecutionResultResponseBody) (err error) {
+	if body.ExecutionID == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("execution_id", "body"))
+	}
+	if body.ExecutedQuantity == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("executed_quantity", "body"))
+	}
+	if body.ExecutedPrice == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("executed_price", "body"))
+	}
+	if body.ExecutedAt == nil {
+		err = goa.MergeErrors(err, goa.MissingFieldError("executed_at", "body"))
 	}
 	return
 }

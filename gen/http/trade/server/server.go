@@ -26,6 +26,11 @@ type Server struct {
 	GetPriceHistory http.Handler
 	PlaceOrder      http.Handler
 	CancelOrder     http.Handler
+	CorrectOrder    http.Handler
+	CancelAllOrders http.Handler
+	ValidateSymbol  http.Handler
+	GetOrderHistory http.Handler
+	HealthCheck     http.Handler
 }
 
 // MountPoint holds information about the mounted endpoints.
@@ -62,6 +67,11 @@ func New(
 			{"GetPriceHistory", "GET", "/trade/price-history/{symbol}"},
 			{"PlaceOrder", "POST", "/trade/orders"},
 			{"CancelOrder", "DELETE", "/trade/orders/{order_id}"},
+			{"CorrectOrder", "PUT", "/trade/orders/{order_id}"},
+			{"CancelAllOrders", "DELETE", "/trade/orders"},
+			{"ValidateSymbol", "GET", "/trade/symbols/{symbol}/validate"},
+			{"GetOrderHistory", "GET", "/trade/orders/history"},
+			{"HealthCheck", "GET", "/trade/health"},
 		},
 		GetSession:      NewGetSessionHandler(e.GetSession, mux, decoder, encoder, errhandler, formatter),
 		GetPositions:    NewGetPositionsHandler(e.GetPositions, mux, decoder, encoder, errhandler, formatter),
@@ -70,6 +80,11 @@ func New(
 		GetPriceHistory: NewGetPriceHistoryHandler(e.GetPriceHistory, mux, decoder, encoder, errhandler, formatter),
 		PlaceOrder:      NewPlaceOrderHandler(e.PlaceOrder, mux, decoder, encoder, errhandler, formatter),
 		CancelOrder:     NewCancelOrderHandler(e.CancelOrder, mux, decoder, encoder, errhandler, formatter),
+		CorrectOrder:    NewCorrectOrderHandler(e.CorrectOrder, mux, decoder, encoder, errhandler, formatter),
+		CancelAllOrders: NewCancelAllOrdersHandler(e.CancelAllOrders, mux, decoder, encoder, errhandler, formatter),
+		ValidateSymbol:  NewValidateSymbolHandler(e.ValidateSymbol, mux, decoder, encoder, errhandler, formatter),
+		GetOrderHistory: NewGetOrderHistoryHandler(e.GetOrderHistory, mux, decoder, encoder, errhandler, formatter),
+		HealthCheck:     NewHealthCheckHandler(e.HealthCheck, mux, decoder, encoder, errhandler, formatter),
 	}
 }
 
@@ -85,6 +100,11 @@ func (s *Server) Use(m func(http.Handler) http.Handler) {
 	s.GetPriceHistory = m(s.GetPriceHistory)
 	s.PlaceOrder = m(s.PlaceOrder)
 	s.CancelOrder = m(s.CancelOrder)
+	s.CorrectOrder = m(s.CorrectOrder)
+	s.CancelAllOrders = m(s.CancelAllOrders)
+	s.ValidateSymbol = m(s.ValidateSymbol)
+	s.GetOrderHistory = m(s.GetOrderHistory)
+	s.HealthCheck = m(s.HealthCheck)
 }
 
 // MethodNames returns the methods served.
@@ -99,6 +119,11 @@ func Mount(mux goahttp.Muxer, h *Server) {
 	MountGetPriceHistoryHandler(mux, h.GetPriceHistory)
 	MountPlaceOrderHandler(mux, h.PlaceOrder)
 	MountCancelOrderHandler(mux, h.CancelOrder)
+	MountCorrectOrderHandler(mux, h.CorrectOrder)
+	MountCancelAllOrdersHandler(mux, h.CancelAllOrders)
+	MountValidateSymbolHandler(mux, h.ValidateSymbol)
+	MountGetOrderHistoryHandler(mux, h.GetOrderHistory)
+	MountHealthCheckHandler(mux, h.HealthCheck)
 }
 
 // Mount configures the mux to serve the trade endpoints.
@@ -435,6 +460,257 @@ func NewCancelOrderHandler(
 			return
 		}
 		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountCorrectOrderHandler configures the mux to serve the "trade" service
+// "correct_order" endpoint.
+func MountCorrectOrderHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("PUT", "/trade/orders/{order_id}", f)
+}
+
+// NewCorrectOrderHandler creates a HTTP handler which loads the HTTP request
+// and calls the "trade" service "correct_order" endpoint.
+func NewCorrectOrderHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeCorrectOrderRequest(mux, decoder)
+		encodeResponse = EncodeCorrectOrderResponse(encoder)
+		encodeError    = goahttp.ErrorEncoder(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "correct_order")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "trade")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountCancelAllOrdersHandler configures the mux to serve the "trade" service
+// "cancel_all_orders" endpoint.
+func MountCancelAllOrdersHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("DELETE", "/trade/orders", f)
+}
+
+// NewCancelAllOrdersHandler creates a HTTP handler which loads the HTTP
+// request and calls the "trade" service "cancel_all_orders" endpoint.
+func NewCancelAllOrdersHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		encodeResponse = EncodeCancelAllOrdersResponse(encoder)
+		encodeError    = goahttp.ErrorEncoder(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "cancel_all_orders")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "trade")
+		var err error
+		res, err := endpoint(ctx, nil)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountValidateSymbolHandler configures the mux to serve the "trade" service
+// "validate_symbol" endpoint.
+func MountValidateSymbolHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("GET", "/trade/symbols/{symbol}/validate", f)
+}
+
+// NewValidateSymbolHandler creates a HTTP handler which loads the HTTP request
+// and calls the "trade" service "validate_symbol" endpoint.
+func NewValidateSymbolHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeValidateSymbolRequest(mux, decoder)
+		encodeResponse = EncodeValidateSymbolResponse(encoder)
+		encodeError    = goahttp.ErrorEncoder(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "validate_symbol")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "trade")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountGetOrderHistoryHandler configures the mux to serve the "trade" service
+// "get_order_history" endpoint.
+func MountGetOrderHistoryHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("GET", "/trade/orders/history", f)
+}
+
+// NewGetOrderHistoryHandler creates a HTTP handler which loads the HTTP
+// request and calls the "trade" service "get_order_history" endpoint.
+func NewGetOrderHistoryHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		decodeRequest  = DecodeGetOrderHistoryRequest(mux, decoder)
+		encodeResponse = EncodeGetOrderHistoryResponse(encoder)
+		encodeError    = goahttp.ErrorEncoder(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "get_order_history")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "trade")
+		payload, err := decodeRequest(r)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		res, err := endpoint(ctx, payload)
+		if err != nil {
+			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+			return
+		}
+		if err := encodeResponse(ctx, w, res); err != nil {
+			if errhandler != nil {
+				errhandler(ctx, w, err)
+			}
+		}
+	})
+}
+
+// MountHealthCheckHandler configures the mux to serve the "trade" service
+// "health_check" endpoint.
+func MountHealthCheckHandler(mux goahttp.Muxer, h http.Handler) {
+	f, ok := h.(http.HandlerFunc)
+	if !ok {
+		f = func(w http.ResponseWriter, r *http.Request) {
+			h.ServeHTTP(w, r)
+		}
+	}
+	mux.Handle("GET", "/trade/health", f)
+}
+
+// NewHealthCheckHandler creates a HTTP handler which loads the HTTP request
+// and calls the "trade" service "health_check" endpoint.
+func NewHealthCheckHandler(
+	endpoint goa.Endpoint,
+	mux goahttp.Muxer,
+	decoder func(*http.Request) goahttp.Decoder,
+	encoder func(context.Context, http.ResponseWriter) goahttp.Encoder,
+	errhandler func(context.Context, http.ResponseWriter, error),
+	formatter func(ctx context.Context, err error) goahttp.Statuser,
+) http.Handler {
+	var (
+		encodeResponse = EncodeHealthCheckResponse(encoder)
+		encodeError    = goahttp.ErrorEncoder(encoder, formatter)
+	)
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctx := context.WithValue(r.Context(), goahttp.AcceptTypeKey, r.Header.Get("Accept"))
+		ctx = context.WithValue(ctx, goa.MethodKey, "health_check")
+		ctx = context.WithValue(ctx, goa.ServiceKey, "trade")
+		var err error
+		res, err := endpoint(ctx, nil)
 		if err != nil {
 			if err := encodeError(ctx, w, err); err != nil && errhandler != nil {
 				errhandler(ctx, w, err)

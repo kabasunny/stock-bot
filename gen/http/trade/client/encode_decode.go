@@ -442,6 +442,338 @@ func DecodeCancelOrderResponse(decoder func(*http.Response) goahttp.Decoder, res
 	}
 }
 
+// BuildCorrectOrderRequest instantiates a HTTP request object with method and
+// path set to call the "trade" service "correct_order" endpoint
+func (c *Client) BuildCorrectOrderRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		orderID string
+	)
+	{
+		p, ok := v.(*trade.CorrectOrderPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("trade", "correct_order", "*trade.CorrectOrderPayload", v)
+		}
+		orderID = p.OrderID
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: CorrectOrderTradePath(orderID)}
+	req, err := http.NewRequest("PUT", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("trade", "correct_order", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeCorrectOrderRequest returns an encoder for requests sent to the trade
+// correct_order server.
+func EncodeCorrectOrderRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*trade.CorrectOrderPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("trade", "correct_order", "*trade.CorrectOrderPayload", v)
+		}
+		body := NewCorrectOrderRequestBody(p)
+		if err := encoder(req).Encode(&body); err != nil {
+			return goahttp.ErrEncodingError("trade", "correct_order", err)
+		}
+		return nil
+	}
+}
+
+// DecodeCorrectOrderResponse returns a decoder for responses returned by the
+// trade correct_order endpoint. restoreBody controls whether the response body
+// should be restored after having been read.
+func DecodeCorrectOrderResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body CorrectOrderResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("trade", "correct_order", err)
+			}
+			err = ValidateCorrectOrderResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("trade", "correct_order", err)
+			}
+			res := NewCorrectOrderTradeOrderResultOK(&body)
+			return res, nil
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("trade", "correct_order", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildCancelAllOrdersRequest instantiates a HTTP request object with method
+// and path set to call the "trade" service "cancel_all_orders" endpoint
+func (c *Client) BuildCancelAllOrdersRequest(ctx context.Context, v any) (*http.Request, error) {
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: CancelAllOrdersTradePath()}
+	req, err := http.NewRequest("DELETE", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("trade", "cancel_all_orders", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// DecodeCancelAllOrdersResponse returns a decoder for responses returned by
+// the trade cancel_all_orders endpoint. restoreBody controls whether the
+// response body should be restored after having been read.
+func DecodeCancelAllOrdersResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body CancelAllOrdersResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("trade", "cancel_all_orders", err)
+			}
+			err = ValidateCancelAllOrdersResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("trade", "cancel_all_orders", err)
+			}
+			res := NewCancelAllOrdersResultOK(&body)
+			return res, nil
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("trade", "cancel_all_orders", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildValidateSymbolRequest instantiates a HTTP request object with method
+// and path set to call the "trade" service "validate_symbol" endpoint
+func (c *Client) BuildValidateSymbolRequest(ctx context.Context, v any) (*http.Request, error) {
+	var (
+		symbol string
+	)
+	{
+		p, ok := v.(*trade.ValidateSymbolPayload)
+		if !ok {
+			return nil, goahttp.ErrInvalidType("trade", "validate_symbol", "*trade.ValidateSymbolPayload", v)
+		}
+		symbol = p.Symbol
+	}
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: ValidateSymbolTradePath(symbol)}
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("trade", "validate_symbol", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// DecodeValidateSymbolResponse returns a decoder for responses returned by the
+// trade validate_symbol endpoint. restoreBody controls whether the response
+// body should be restored after having been read.
+func DecodeValidateSymbolResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body ValidateSymbolResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("trade", "validate_symbol", err)
+			}
+			err = ValidateValidateSymbolResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("trade", "validate_symbol", err)
+			}
+			res := NewValidateSymbolResultOK(&body)
+			return res, nil
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("trade", "validate_symbol", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildGetOrderHistoryRequest instantiates a HTTP request object with method
+// and path set to call the "trade" service "get_order_history" endpoint
+func (c *Client) BuildGetOrderHistoryRequest(ctx context.Context, v any) (*http.Request, error) {
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: GetOrderHistoryTradePath()}
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("trade", "get_order_history", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// EncodeGetOrderHistoryRequest returns an encoder for requests sent to the
+// trade get_order_history server.
+func EncodeGetOrderHistoryRequest(encoder func(*http.Request) goahttp.Encoder) func(*http.Request, any) error {
+	return func(req *http.Request, v any) error {
+		p, ok := v.(*trade.GetOrderHistoryPayload)
+		if !ok {
+			return goahttp.ErrInvalidType("trade", "get_order_history", "*trade.GetOrderHistoryPayload", v)
+		}
+		values := req.URL.Query()
+		if p.Status != nil {
+			values.Add("status", *p.Status)
+		}
+		if p.Symbol != nil {
+			values.Add("symbol", *p.Symbol)
+		}
+		values.Add("limit", fmt.Sprintf("%v", p.Limit))
+		req.URL.RawQuery = values.Encode()
+		return nil
+	}
+}
+
+// DecodeGetOrderHistoryResponse returns a decoder for responses returned by
+// the trade get_order_history endpoint. restoreBody controls whether the
+// response body should be restored after having been read.
+func DecodeGetOrderHistoryResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body GetOrderHistoryResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("trade", "get_order_history", err)
+			}
+			err = ValidateGetOrderHistoryResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("trade", "get_order_history", err)
+			}
+			res := NewGetOrderHistoryResultOK(&body)
+			return res, nil
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("trade", "get_order_history", resp.StatusCode, string(body))
+		}
+	}
+}
+
+// BuildHealthCheckRequest instantiates a HTTP request object with method and
+// path set to call the "trade" service "health_check" endpoint
+func (c *Client) BuildHealthCheckRequest(ctx context.Context, v any) (*http.Request, error) {
+	u := &url.URL{Scheme: c.scheme, Host: c.host, Path: HealthCheckTradePath()}
+	req, err := http.NewRequest("GET", u.String(), nil)
+	if err != nil {
+		return nil, goahttp.ErrInvalidURL("trade", "health_check", u.String(), err)
+	}
+	if ctx != nil {
+		req = req.WithContext(ctx)
+	}
+
+	return req, nil
+}
+
+// DecodeHealthCheckResponse returns a decoder for responses returned by the
+// trade health_check endpoint. restoreBody controls whether the response body
+// should be restored after having been read.
+func DecodeHealthCheckResponse(decoder func(*http.Response) goahttp.Decoder, restoreBody bool) func(*http.Response) (any, error) {
+	return func(resp *http.Response) (any, error) {
+		if restoreBody {
+			b, err := io.ReadAll(resp.Body)
+			if err != nil {
+				return nil, err
+			}
+			resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			defer func() {
+				resp.Body = io.NopCloser(bytes.NewBuffer(b))
+			}()
+		} else {
+			defer resp.Body.Close()
+		}
+		switch resp.StatusCode {
+		case http.StatusOK:
+			var (
+				body HealthCheckResponseBody
+				err  error
+			)
+			err = decoder(resp).Decode(&body)
+			if err != nil {
+				return nil, goahttp.ErrDecodingError("trade", "health_check", err)
+			}
+			err = ValidateHealthCheckResponseBody(&body)
+			if err != nil {
+				return nil, goahttp.ErrValidationError("trade", "health_check", err)
+			}
+			res := NewHealthCheckResultOK(&body)
+			return res, nil
+		default:
+			body, _ := io.ReadAll(resp.Body)
+			return nil, goahttp.ErrInvalidResponse("trade", "health_check", resp.StatusCode, string(body))
+		}
+	}
+}
+
 // unmarshalTradePositionResultResponseBodyToTradeTradePositionResult builds a
 // value of type *trade.TradePositionResult from a value of type
 // *TradePositionResultResponseBody.
@@ -486,6 +818,53 @@ func unmarshalTradePriceHistoryItemResponseBodyToTradeTradePriceHistoryItem(v *T
 		Low:    *v.Low,
 		Close:  *v.Close,
 		Volume: *v.Volume,
+	}
+
+	return res
+}
+
+// unmarshalTradeOrderHistoryResultResponseBodyToTradeTradeOrderHistoryResult
+// builds a value of type *trade.TradeOrderHistoryResult from a value of type
+// *TradeOrderHistoryResultResponseBody.
+func unmarshalTradeOrderHistoryResultResponseBodyToTradeTradeOrderHistoryResult(v *TradeOrderHistoryResultResponseBody) *trade.TradeOrderHistoryResult {
+	res := &trade.TradeOrderHistoryResult{
+		OrderID:             *v.OrderID,
+		Symbol:              *v.Symbol,
+		TradeType:           *v.TradeType,
+		OrderType:           *v.OrderType,
+		Quantity:            *v.Quantity,
+		Price:               *v.Price,
+		OrderStatus:         *v.OrderStatus,
+		PositionAccountType: v.PositionAccountType,
+		CreatedAt:           *v.CreatedAt,
+		UpdatedAt:           v.UpdatedAt,
+	}
+	if v.Executions != nil {
+		res.Executions = make([]*trade.TradeExecutionResult, len(v.Executions))
+		for i, val := range v.Executions {
+			if val == nil {
+				res.Executions[i] = nil
+				continue
+			}
+			res.Executions[i] = unmarshalTradeExecutionResultResponseBodyToTradeTradeExecutionResult(val)
+		}
+	}
+
+	return res
+}
+
+// unmarshalTradeExecutionResultResponseBodyToTradeTradeExecutionResult builds
+// a value of type *trade.TradeExecutionResult from a value of type
+// *TradeExecutionResultResponseBody.
+func unmarshalTradeExecutionResultResponseBodyToTradeTradeExecutionResult(v *TradeExecutionResultResponseBody) *trade.TradeExecutionResult {
+	if v == nil {
+		return nil
+	}
+	res := &trade.TradeExecutionResult{
+		ExecutionID:      *v.ExecutionID,
+		ExecutedQuantity: *v.ExecutedQuantity,
+		ExecutedPrice:    *v.ExecutedPrice,
+		ExecutedAt:       *v.ExecutedAt,
 	}
 
 	return res
