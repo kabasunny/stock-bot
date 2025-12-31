@@ -38,9 +38,9 @@ func (s *TradeService) GetSession(ctx context.Context) (*trade.GetSessionResult,
 	}
 
 	return &trade.GetSessionResult{
-		SessionID: "session-placeholder", // セッション情報の適切な取得方法を実装する必要がある
-		UserID:    "user-placeholder",
-		LoginTime: time.Now().Format(time.RFC3339),
+		SessionID: session.SessionID,
+		UserID:    session.UserID,
+		LoginTime: session.LoginTime.Format(time.RFC3339),
 	}, nil
 }
 
@@ -155,7 +155,7 @@ func (s *TradeService) PlaceOrder(ctx context.Context, p *trade.PlaceOrderPayloa
 		OrderType:           convertOrderTypeFromAPI(p.OrderType),
 		Quantity:            int(p.Quantity),
 		Price:               p.Price,
-		TriggerPrice:        p.TriggerPrice,
+		TriggerPrice:        &p.TriggerPrice,
 		PositionAccountType: convertPositionAccountTypeFromAPI(p.PositionAccountType),
 	}
 

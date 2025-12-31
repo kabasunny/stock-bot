@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
-	"stock-bot/internal/state"
+	"stock-bot/internal/agent/state"
 	"strings"
 )
 

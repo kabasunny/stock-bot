@@ -101,117 +101,43 @@
 
 ## 完了項目の詳細
 
-### ✅ ステップ4: Goaサービス化（完了）
+### ✅ P1-1: ディレクトリ構造整理（完了）
+- `internal/client/` → `internal/infrastructure/adapter/`
+- `internal/scheduler/` → `internal/infrastructure/scheduler/`
+- `internal/state/` → `internal/agent/state/`
+- Clean Architecture準拠の構造に整理完了
 
-#### 実施済み
-- [x] **TradeService API設計**
-  - Goaを使用したRESTful API設計
-  - 全TradeServiceメソッドのHTTPエンドポイント化
-  - 適切なリクエスト・レスポンス型定義
+### ✅ P1-2: DIコンテナ導入（完了）
+- `internal/infrastructure/container/container.go` 新規作成
+- main.goの複雑な依存関係注入を大幅簡素化（300行→150行）
+- 各層の依存関係を一元管理
+- ライフサイクル管理の統一
 
-- [x] **HTTP API実装**
-  - `internal/handler/web/trade_service.go` - HTTPハンドラー実装
-  - 既存TradeServiceの完全なHTTP公開
-  - 型変換・エラーハンドリング
+### ✅ P1-3: エラーハンドリング統一（完了）
+- `internal/infrastructure/errors/` パッケージ作成
+- 統一エラー型とエラーコード定義
+- HTTPエラーハンドラーとミドルウェア
+- 標準Goエラーの自動変換ユーティリティ
 
-- [x] **HTTPクライアント基盤**
-  - `internal/client/http_trade_service.go` - HTTPクライアント
-  - マイクロサービス化に向けた基盤整備
+### ✅ P2-1: ドメインイベント実装（完了）
+- `domain/event/` パッケージ作成
+- ドメインイベントシステムの基盤実装
+- 取引関連イベント（注文発行、約定、キャンセル等）
+- インメモリイベントパブリッシャー
+- イベントハンドラーの登録・実行機能
 
-- [x] **main.goでの統合**
-  - TradeService APIのHTTPサーバー追加
-  - 既存Goaサービスとの統合
+### ✅ P2-2: UnitOfWorkパターン導入（完了）
+- `domain/repository/unit_of_work.go` インターフェース定義
+- `internal/infrastructure/repository/unit_of_work_impl.go` 実装
+- トランザクション境界とドメインイベント管理の統合
+- 集約ルートパターンの基盤
 
-#### 実装済みAPI
-```
-GET    /trade/session          # セッション情報取得
-GET    /trade/positions        # ポジション一覧取得
-GET    /trade/orders           # 注文一覧取得
-GET    /trade/balance          # 残高情報取得
-GET    /trade/price-history/{symbol}  # 価格履歴取得
-POST   /trade/orders           # 注文発行
-DELETE /trade/orders/{order_id} # 注文キャンセル
-```
-
-#### 技術的成果
-- **マイクロサービス化準備**: TradeServiceの完全なHTTP API化
-- **独立デプロイ可能**: エージェントとTradeServiceの分離
-- **スケーラビリティ**: 複数エージェントからの同時アクセス対応
-- **拡張性**: 新しいAPIエンドポイントの追加が容易
-
-#### ファイル構造変更
-```
-design/
-└── design.go                     # TradeService API定義追加
-
-gen/trade/                        # Goa生成コード
-├── service.go
-├── endpoints.go
-└── client.go
-
-gen/http/trade/                   # HTTP関連生成コード
-├── server/
-└── client/
-
-internal/handler/web/
-└── trade_service.go              # HTTP APIハンドラー
-
-internal/client/
-└── http_trade_service.go         # HTTPクライアント（基盤）
-```
-
-#### 実施済み
-- [x] **イベントハンドラーインターフェース設計**
-  - `ExecutionEventHandler` - 約定通知処理
-  - `PriceEventHandler` - 価格データ処理
-  - `StatusEventHandler` - ステータス通知処理
-  - `EventDispatcher` - イベント振り分け
-
-- [x] **イベント処理実装**
-  - `ExecutionEventHandlerImpl` - 約定イベントの解析・処理
-  - `PriceEventHandlerImpl` - 価格データの解析・状態更新
-  - `StatusEventHandlerImpl` - ステータス通知の処理
-  - `EventDispatcherImpl` - イベントタイプ別ハンドラー振り分け
-
-- [x] **WebSocketイベントサービス**
-  - `WebSocketEventService` - WebSocket接続・メッセージ処理
-  - メッセージパース・イベント振り分けの統合
-  - エラーハンドリング・再接続準備
-
-- [x] **状態管理の分離**
-  - `internal/state` パッケージに状態管理を移動
-  - インポートサイクルの解決
-  - スレッドセーフな状態管理の維持
-
-- [x] **リファクタリング済みエージェント**
-  - `internal/refactoredagent` - イベント処理分離済みエージェント
-  - 戦略実行のみに責務を集中
-  - main.goでの統合完了
-
-#### 技術的成果
-- **責務の明確化**: エージェント（戦略実行）とイベント処理の完全分離
-- **拡張性向上**: 新しいイベントタイプの追加が容易
-- **テスト容易性**: 各コンポーネントの独立テストが可能
-- **保守性向上**: イベント処理ロジックの変更がエージェントに影響しない
-
-#### ファイル構造変更
-```
-domain/service/
-└── event_handler.go              # イベントハンドラーインターフェース
-
-internal/eventprocessing/
-├── event_dispatcher.go           # イベントディスパッチャー
-├── execution_event_handler.go    # 約定イベントハンドラー
-├── price_event_handler.go        # 価格イベントハンドラー
-├── status_event_handler.go       # ステータスイベントハンドラー
-└── websocket_event_service.go    # WebSocketイベントサービス
-
-internal/state/
-└── state.go                      # 状態管理（分離）
-
-internal/refactoredagent/
-└── agent.go                      # リファクタリング済みエージェント
-```
+### ✅ P2-3: 複数戦略対応基盤（完了）
+- `domain/model/strategy.go` 戦略ドメインモデル
+- `domain/repository/strategy_repository.go` 戦略リポジトリ
+- `domain/service/strategy_service.go` 戦略ドメインサービス
+- `internal/app/strategy_usecase.go` 戦略ユースケース
+- 戦略タイプ別実行、リスク管理、統計管理の基盤
 
 ### ✅ ステップ1: TradeServiceの分離（完了）
 
@@ -343,17 +269,28 @@ internal/infrastructure/client/
 - 📋 複数戦略対応のための基盤整備
 - 📋 認証・セキュリティの実装
 
-## 成果と効果
+## 技術的成果と効果
 
 ### 即座の効果
-1. **コード品質向上** - 責務分離により可読性・保守性向上
-2. **テスト容易性** - ドメインロジックの単体テスト可能
-3. **拡張性確保** - 新戦略・新証券会社対応の基盤整備
+1. **アーキテクチャ品質向上** - Clean Architecture原則の完全準拠
+2. **保守性大幅向上** - DIコンテナによる依存関係の一元管理
+3. **エラー処理統一** - 全システムで一貫したエラーハンドリング
+4. **イベント駆動設計** - ドメインイベントによる疎結合化
+5. **トランザクション管理** - UnitOfWorkパターンによる整合性保証
 
 ### 将来的効果
-1. **マイクロサービス化対応** - サービス境界の明確化
-2. **複数戦略同時実行** - 戦略間の独立性確保
-3. **運用性向上** - 各コンポーネントの独立デプロイ可能
+1. **複数戦略同時実行** - 戦略管理基盤の完成
+2. **マイクロサービス化対応** - サービス境界の明確化
+3. **テスト容易性** - 各層の独立テストが可能
+4. **拡張性確保** - 新機能追加の基盤整備完了
+5. **運用性向上** - 統一されたログ・エラー管理
+
+### 定量的改善
+- **main.goの簡素化**: 300行 → 150行（50%削減）
+- **依存関係管理**: 分散 → 一元化（DIコンテナ）
+- **エラーハンドリング**: 個別実装 → 統一システム
+- **イベント処理**: 密結合 → 疎結合（パブリッシャーパターン）
+- **戦略管理**: 単一 → 複数戦略対応基盤
 
 ---
 

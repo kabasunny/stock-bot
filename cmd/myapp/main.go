@@ -9,18 +9,13 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"stock-bot/internal/app"
 	"stock-bot/internal/config"
 	"stock-bot/internal/handler/web"
-	"stock-bot/internal/infrastructure/client"
-	repository_impl "stock-bot/internal/infrastructure/repository"
-	"stock-bot/internal/scheduler"
-	"stock-bot/internal/tradeservice"
+	"stock-bot/internal/infrastructure/container"
 	"sync"
 	"syscall"
 	"time"
 
-	"stock-bot/domain/repository"
 	_ "stock-bot/internal/logger" // loggerパッケージをインポートし、slog.Default()を初期化
 
 	balance "stock-bot/gen/balance"
@@ -38,8 +33,6 @@ import (
 
 	goahttp "goa.design/goa/v3/http"
 	"goa.design/goa/v3/http/middleware"
-	"gorm.io/driver/postgres"
-	"gorm.io/gorm"
 )
 
 // GoaSlogger は *slog.Logger を goa.design/goa/v3/http/middleware.Logger インターフェースに適合させるためのラッパーです。
@@ -60,10 +53,10 @@ func main() {
 	noTachibana := flag.Bool("no-tachibana", false, "Disable Tachibana API client initialization and login")
 	flag.Parse()
 
-	// 1. ロガーのセットアップ
+	// 2. ロガーのセットアップ
 	goaLogger := &GoaSlogger{slog.Default()}
 
-	// 2. 設定ファイルの読み込み
+	// 3. 設定ファイルの読み込み
 	cfg, err := config.LoadConfig(".env")
 	if err != nil {
 		if !*noTachibana { // Only error out if Tachibana is needed
@@ -78,173 +71,37 @@ func main() {
 		}
 	}
 
-	// 3. データベース接続と依存コンポーネントの初期化
-	var db *gorm.DB
-	var orderRepo repository.OrderRepository
-	var masterRepo repository.MasterRepository
-	var positionRepo repository.PositionRepository // 追加
-	var orderUsecase app.OrderUseCase
-	var masterUsecase app.MasterUseCase
-	var orderSvc order.Service
-	var masterSvc mastergen.Service
-	var goaTradeService *tradeservice.GoaTradeService // Declare executionUseCase
-
-	if !*noDB {
-		// 3a. データベース接続
-		dsn := fmt.Sprintf("host=%s user=%s password=%s dbname=%s port=%d sslmode=disable",
-			cfg.DBHost, cfg.DBUser, cfg.DBPassword, cfg.DBName, cfg.DBPort)
-
-		db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
-		if err != nil {
-			slog.Default().Error("failed to connect database", slog.Any("error", err))
-			os.Exit(1)
-		}
-		slog.Default().Info("database connection established")
-
-		// 3b. DB依存リポジトリを初期化
-		orderRepo = repository_impl.NewOrderRepository(db)
-		masterRepo = repository_impl.NewMasterRepository(db)
-		positionRepo = repository_impl.NewPositionRepository(db, orderRepo) // orderRepoを追加
-	} else {
-		slog.Default().Warn("database connection is disabled due to --no-db flag")
+	// 4. DIコンテナの初期化
+	containerCfg := &container.ContainerConfig{
+		SkipSync:    *skipSync,
+		NoDB:        *noDB,
+		NoTachibana: *noTachibana,
 	}
 
-	// 4. Usecaseなどの依存関係を初期化
-	var tachibanaClient *client.TachibanaClientImpl
-	var unifiedClient *client.TachibanaUnifiedClient
-	var unifiedClientAdapter *client.TachibanaUnifiedClientAdapter
-	var eventClient client.EventClient // 追加
-	var appSession *client.Session
-	var orderEventProcessor *tradeservice.OrderEventProcessor // 追加
-
-	// 4-Z. 注文イベント処理器の初期化（WebSocket約定通知用）
-	if !*noDB {
-		orderEventProcessor = tradeservice.NewOrderEventProcessor(
-			orderRepo,
-			positionRepo,
-			eventClient, // EventClient
-			appSession,
-			slog.Default(),
-		)
-
-		// WebSocketイベント処理を開始（監視対象銘柄は空で開始）
-		if err := orderEventProcessor.Start(context.Background(), []string{}); err != nil {
-			slog.Default().Error("failed to start order event processor", slog.Any("error", err))
-			// エラーでも続行（WebSocketは必須ではない）
-		} else {
-			slog.Default().Info("order event processor started successfully")
-		}
+	diContainer, err := container.NewContainer(cfg, slog.Default(), containerCfg)
+	if err != nil {
+		slog.Default().Error("failed to initialize DI container", slog.Any("error", err))
+		os.Exit(1)
 	}
-
-	if !*noTachibana {
-		// 4-1. 証券会社APIクライアントを初期化
-		tachibanaClient = client.NewTachibanaClient(cfg)
-
-		// 4-1a. EventClientを初期化
-		eventClient = client.NewEventClient(slog.Default())
-
-		// 4-1b. 統合クライアントを初期化
-		unifiedClient = client.NewTachibanaUnifiedClient(
-			tachibanaClient, // AuthClient
-			tachibanaClient, // BalanceClient
-			tachibanaClient, // OrderClient
-			tachibanaClient, // PriceInfoClient
-			tachibanaClient, // MasterDataClient
-			eventClient,     // EventClient
-			cfg.TachibanaUserID,
-			cfg.TachibanaPassword,
-			cfg.TachibanaSecondPassword,
-			slog.Default(),
-		)
-
-		// 4-1c. 統合クライアントアダプターを初期化
-		unifiedClientAdapter = client.NewTachibanaUnifiedClientAdapter(unifiedClient)
-
-		slog.Default().Info("logging in to Tachibana API via unified client...")
-
-		// 統合クライアント経由でログイン（自動認証）
-		appSession, err = unifiedClient.GetSession(context.Background())
-		if err != nil {
-			slog.Default().Error("failed to login via unified client", slog.Any("error", err))
-			os.Exit(1)
-		}
-
-		slog.Default().Info("login successful via unified client")
-	} else {
-		slog.Default().Warn("Tachibana API client and login are disabled due to --no-tachibana flag.")
-	}
-
-	// 4-2. ユースケースを初期化 (DB依存/非依存)
-	var balanceUsecase app.BalanceUseCase
-	var positionUsecase app.PositionUseCase
-	var priceUsecase app.PriceUseCase
-
-	if !*noTachibana {
-		balanceUsecase = app.NewBalanceUseCaseImpl(tachibanaClient)
-		positionUsecase = app.NewPositionUseCaseImpl(tachibanaClient)
-		priceUsecase = app.NewPriceUseCaseImpl(tachibanaClient, appSession)
-	}
-
-	if !*noDB && !*noTachibana {
-		orderUsecase = app.NewOrderUseCaseImpl(tachibanaClient, orderRepo)
-		masterUsecase = app.NewMasterUseCaseImpl(tachibanaClient, masterRepo)
-		// executionUseCase は不要（エージェント専用） // Initialize executionUseCase
-
-		if !*skipSync {
-			slog.Default().Info("Starting initial master data synchronization...")
-			err = masterUsecase.DownloadAndStoreMasterData(context.Background(), appSession)
-			if err != nil {
-				slog.Default().Error("failed to download and store master data on startup", slog.Any("error", err))
-				os.Exit(1)
-			}
-			slog.Default().Info("Initial master data synchronization completed successfully.")
-		} else {
-			slog.Default().Info("Skipping initial master data synchronization.")
-		}
-
-		// 4-Y. エージェント用トレードサービスの初期化
-		goaTradeService = tradeservice.NewGoaTradeService(
-			unifiedClientAdapter, // TachibanaUnifiedClientAdapter implements BalanceClient
-			unifiedClientAdapter, // TachibanaUnifiedClientAdapter implements OrderClient
-			unifiedClientAdapter, // TachibanaUnifiedClientAdapter implements PriceInfoClient
-			orderRepo,
-			masterRepo, // マスターデータリポジトリ追加
-			appSession,
-			slog.Default(),
-		)
-
-		// 4-Z. マスターデータスケジューラーの初期化と開始
-		masterScheduler := scheduler.NewMasterDataScheduler(
-			masterUsecase,
-			appSession,
-			slog.Default(),
-		)
-		masterScheduler.Start()
-
-		// Graceful shutdown時にスケジューラーとイベント処理器も停止
-		defer func() {
-			masterScheduler.Stop()
-			if orderEventProcessor != nil {
-				orderEventProcessor.Stop()
-			}
-		}()
-	}
+	defer diContainer.Shutdown()
 
 	// 5. Goaサービスの実装を初期化
 	var balanceSvc balance.Service
 	var positionSvc positiongen.Service
 	var priceSvc pricegen.Service
 	var tradeSvc tradegen.Service
+	var orderSvc order.Service
+	var masterSvc mastergen.Service
 
 	if !*noTachibana {
-		balanceSvc = web.NewBalanceService(balanceUsecase, slog.Default(), appSession)
-		positionSvc = web.NewPositionService(positionUsecase, slog.Default(), appSession)
-		priceSvc = web.NewPriceService(priceUsecase, slog.Default(), appSession)
-		tradeSvc = web.NewTradeService(goaTradeService, slog.Default(), appSession)
+		balanceSvc = web.NewBalanceService(diContainer.GetBalanceUseCase(), diContainer.GetLogger(), diContainer.GetAppSession())
+		positionSvc = web.NewPositionService(diContainer.GetPositionUseCase(), diContainer.GetLogger(), diContainer.GetAppSession())
+		priceSvc = web.NewPriceService(diContainer.GetPriceUseCase(), diContainer.GetLogger(), diContainer.GetAppSession())
+		tradeSvc = web.NewTradeService(diContainer.GetTradeService(), diContainer.GetLogger(), diContainer.GetAppSession())
 	}
 	if !*noDB && !*noTachibana {
-		orderSvc = web.NewOrderService(orderUsecase, slog.Default(), appSession)
-		masterSvc = web.NewMasterService(masterUsecase, slog.Default(), appSession)
+		orderSvc = web.NewOrderService(diContainer.GetOrderUseCase(), diContainer.GetLogger(), diContainer.GetAppSession())
+		masterSvc = web.NewMasterService(diContainer.GetMasterUseCase(), diContainer.GetLogger(), diContainer.GetAppSession())
 	}
 
 	// 6. GoaのエンドポイントとHTTPハンドラを構築
@@ -286,10 +143,10 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 7. HTTPサーバーの起動
+	// 8. HTTPサーバーの起動
 	srv := &http.Server{
 		Addr:    u.Host,
-		Handler: middleware.Log(goaLogger)(mux),
+		Handler: diContainer.GetErrorHandler().Middleware(middleware.Log(goaLogger)(mux)),
 	}
 
 	wg.Add(1)
@@ -302,7 +159,7 @@ func main() {
 		}
 	}()
 
-	// 8. Graceful Shutdownの設定
+	// 9. Graceful Shutdownの設定
 	c := make(chan os.Signal, 1)
 	signal.Notify(c, syscall.SIGINT, syscall.SIGTERM)
 

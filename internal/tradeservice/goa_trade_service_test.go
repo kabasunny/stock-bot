@@ -7,13 +7,18 @@ import (
 	"stock-bot/domain/service"
 	"stock-bot/internal/infrastructure/client"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
 )
 
 func TestGoaTradeService_GetSession(t *testing.T) {
 	// Setup
-	session := &client.Session{}
+	clientSession := &client.Session{
+		ResultCode: "0",
+		ResultText: "Success",
+	}
 	logger := slog.Default()
 
 	service := NewGoaTradeService(
@@ -22,7 +27,7 @@ func TestGoaTradeService_GetSession(t *testing.T) {
 		nil, // priceClient not needed for this test
 		nil, // orderRepo not needed for this test
 		nil, // masterRepo not needed for this test
-		session,
+		clientSession,
 		logger,
 	)
 
@@ -30,7 +35,11 @@ func TestGoaTradeService_GetSession(t *testing.T) {
 	result := service.GetSession()
 
 	// Assert
-	assert.Equal(t, session, result)
+	require.NotNil(t, result)
+	assert.Equal(t, "0", result.ResultCode)
+	assert.Equal(t, "Success", result.ResultText)
+	assert.True(t, result.IsActive)
+	assert.NotEmpty(t, result.SessionID)
 }
 
 func TestGoaTradeService_ImplementsTradeService(t *testing.T) {
@@ -73,6 +82,23 @@ func TestGoaTradeService_CancelOrder_OrderAlreadyFilled(t *testing.T) {
 	assert.Contains(t, err.Error(), "cannot be cancelled")
 }
 
+// TestGoaTradeService_HealthCheck はHealthCheckメソッドをテストします
+func TestGoaTradeService_HealthCheck(t *testing.T) {
+	mockOrderRepo := &mockOrderRepo{}
+	session := &client.Session{ResultCode: "0"}
+	service := NewGoaTradeService(nil, nil, nil, mockOrderRepo, nil, session, slog.Default())
+
+	health, err := service.HealthCheck(context.Background())
+
+	require.NoError(t, err)
+	require.NotNil(t, health)
+	assert.Equal(t, "healthy", health.Status)
+	assert.True(t, health.SessionValid)
+	assert.True(t, health.DatabaseConnected)
+	assert.True(t, health.WebSocketConnected)
+	assert.WithinDuration(t, time.Now(), health.Timestamp, time.Second)
+}
+
 // 簡単なモック実装
 type mockOrderRepo struct {
 	findResult *model.Order
@@ -89,6 +115,10 @@ func (m *mockOrderRepo) FindByID(ctx context.Context, orderID string) (*model.Or
 }
 
 func (m *mockOrderRepo) FindByStatus(ctx context.Context, status model.OrderStatus) ([]*model.Order, error) {
+	return nil, nil
+}
+
+func (m *mockOrderRepo) FindOrderHistory(ctx context.Context, status *model.OrderStatus, symbol *string, limit int) ([]*model.Order, error) {
 	return nil, nil
 }
 

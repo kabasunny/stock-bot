@@ -3,14 +3,13 @@ package service
 import (
 	"context"
 	"stock-bot/domain/model"
-	"stock-bot/internal/infrastructure/client"
 	"time"
 )
 
 // TradeService はトレード関連のドメインサービスインターフェース
 type TradeService interface {
 	// GetSession は現在のAPIセッション情報を取得する
-	GetSession() *client.Session
+	GetSession() *model.Session
 	// GetPositions は現在の保有ポジションを取得する
 	GetPositions(ctx context.Context) ([]*model.Position, error)
 	// GetOrders は発注中の注文を取得する
@@ -33,38 +32,38 @@ type TradeService interface {
 	HealthCheck(ctx context.Context) (*HealthStatus, error)
 }
 
-// Balance は残高情報を表現する
+// Balance は残高情報を表す
 type Balance struct {
-	Cash        float64 // 現金残高
-	BuyingPower float64 // 買付余力
+	Cash        float64 `json:"cash"`         // 現金残高
+	BuyingPower float64 `json:"buying_power"` // 買付余力
 }
 
-// HistoricalPrice は時系列データの一点を表現する
+// HistoricalPrice は過去の価格情報を表す
 type HistoricalPrice struct {
-	Date   time.Time
-	Open   float64
-	High   float64
-	Low    float64
-	Close  float64
-	Volume int64
+	Date   time.Time `json:"date"`   // 日付
+	Open   float64   `json:"open"`   // 始値
+	High   float64   `json:"high"`   // 高値
+	Low    float64   `json:"low"`    // 安値
+	Close  float64   `json:"close"`  // 終値
+	Volume int64     `json:"volume"` // 出来高
 }
 
-// PlaceOrderRequest は注文発行に必要な情報を保持する
+// PlaceOrderRequest は注文発行リクエストを表す
 type PlaceOrderRequest struct {
-	Symbol              string
-	TradeType           model.TradeType
-	OrderType           model.OrderType
-	Quantity            int
-	Price               float64                   // 指値の場合のみ
-	TriggerPrice        float64                   // 逆指値の場合のみ
-	PositionAccountType model.PositionAccountType // ポジションの口座タイプ（現物/信用）
+	Symbol              string                    `json:"symbol"`                  // 銘柄コード
+	TradeType           model.TradeType           `json:"trade_type"`              // 売買区分
+	OrderType           model.OrderType           `json:"order_type"`              // 注文種別
+	Quantity            int                       `json:"quantity"`                // 数量
+	Price               float64                   `json:"price,omitempty"`         // 価格（指値の場合）
+	TriggerPrice        *float64                  `json:"trigger_price,omitempty"` // トリガー価格（逆指値の場合）
+	PositionAccountType model.PositionAccountType `json:"position_account_type"`   // ポジション口座区分
 }
 
-// HealthStatus はサービスの健康状態を表現する
+// HealthStatus はサービスの健康状態を表す
 type HealthStatus struct {
-	Status             string // healthy, degraded, unhealthy
-	Timestamp          time.Time
-	SessionValid       bool
-	DatabaseConnected  bool
-	WebSocketConnected bool
+	Status             string    `json:"status"`              // ステータス（healthy/unhealthy）
+	Timestamp          time.Time `json:"timestamp"`           // チェック時刻
+	SessionValid       bool      `json:"session_valid"`       // セッション有効性
+	DatabaseConnected  bool      `json:"database_connected"`  // データベース接続状態
+	WebSocketConnected bool      `json:"websocket_connected"` // WebSocket接続状態
 }

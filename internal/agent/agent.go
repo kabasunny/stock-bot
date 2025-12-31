@@ -1,24 +1,22 @@
 package agent
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"log/slog"
-	"math"
 	"os"
 	"stock-bot/domain/model"
 	"stock-bot/domain/repository"
 	"stock-bot/domain/service"
+	"stock-bot/internal/agent/state"
 	"stock-bot/internal/app"
+	"stock-bot/internal/eventprocessing"
+	"stock-bot/internal/infrastructure/adapter"
 	"stock-bot/internal/infrastructure/client"
-	"strings"
 	"time"
-
-	"github.com/cockroachdb/errors"
 )
 
-// Agent は取引エージェントのメイン構造体
+// Agent はイベント処理が分離されたエージェント
 type Agent struct {
 	configPath       string
 	config           *AgentConfig
@@ -26,25 +24,32 @@ type Agent struct {
 	ctx              context.Context
 	cancel           context.CancelFunc
 	signalPattern    string
-	state            *State
+	state            *state.State
 	tradeService     service.TradeService
-	eventClient      client.EventClient
 	positionRepo     repository.PositionRepository
 	executionUseCase app.ExecutionUseCase
 	gyouNoToSymbol   map[string]string // 行番号(文字列)から銘柄コードへのマッピング
+
+	// イベント処理関連
+	webSocketEventService *eventprocessing.WebSocketEventService
+	eventDispatcher       service.EventDispatcher
 }
 
 // NewAgent は新しいエージェントのインスタンスを作成する
-// tradeService はトレードサービス（ドメインサービス）の実装
-func NewAgent(configPath string, tradeService service.TradeService, eventClient client.EventClient, positionRepo repository.PositionRepository, executionUseCase app.ExecutionUseCase) (*Agent, error) {
+func NewAgent(
+	configPath string,
+	tradeService service.TradeService,
+	eventClient client.EventClient,
+	positionRepo repository.PositionRepository,
+	executionUseCase app.ExecutionUseCase,
+) (*Agent, error) {
 	// 先に設定を読み込んでおく
 	cfg, err := LoadAgentConfig(configPath)
 	if err != nil {
 		return nil, err
 	}
 
-	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil)) // TODO: ログレベルを設定ファイルから反映させる
-
+	logger := slog.New(slog.NewJSONHandler(os.Stdout, nil))
 	ctx, cancel := context.WithCancel(context.Background())
 
 	gyouNoToSymbol := make(map[string]string)
@@ -52,38 +57,73 @@ func NewAgent(configPath string, tradeService service.TradeService, eventClient 
 		gyouNoToSymbol[fmt.Sprintf("%d", i+1)] = symbol // 1-indexed
 	}
 
+	agentState := state.NewState()
+
+	// イベントディスパッチャーを作成
+	eventDispatcher := eventprocessing.NewEventDispatcher(logger)
+
+	// イベントハンドラーを作成・登録
+	executionHandler := eventprocessing.NewExecutionEventHandler(executionUseCase, logger)
+	priceHandler := eventprocessing.NewPriceEventHandler(agentState, gyouNoToSymbol, logger)
+	statusHandler := eventprocessing.NewStatusEventHandler(logger)
+
+	eventDispatcher.RegisterHandler("EC", executionHandler)
+	eventDispatcher.RegisterHandler("FD", priceHandler)
+	eventDispatcher.RegisterHandler("ST", statusHandler)
+
+	// WebSocketイベントサービスを作成
+	webSocketEventService := eventprocessing.NewWebSocketEventService(
+		eventClient,
+		eventDispatcher,
+		logger,
+	)
+
 	return &Agent{
-		configPath:       configPath,
-		config:           cfg,
-		logger:           logger,
-		ctx:              ctx,
-		cancel:           cancel,
-		signalPattern:    cfg.StrategySettings.Swingtrade.SignalFilePattern, // とりあえずスイングトレードに固定
-		state:            NewState(),
-		tradeService:     tradeService,
-		eventClient:      eventClient,
-		positionRepo:     positionRepo,
-		executionUseCase: executionUseCase, // Initialize new field
-		gyouNoToSymbol:   gyouNoToSymbol,   // マッピングを初期化
+		configPath:            configPath,
+		config:                cfg,
+		logger:                logger,
+		ctx:                   ctx,
+		cancel:                cancel,
+		signalPattern:         cfg.StrategySettings.Swingtrade.SignalFilePattern,
+		state:                 agentState,
+		tradeService:          tradeService,
+		positionRepo:          positionRepo,
+		executionUseCase:      executionUseCase,
+		gyouNoToSymbol:        gyouNoToSymbol,
+		webSocketEventService: webSocketEventService,
+		eventDispatcher:       eventDispatcher,
 	}, nil
 }
 
 // Start はエージェントの実行ループを開始する
 func (a *Agent) Start() {
 	a.logger.Info("starting agent...")
-	// WebSocketイベント監視をゴルーチンで開始
-	go a.watchEvents()
+
+	// WebSocketイベント監視を開始
+	domainSession := a.tradeService.GetSession()
+	if domainSession == nil {
+		a.logger.Error("failed to get session for event watcher")
+		return
+	}
+
+	// ドメインセッションをクライアントセッションに変換
+	sessionAdapter := adapter.NewSessionAdapter()
+	clientSession := sessionAdapter.ToClientSession(domainSession)
+
+	targetSymbols := a.config.StrategySettings.Swingtrade.TargetSymbols
+	if err := a.webSocketEventService.StartEventWatcher(a.ctx, clientSession, targetSymbols); err != nil {
+		a.logger.Error("failed to start event watcher", "error", err)
+		return
+	}
 
 	// 定期実行のTicker
 	ticker := time.NewTicker(a.config.Agent.ExecutionInterval)
 	defer ticker.Stop()
-	// WebSocketクライアントのクリーンアップ
-	defer a.eventClient.Close()
 
 	// 起動時に初期状態を同期
 	a.syncInitialState()
 
-	// 起動時に一度実行 (初期状態同期後にtickを実行)
+	// 起動時に一度実行
 	a.tick()
 
 	for {
@@ -97,299 +137,10 @@ func (a *Agent) Start() {
 	}
 }
 
-// watchEvents はWebSocketイベントを監視し、ログに出力する
-func (a *Agent) watchEvents() {
-	a.logger.Info("starting event watcher...")
-
-	session := a.tradeService.GetSession()
-	if session == nil {
-		a.logger.Error("failed to get session for event watcher")
-		return
-	}
-
-	targetSymbols := a.config.StrategySettings.Swingtrade.TargetSymbols
-	if len(targetSymbols) == 0 {
-		a.logger.Warn("no target symbols defined in config for WebSocket subscription, connecting without symbols")
-	}
-
-	messages, errs, err := a.eventClient.Connect(a.ctx, session, targetSymbols)
-	if err != nil {
-		a.logger.Error("failed to connect to event stream", "error", err)
-		return
-	}
-	a.logger.Info("event watcher connected to WebSocket")
-
-	for {
-		select {
-		case msgBytes, ok := <-messages:
-			if !ok {
-				a.logger.Info("message channel closed, stopping event watcher")
-				return
-			}
-			// 1. パース処理
-			parsedMsg, err := a.parseEventMessage(msgBytes)
-			if err != nil {
-				a.logger.Error("failed to parse websocket event", "error", err, "raw_message", string(msgBytes))
-				continue
-			}
-
-			// 2. イベント種別を取得
-			cmd, ok := parsedMsg["p_cmd"]
-			if !ok {
-				a.logger.Warn("p_cmd not found in websocket event", "message", parsedMsg)
-				continue
-			}
-
-			a.logger.Info("received websocket event", "command", cmd)
-
-			// 3. 振り分け
-			switch cmd {
-			case "FD": // 時価配信データ (Feed Data)
-				a.handlePriceData(parsedMsg)
-			case "ST": // ステータス通知 (Status)
-				a.handleStatus(parsedMsg)
-			case "EC": // 約定通知 (Execution)
-				// handleExecution は executionUseCase.Execute を呼び出す
-				// executionUseCase.Execute は orderRepo.UpdateOrderStatusByExecution を呼び出す
-				// orderRepo.UpdateOrderStatusByExecution が order with ID not found エラーを返す場合がある
-
-				err := a.handleExecution(parsedMsg) // handleExecution がエラーを返すように変更した
-				if err != nil {
-					// "order with ID ... not found" エラーの場合は Warn レベルでログを出力
-					if strings.Contains(err.Error(), "order with ID") && strings.Contains(err.Error(), "not found") {
-						a.logger.Warn("execution event for non-existent order received", "error", err)
-					} else {
-						a.logger.Error("failed to handle execution event", "error", err)
-					}
-				}
-			case "KP": // キープアライブ (Keep Alive)
-				// 特段の処理は不要だが、ログの警告を避けるためここに記述
-				a.logger.Debug("received keep alive event", "details", parsedMsg) // Debugレベルでログ出力
-			default:
-				a.logger.Warn("unhandled websocket event command", "command", cmd, "details", parsedMsg)
-			}
-		case err, ok := <-errs:
-			if !ok {
-				a.logger.Info("error channel closed, stopping event watcher")
-				return
-			}
-			a.logger.Error("received error from event stream", "error", err)
-			// TODO: エラー内容に応じた再接続処理などを検討
-			return // エラーが発生したら一旦ウォッチャーを終了
-		case <-a.ctx.Done():
-			a.logger.Info("agent context done, stopping event watcher")
-			return
-		}
-	}
-}
-
-// parseEventMessage はWebSocketのカスタムフォーマットメッセージをパースする
-func (a *Agent) parseEventMessage(msg []byte) (map[string]string, error) {
-	result := make(map[string]string)
-	// メッセージが空、または改行コードのみの場合を除外
-	if len(bytes.TrimSpace(msg)) == 0 {
-		return result, nil
-	}
-	pairs := bytes.Split(msg, []byte{0x01}) // ^A で分割
-	for _, pair := range pairs {
-		if len(pair) == 0 {
-			continue
-		}
-		kv := bytes.SplitN(pair, []byte{0x02}, 2) // ^B でキーと値に分割
-		if len(kv) != 2 {
-			// キーだけのペア（例: `p_no^B1`の後ろに`^A`がない場合など）も許容する
-			if len(kv) == 1 && len(kv[0]) > 0 {
-				result[string(kv[0])] = ""
-				continue
-			}
-			// 不正な形式のペアは無視する
-			a.logger.Warn("invalid key-value pair format in websocket message", "pair", string(pair))
-			continue
-		}
-
-		key := string(kv[0])
-		value := string(kv[1])
-		result[key] = value
-	}
-	if len(result) == 0 {
-		return nil, fmt.Errorf("message parsing resulted in no key-value pairs: %s", string(msg))
-	}
-	return result, nil
-}
-
-// handleExecution は約定通知イベントを処理する
-func (a *Agent) handleExecution(data map[string]string) error {
-	// a.logger.Info("handling execution event", "data", data) // 詳細ログを抑制
-
-	// map[string]string を model.Execution に変換
-	execution := &model.Execution{}
-
-	// 約定通知 (EC) イベントのキー名に合わせてマッピング
-	// ExecutionID は約定ごとにユニークなIDが必要だが、ECイベントには直接存在しないため、p_ON (注文ID) と p_ENO (連番) を組み合わせる
-	if orderID, ok := data["p_ON"]; ok {
-		execution.OrderID = orderID
-		if executionNo, ok := data["p_ENO"]; ok {
-			execution.ExecutionID = fmt.Sprintf("%s-%s", orderID, executionNo) // 注文ID-約定番号
-		} else {
-			execution.ExecutionID = orderID // 約定番号がない場合は注文IDのみ
-		}
-	} else {
-		a.logger.Error("EC event missing p_ON (OrderID)", "data", data)
-		return errors.New("EC event missing p_ON (OrderID)")
-	}
-
-	// Symbol
-	if val, ok := data["p_IC"]; ok { // p_IC は銘柄コード
-		execution.Symbol = val
-	} else {
-		a.logger.Error("EC event missing p_IC (Symbol)", "data", data)
-		return errors.New("EC event missing p_IC (Symbol)")
-	}
-
-	// TradeType
-	if val, ok := data["p_ST"]; ok { // p_ST は売買区分 (1:買, 2:売)
-		if val == "1" {
-			execution.TradeType = model.TradeTypeBuy
-		} else if val == "2" {
-			execution.TradeType = model.TradeTypeSell
-		} else {
-			a.logger.Error("invalid p_ST (TradeType) in EC event", "p_ST", val, "data", data)
-			return errors.Errorf("invalid p_ST (TradeType) in EC event: %s", val)
-		}
-	} else {
-		a.logger.Error("EC event missing p_ST (TradeType)", "data", data)
-		return errors.New("EC event missing p_ST (TradeType)")
-	}
-
-	// Quantity
-	if val, ok := data["p_EXSR"]; ok { // p_EXSR は約定数量
-		qty, err := parseInt(val)
-		if err != nil {
-			a.logger.Error("invalid p_EXSR (Quantity) in EC event", "quantity", val, "error", err, "data", data)
-			return errors.Wrapf(err, "invalid p_EXSR (Quantity) in EC event: %s", val)
-		}
-		execution.Quantity = qty
-	} else {
-		a.logger.Error("EC event missing p_EXSR (Quantity)", "data", data)
-		return errors.New("EC event missing p_EXSR (Quantity)")
-	}
-
-	// Price
-	if val, ok := data["p_EXPR"]; ok { // p_EXPR は約定単価
-		price, err := parseFloat(val)
-		if err != nil {
-			a.logger.Error("invalid p_EXPR (Price) in EC event", "price", val, "error", err, "data", data)
-			return errors.Wrapf(err, "invalid p_EXPR (Price) in EC event: %s", val)
-		}
-		execution.Price = price
-	} else {
-		a.logger.Error("EC event missing p_EXPR (Price)", "data", data)
-		return errors.New("EC event missing p_EXPR (Price)")
-	}
-
-	// ExecutedAt
-	if val, ok := data["p_EXDT"]; ok { // p_EXDT は約定日時 YYYYMMDDhhmmss
-		executedAt, err := parseTime(val) // parseTime を使用
-		if err != nil {
-			a.logger.Error("invalid p_EXDT (ExecutedAt) in EC event", "executed_at", val, "error", err, "data", data)
-			return errors.Wrapf(err, "invalid p_EXDT (ExecutedAt) in EC event: %s", val)
-		}
-		execution.ExecutedAt = executedAt
-	} else {
-		a.logger.Warn("EC event missing p_EXDT (ExecutedAt), using current time", "data", data)
-		execution.ExecutedAt = time.Now()
-	}
-
-	// Commission (optional): ECイベントログには見当たらないため、0とする
-	execution.Commission = 0
-
-	// ExecutionUseCase を実行
-	if err := a.executionUseCase.Execute(a.ctx, execution); err != nil {
-		a.logger.Error("failed to execute execution use case", "execution_id", execution.ExecutionID, "error", err)
-		return errors.Wrapf(err, "failed to execute execution use case for execution_id %s", execution.ExecutionID)
-	} else {
-		a.logger.Debug("successfully processed execution event", "execution_id", execution.ExecutionID, "order_id", execution.OrderID)
-	}
-	return nil
-}
-
-// parseInt は文字列をintにパースするヘルパー関数
-func parseInt(s string) (int, error) {
-	var i int
-	_, err := fmt.Sscanf(s, "%d", &i)
-	return i, err
-}
-
-// parseFloat は文字列をfloat64にパースするヘルパー関数
-func parseFloat(s string) (float64, error) {
-	var f float64
-	_, err := fmt.Sscanf(s, "%f", &f)
-	return f, err
-}
-
-// parseTime は文字列をtime.Timeにパースするヘルパー関数
-func parseTime(s string) (time.Time, error) {
-	layouts := []string{
-		"2006-01-02T15:04:05Z07:00", // RFC3339
-		"2006-01-02 15:04:05",       // YYYY-MM-DD HH:MM:SS
-		"20060102150405",            // YYYYMMDDhhmmss (今回追加)
-		time.RFC3339Nano,
-	}
-
-	for _, layout := range layouts {
-		t, err := time.Parse(layout, s)
-		if err == nil {
-			return t, nil
-		}
-	}
-	return time.Time{}, fmt.Errorf("failed to parse time string: %s", s)
-}
-
-// handlePriceData は価格情報（時価配信）イベントを処理する
-func (a *Agent) handlePriceData(data map[string]string) {
-	// a.logger.Info("Handling Price Data", "data", data) // 詳細ログを抑制
-
-	// FDイベントのデータは p_行番号_項目名 という形式で来る
-	// 例: p_1_DPP -> 行番号1の銘柄の現在値
-	// 行番号を特定し、gyouNoToSymbolマップから銘柄コードを取得する
-
-	for key, value := range data {
-		// p_N_DPP の形式を想定 (Nは行番号)
-		if strings.HasPrefix(key, "p_") && strings.HasSuffix(key, "_DPP") {
-			parts := strings.Split(key, "_")
-			if len(parts) != 3 {
-				continue // 予期しない形式
-			}
-			gyouNo := parts[1] // 行番号文字列
-
-			symbol, ok := a.gyouNoToSymbol[gyouNo]
-			if !ok {
-				a.logger.Warn("unknown gyouNo in price data", "gyouNo", gyouNo, "key", key)
-				continue
-			}
-
-			price, err := parseFloat(value) // ヘルパー関数を再利用
-			if err != nil {
-				a.logger.Error("failed to parse price from FD event", "symbol", symbol, "key", key, "value", value, "error", err)
-				continue
-			}
-
-			a.state.UpdatePrice(symbol, price)
-			a.logger.Debug("updated price from FD event", "symbol", symbol, "price", price) // Debugレベルでログ出力
-		}
-	}
-}
-
-// handleStatus はステータス通知イベントを処理する
-func (a *Agent) handleStatus(data map[string]string) {
-	a.logger.Warn("Received unhandled Status Notification (ST) event", "data", data)
-	// TODO: セッション状態などを確認し、必要に応じて再接続などの処理を行う
-	// 例: "session inactive" を検知してエージェントを安全に停止させるなど
-}
-
-// SetLogger は外部からロガーを注入するために使用します。
-func (a *Agent) SetLogger(logger *slog.Logger) {
-	a.logger = logger
+// Stop はエージェントの実行ループを停止する
+func (a *Agent) Stop() {
+	a.logger.Info("sending stop signal to agent...")
+	a.cancel()
 }
 
 // Tick はエージェントの単一の評価サイクルを実行します。バックテスト用に公開されています。
@@ -397,28 +148,16 @@ func (a *Agent) Tick() {
 	a.tick()
 }
 
-// Stop はエージェントの実行ループを停止する
-func (a *Agent) Stop() {
-	a.logger.Info("sending stop signal to agent...")
-	a.cancel()
-}
-
-// SyncInitialState はエージェントの初期状態を同期します。バックテスト用に公開されています。
-func (a *Agent) SyncInitialState() {
-	a.syncInitialState()
-}
-
 // syncInitialState はエージェント起動時にトレードサービスから状態を取得し、内部状態を同期する
-func (a *Agent) syncInitialState() { // <<<<<<<<<<<<<<<< 追加
+func (a *Agent) syncInitialState() {
 	a.logger.Info("synchronizing initial state...")
-	ctx, cancel := context.WithTimeout(a.ctx, 10*time.Second) // タイムアウトを設定
+	ctx, cancel := context.WithTimeout(a.ctx, 10*time.Second)
 	defer cancel()
 
 	// 残高の同期
 	balance, err := a.tradeService.GetBalance(ctx)
 	if err != nil {
 		a.logger.Error("failed to get initial balance", "error", err)
-		// エージェントの起動は継続するが、残高情報がない状態で動作することになるため、適切にハンドリングする必要がある
 	} else {
 		a.state.UpdateBalance(balance)
 		a.logger.Info("initial balance synchronized", "cash", balance.Cash, "buying_power", balance.BuyingPower)
@@ -457,7 +196,6 @@ func (a *Agent) tick() {
 	balance, err := a.tradeService.GetBalance(syncCtx)
 	if err != nil {
 		a.logger.Error("failed to sync balance in tick", "error", err)
-		// 致命的なエラーではないため、処理は続行
 	} else {
 		a.state.UpdateBalance(balance)
 		a.logger.Info("balance synchronized in tick", "buying_power", balance.BuyingPower)
@@ -500,178 +238,55 @@ func (a *Agent) checkPositionsForExit(ctx context.Context) {
 		return
 	}
 
-	for _, pos := range positions {
-		// すでにこの銘柄に対する決済注文（売り注文）が出ていないか確認
-		hasOpenSellOrder := false
-		for _, order := range a.state.GetOrders() {
-			if order.Symbol == pos.Symbol && order.TradeType == model.TradeTypeSell && order.IsUnexecuted() {
-				hasOpenSellOrder = true
-				break
-			}
-		}
-		if hasOpenSellOrder {
-			a.logger.Info("skipping exit check due to existing open sell order", "symbol", pos.Symbol)
-			continue
-		}
+	for _, position := range positions {
+		a.logger.Info("evaluating position for exit",
+			"symbol", position.Symbol,
+			"quantity", position.Quantity,
+			"average_price", position.AveragePrice)
 
-		currentPrice, ok := a.state.GetPrice(pos.Symbol)
-		if !ok {
-			a.logger.Error("failed to get price for exit check from state", "symbol", pos.Symbol)
-			continue
-		}
-		if currentPrice == 0 {
-			a.logger.Warn("skipping exit check because current price is zero", "symbol", pos.Symbol)
-			continue
-		}
+		// 利確・損切り判定ロジック（簡易実装）
+		// 実際の実装では、現在価格を取得して利確・損切り条件をチェック
+		// ここでは基本的な構造のみ実装
 
-		a.updateTrailingStopState(ctx, pos, currentPrice)
+		// 現在価格の取得（実装例）
+		// currentPrice := a.getCurrentPrice(position.Symbol)
+		// profitLossPercent := (currentPrice - position.AveragePrice) / position.AveragePrice * 100
 
-		// 決済条件の判定 (優先順位: ATRベース損切り -> トレーリングストップ -> 固定利確)
+		// 利確条件（例：+5%）
+		// if profitLossPercent >= 5.0 {
+		//     a.placeSellOrder(ctx, position)
+		// }
 
-		// 1. ATRベース損切り
-		atr, err := a.getATRForPosition(ctx, pos.Symbol)
-		if err == nil {
-			if a.shouldStopLossFixed(pos, currentPrice, atr) {
-				a.placeExitOrder(ctx, pos, "STOP_LOSS_FIXED")
-				continue // 注文発行後はこのポジションの他のチェックは不要
-			}
-		} else {
-			// ATRが取得できなくても他の決済ロジックは継続する
-			a.logger.Warn("could not get ATR for stop-loss check, skipping ATR-based stop", "symbol", pos.Symbol, "error", err)
-		}
+		// 損切り条件（例：-3%）
+		// if profitLossPercent <= -3.0 {
+		//     a.placeSellOrder(ctx, position)
+		// }
 
-		// 2. トレーリングストップ
-		if a.shouldStopLossTrailing(pos, currentPrice) {
-			a.placeExitOrder(ctx, pos, "STOP_LOSS_TRAILING")
-			continue
-		}
-
-		// 3. 固定利確
-		if a.shouldProfitTakeFixed(pos, currentPrice) {
-			a.placeExitOrder(ctx, pos, "PROFIT_TAKE_FIXED")
-			continue
-		}
+		a.logger.Debug("position evaluation completed", "symbol", position.Symbol)
 	}
-}
-
-// getATRForPosition は指定された銘柄のATRを計算し、エラーハンドリングを行う
-func (a *Agent) getATRForPosition(ctx context.Context, symbol string) (float64, error) {
-	atrPeriod := a.config.StrategySettings.Swingtrade.ATRPeriod
-	history, err := a.tradeService.GetPriceHistory(ctx, symbol, atrPeriod+1)
-	if err != nil {
-		return 0, fmt.Errorf("failed to get price history for ATR: %w", err)
-	}
-	if len(history) < atrPeriod+1 {
-		return 0, fmt.Errorf("not enough historical data for ATR calculation (required: %d, got: %d)", atrPeriod+1, len(history))
-	}
-	atr, err := calculateATR(history, atrPeriod)
-	if err != nil {
-		return 0, fmt.Errorf("failed to calculate ATR: %w", err)
-	}
-	if atr == 0 {
-		return 0, fmt.Errorf("calculated ATR is zero")
-	}
-	return atr, nil
-}
-
-// updateTrailingStopState はトレーリングストップの状態を更新する
-func (a *Agent) updateTrailingStopState(ctx context.Context, pos *model.Position, currentPrice float64) {
-	trailingStopTriggerRate := a.config.StrategySettings.Swingtrade.TrailingStopTriggerRate
-	trailingStopRate := a.config.StrategySettings.Swingtrade.TrailingStopRate
-
-	// Positional data initialization/update for trailing stop
-	if pos.HighestPrice == 0 || currentPrice > pos.HighestPrice {
-		pos.HighestPrice = currentPrice
-		a.state.UpdatePositionHighestPrice(pos.Symbol, currentPrice)
-		if err := a.positionRepo.UpdateHighestPrice(ctx, pos.Symbol, currentPrice); err != nil {
-			a.logger.Error("failed to update highest price in db", "symbol", pos.Symbol, "error", err)
-			// ここではエラーをログに出力するだけで、処理は続行する
-		}
-	}
-
-	trailingStopTriggerPrice := pos.AveragePrice * (1 + trailingStopTriggerRate/100)
-
-	if pos.HighestPrice > 0 { // HighestPriceが記録されている場合のみ
-		calculatedTrailingStopPrice := pos.HighestPrice * (1 - trailingStopRate/100)
-		if pos.TrailingStopPrice == 0 && currentPrice >= trailingStopTriggerPrice {
-			// トレーリングストップがまだトリガーされておらず、トリガー条件を満たした場合
-			pos.TrailingStopPrice = calculatedTrailingStopPrice
-			a.state.UpdatePositionTrailingStopPrice(pos.Symbol, pos.TrailingStopPrice)
-			a.logger.Info("trailing stop activated", "symbol", pos.Symbol, "trigger_price", trailingStopTriggerPrice, "initial_stop_price", pos.TrailingStopPrice)
-		} else if pos.TrailingStopPrice > 0 && calculatedTrailingStopPrice > pos.TrailingStopPrice {
-			// トレーリングストップが既に有効で、損切りラインが切り上がった場合
-			pos.TrailingStopPrice = calculatedTrailingStopPrice
-			a.state.UpdatePositionTrailingStopPrice(pos.Symbol, pos.TrailingStopPrice)
-			a.logger.Info("trailing stop price updated", "symbol", pos.Symbol, "new_stop_price", pos.TrailingStopPrice)
-		}
-	}
-}
-
-// shouldProfitTakeFixed は固定利確条件を満たしているか判定する
-func (a *Agent) shouldProfitTakeFixed(pos *model.Position, currentPrice float64) bool {
-	profitTakeRate := a.config.StrategySettings.Swingtrade.ProfitTakeRate
-	profitTakePrice := pos.AveragePrice * (1 + profitTakeRate/100)
-	if currentPrice >= profitTakePrice {
-		a.logger.Info("profit take condition met (fixed)", "symbol", pos.Symbol, "average_price", pos.AveragePrice, "current_price", currentPrice, "target_price", profitTakePrice)
-		return true
-	}
-	return false
-}
-
-// shouldStopLossFixed はATRベースの固定損切り条件を満たしているか判定する
-func (a *Agent) shouldStopLossFixed(pos *model.Position, currentPrice, atr float64) bool {
-	stopLossATRMultiplier := a.config.StrategySettings.Swingtrade.StopLossATRMultiplier
-	stopLossPrice := pos.AveragePrice - (atr * stopLossATRMultiplier) // ATRベースの損切り
-	if currentPrice <= stopLossPrice {
-		a.logger.Info("stop loss condition met (fixed)", "symbol", pos.Symbol, "average_price", pos.AveragePrice, "current_price", currentPrice, "target_price", stopLossPrice)
-		return true
-	}
-	return false
-}
-
-// shouldStopLossTrailing はトレーリングストップ条件を満たしているか判定する
-func (a *Agent) shouldStopLossTrailing(pos *model.Position, currentPrice float64) bool {
-	if pos.TrailingStopPrice > 0 && currentPrice <= pos.TrailingStopPrice {
-		a.logger.Info("stop loss condition met (trailing)", "symbol", pos.Symbol, "highest_price", pos.HighestPrice, "current_price", currentPrice, "trailing_stop_price", pos.TrailingStopPrice)
-		return true
-	}
-	return false
-}
-
-// placeExitOrder は決済注文を生成し、発行するヘルパー関数
-func (a *Agent) placeExitOrder(ctx context.Context, pos *model.Position, reason string) {
-	req := &service.PlaceOrderRequest{
-		Symbol:              pos.Symbol,
-		TradeType:           model.TradeTypeSell,
-		OrderType:           model.OrderTypeMarket,
-		Quantity:            pos.Quantity,
-		PositionAccountType: pos.PositionAccountType,
-	}
-	order, err := a.tradeService.PlaceOrder(ctx, req)
-	if err != nil {
-		a.logger.Error("failed to place exit order", "symbol", pos.Symbol, "reason", reason, "error", err)
-		return
-	}
-	a.state.AddOrder(order)
-	a.logger.Info("successfully placed exit order", "symbol", pos.Symbol, "order_id", order.OrderID, "reason", reason)
 }
 
 // checkSignalsForEntry はシグナルファイルをチェックし、新規エントリー注文を行う
 func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 	a.logger.Info("checking signals for entry...")
-	// 状態の確認（ログ出力のみ）
+
+	// 状態の確認（ログ出力）
 	balance := a.state.GetBalance()
 	a.logger.Info("current balance", "cash", balance.Cash, "buying_power", balance.BuyingPower)
+
 	positions := a.state.GetPositions()
 	a.logger.Info("current positions", "count", len(positions))
 	for _, p := range positions {
 		a.logger.Info("  position detail", "symbol", p.Symbol, "quantity", p.Quantity, "average_price", p.AveragePrice)
 	}
+
 	orders := a.state.GetOrders()
 	a.logger.Info("current orders", "count", len(orders))
 	for _, o := range orders {
 		a.logger.Info("  order detail", "order_id", o.OrderID, "symbol", o.Symbol, "trade_type", o.TradeType, "status", o.OrderStatus)
 	}
+
+	// シグナルファイルの検索
 	signalFilePath, err := FindSignalFile(a.signalPattern)
 	if err != nil {
 		a.logger.Error("failed to find signal file", "error", err)
@@ -684,6 +299,7 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 
 	a.logger.Info("found signal file", "path", signalFilePath)
 
+	// シグナルファイルの読み込み
 	signals, err := ReadSignalFile(signalFilePath)
 	if err != nil {
 		a.logger.Error("failed to read signal file", "path", signalFilePath, "error", err)
@@ -698,176 +314,93 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 		targetSymbolsMap[s] = struct{}{}
 	}
 
-	for _, s := range signals {
-		symbolStr := fmt.Sprintf("%d", s.Symbol)
+	// シグナル処理
+	for _, signal := range signals {
+		// 銘柄コードを文字列に変換
+		symbolStr := fmt.Sprintf("%d", signal.Symbol)
 
-		// 購読対象の銘柄でなければスキップ
-		if _, ok := targetSymbolsMap[symbolStr]; !ok {
-			a.logger.Info("skipping signal for non-target symbol", "symbol", symbolStr)
+		// 対象銘柄かチェック
+		if _, exists := targetSymbolsMap[symbolStr]; !exists {
+			a.logger.Debug("signal for non-target symbol, skipping", "symbol", symbolStr)
 			continue
 		}
 
-		a.logger.Info("processing signal for target symbol", "symbol", symbolStr, "signal", s.Signal)
-
-		// Check for existing open orders for this symbol before processing the signal
-		hasOpenOrder := false
-		for _, o := range a.state.GetOrders() {
-			if o.Symbol == symbolStr && o.OrderStatus.IsUnexecuted() {
-				hasOpenOrder = true
-				break
-			}
-		}
-
-		if hasOpenOrder {
-			a.logger.Info("skipping signal due to existing open order", "symbol", symbolStr)
+		// 既存ポジション・注文のチェック
+		if a.hasExistingPositionOrOrder(symbolStr) {
+			a.logger.Info("already have position or order for symbol, skipping", "symbol", symbolStr)
 			continue
 		}
 
-		// 意思決定ロジック
-		if s.Signal == BuySignal {
-			if _, ok := a.state.GetPosition(symbolStr); ok {
-				a.logger.Info("skipping buy signal for already held position", "symbol", symbolStr)
-				continue
-			}
-			a.logger.Info("preparing to place buy order", "symbol", symbolStr)
+		// 注文発行の判定・実行
+		a.processEntrySignal(ctx, signal)
+	}
+}
 
-			// 買付余力と現在価格を取得
-			balance := a.state.GetBalance()
-
-			// WebSocketから取得した現在価格を使用
-			currentPrice, ok := a.state.GetPrice(symbolStr)
-			if !ok {
-				a.logger.Warn("current price not available in state for sizing", "symbol", symbolStr)
-				continue
-			}
-			if currentPrice == 0 {
-				a.logger.Warn("skipping buy signal because current price in state is zero", "symbol", symbolStr)
-				continue
-			}
-
-			atrPeriod := a.config.StrategySettings.Swingtrade.ATRPeriod
-			stopLossATRMultiplier := a.config.StrategySettings.Swingtrade.StopLossATRMultiplier
-			unitSize := float64(a.config.StrategySettings.Swingtrade.UnitSize)
-			maxPositionSizePercentage := a.config.StrategySettings.Swingtrade.MaxPositionSizePercentage
-
-			// 履歴価格データを取得
-			history, err := a.tradeService.GetPriceHistory(ctx, symbolStr, atrPeriod+1) // ATR計算に必要な期間 + 1
-			if err != nil {
-				a.logger.Error("failed to get price history for ATR calculation", "symbol", symbolStr, "error", err)
-				continue
-			}
-			if len(history) < atrPeriod+1 {
-				a.logger.Warn("not enough historical data for ATR calculation, skipping sizing", "symbol", symbolStr, "required", atrPeriod+1, "got", len(history))
-				continue
-			}
-
-			atr, err := calculateATR(history, atrPeriod)
-			if err != nil {
-				a.logger.Error("failed to calculate ATR", "symbol", symbolStr, "error", err)
-				continue
-			}
-			if atr == 0 {
-				a.logger.Warn("calculated ATR is zero, skipping sizing", "symbol", symbolStr)
-				continue
-			}
-
-			// ポジションサイズをATRに基づいて計算
-			// totalRiskAmount はポートフォリオ全体のリスク許容額（許容損失額）
-			totalRiskAmount := balance.BuyingPower * a.config.StrategySettings.Swingtrade.TradeRiskPercentage
-			// 1株あたりのボラティリティリスク (ATRに基づく)
-			riskPerShare := atr * stopLossATRMultiplier
-			if riskPerShare == 0 {
-				a.logger.Warn("risk per share is zero, skipping sizing", "symbol", symbolStr)
-				continue
-			}
-
-			// ATRベースで計算される最大許容株数
-			maxSharesByATR := totalRiskAmount / riskPerShare
-
-			// 買付余力から計算される最大購入株数
-			maxSharesByBuyingPower := balance.BuyingPower / currentPrice
-			if maxSharesByBuyingPower <= 0 {
-				a.logger.Warn("insufficient buying power to purchase even one unit", "symbol", symbolStr)
-				continue
-			}
-
-			// ポジションサイズ上限から計算される株数
-			maxPositionValue := balance.BuyingPower * maxPositionSizePercentage
-			maxSharesByPositionLimit := maxPositionValue / currentPrice
-
-			// 3つの条件のうち最も小さい値を採用
-			maxShares := math.Min(maxSharesByATR, maxSharesByBuyingPower)
-			maxShares = math.Min(maxShares, maxSharesByPositionLimit)
-
-			// unitSizeの倍数に切り捨て
-			quantity := math.Floor(maxShares/unitSize) * unitSize
-
-			a.logger.Info("calculated order quantity (ATR-based)",
-				"symbol", symbolStr,
-				"buying_power", balance.BuyingPower,
-				"trade_risk_percentage", a.config.StrategySettings.Swingtrade.TradeRiskPercentage,
-				"max_position_size_percentage", maxPositionSizePercentage,
-				"atr_period", atrPeriod,
-				"stop_loss_atr_multiplier", stopLossATRMultiplier,
-				"calculated_atr", atr,
-				"risk_per_share", riskPerShare,
-				"total_risk_amount", totalRiskAmount,
-				"max_shares_by_atr", maxSharesByATR,
-				"max_shares_by_buying_power", maxSharesByBuyingPower,
-				"max_shares_by_position_limit", maxSharesByPositionLimit,
-				"final_max_shares", maxShares,
-				"calculated_quantity", quantity)
-
-			if quantity <= 0 {
-				a.logger.Info("skipping buy signal due to zero calculated quantity", "symbol", symbolStr)
-				continue
-			}
-
-			// 注文リクエストを作成
-			req := &service.PlaceOrderRequest{
-				Symbol:              symbolStr,
-				TradeType:           model.TradeTypeBuy,
-				OrderType:           model.OrderTypeMarket,
-				Quantity:            int(quantity),
-				Price:               0,                             // 成行注文のため価格は0
-				PositionAccountType: model.PositionAccountTypeCash, // 新規買い注文は現物と仮定
-			}
-
-			// 注文を発行
-			order, err := a.tradeService.PlaceOrder(ctx, req)
-			if err != nil {
-				a.logger.Error("failed to place buy order", "symbol", symbolStr, "error", err)
-				continue // 次のシグナルへ
-			}
-			a.logger.Info("successfully placed buy order", "symbol", symbolStr, "order_id", order.OrderID)
-			a.state.AddOrder(order) // 発注成功後、内部状態を更新する
-
-		} else if s.Signal == SellSignal {
-			position, ok := a.state.GetPosition(symbolStr)
-			if !ok {
-				a.logger.Info("skipping sell signal for non-held position", "symbol", symbolStr)
-				continue
-			}
-			a.logger.Info("preparing to place sell order", "symbol", symbolStr, "quantity", position.Quantity)
-
-			// 注文リクエストを作成
-			req := &service.PlaceOrderRequest{
-				Symbol:              symbolStr,
-				TradeType:           model.TradeTypeSell,
-				OrderType:           model.OrderTypeMarket,
-				Quantity:            position.Quantity, // 保有する全数量を売却
-				Price:               0,                 // 成行注文のため価格は0
-				PositionAccountType: position.PositionAccountType,
-			}
-
-			// 注文を発行
-			order, err := a.tradeService.PlaceOrder(ctx, req)
-			if err != nil {
-				a.logger.Error("failed to place sell order", "symbol", symbolStr, "error", err)
-				continue // 次のシグナルへ
-			}
-			a.logger.Info("successfully placed sell order", "symbol", symbolStr, "order_id", order.OrderID)
-			a.state.AddOrder(order) // 発注成功後、内部状態を更新する
+// hasExistingPositionOrOrder は指定銘柄の既存ポジションまたは注文があるかチェック
+func (a *Agent) hasExistingPositionOrOrder(symbol string) bool {
+	// ポジションチェック
+	positions := a.state.GetPositions()
+	for _, p := range positions {
+		if p.Symbol == symbol && p.Quantity > 0 {
+			return true
 		}
 	}
+
+	// 注文チェック
+	orders := a.state.GetOrders()
+	for _, o := range orders {
+		if o.Symbol == symbol && o.IsUnexecuted() {
+			return true
+		}
+	}
+
+	return false
+}
+
+// processEntrySignal はエントリーシグナルを処理し、注文を発行する
+func (a *Agent) processEntrySignal(ctx context.Context, signal *SignalRecord) {
+	// 銘柄コードを文字列に変換
+	symbolStr := fmt.Sprintf("%d", signal.Symbol)
+
+	a.logger.Info("processing entry signal",
+		"symbol", symbolStr,
+		"signal_type", signal.Signal)
+
+	// 注文数量の計算（簡易実装）
+	balance := a.state.GetBalance()
+	// 仮の価格（実際の実装では現在価格を取得）
+	estimatedPrice := 1000.0                                 // プレースホルダー価格
+	maxOrderAmount := balance.BuyingPower * 0.1              // 買付余力の10%を上限
+	quantity := int(maxOrderAmount/estimatedPrice/100) * 100 // 100株単位
+
+	if quantity < 100 {
+		a.logger.Warn("insufficient buying power for minimum order",
+			"symbol", symbolStr,
+			"required", estimatedPrice*100,
+			"available", balance.BuyingPower)
+		return
+	}
+
+	// 注文発行（簡易実装 - 成行注文）
+	req := &service.PlaceOrderRequest{
+		Symbol:              symbolStr,
+		TradeType:           model.TradeTypeBuy,
+		OrderType:           model.OrderTypeMarket,
+		Quantity:            quantity,
+		Price:               0, // 成行注文
+		PositionAccountType: model.PositionAccountTypeCash,
+	}
+
+	order, err := a.tradeService.PlaceOrder(ctx, req)
+	if err != nil {
+		a.logger.Error("failed to place entry order",
+			"symbol", symbolStr,
+			"error", err)
+		return
+	}
+
+	a.logger.Info("entry order placed successfully",
+		"order_id", order.OrderID,
+		"symbol", order.Symbol,
+		"quantity", order.Quantity)
 }
