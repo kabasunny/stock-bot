@@ -9,12 +9,12 @@ import (
 	"net/url"
 	"os"
 	"os/signal"
-	"stock-bot/internal/agent"
 	"stock-bot/internal/app"
 	"stock-bot/internal/config"
 	"stock-bot/internal/handler/web"
 	"stock-bot/internal/infrastructure/client"
 	repository_impl "stock-bot/internal/infrastructure/repository"
+	"stock-bot/internal/tradeservice"
 	"sync"
 	"syscall"
 	"time"
@@ -28,17 +28,17 @@ import (
 	ordersvr "stock-bot/gen/http/order/server"
 	positionsvr "stock-bot/gen/http/position/server"
 	pricesvr "stock-bot/gen/http/price/server"
+	tradesvr "stock-bot/gen/http/trade/server"
 	mastergen "stock-bot/gen/master"
 	order "stock-bot/gen/order"
 	positiongen "stock-bot/gen/position"
 	pricegen "stock-bot/gen/price"
+	tradegen "stock-bot/gen/trade"
 
 	goahttp "goa.design/goa/v3/http"
 	"goa.design/goa/v3/http/middleware"
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
-
-	request_auth "stock-bot/internal/infrastructure/client/dto/auth/request"
 )
 
 // GoaSlogger は *slog.Logger を goa.design/goa/v3/http/middleware.Logger インターフェースに適合させるためのラッパーです。
@@ -57,8 +57,6 @@ func main() {
 	skipSync := flag.Bool("skip-sync", false, "Skip initial master data synchronization on startup")
 	noDB := flag.Bool("no-db", false, "Disable database connection and related features")
 	noTachibana := flag.Bool("no-tachibana", false, "Disable Tachibana API client initialization and login")
-	var agentConfigPath string
-	flag.StringVar(&agentConfigPath, "agent-config", "agent_config.yaml", "Path to the agent configuration YAML file")
 	flag.Parse()
 
 	// 1. ロガーのセットアップ
@@ -85,12 +83,9 @@ func main() {
 	var masterRepo repository.MasterRepository
 	var orderUsecase app.OrderUseCase
 	var masterUsecase app.MasterUseCase
-	var positionRepo repository.PositionRepository
 	var orderSvc order.Service
 	var masterSvc mastergen.Service
-	var stockAgent *agent.Agent
-	var goaTradeService *agent.GoaTradeService
-	var executionUseCase app.ExecutionUseCase // Declare executionUseCase
+	var goaTradeService *tradeservice.GoaTradeService // Declare executionUseCase
 
 	if !*noDB {
 		// 3a. データベース接続
@@ -107,33 +102,50 @@ func main() {
 		// 3b. DB依存リポジトリを初期化
 		orderRepo = repository_impl.NewOrderRepository(db)
 		masterRepo = repository_impl.NewMasterRepository(db)
-		positionRepo = repository_impl.NewPositionRepository(db, orderRepo)
+		// positionRepo は不要（エージェント専用）
 	} else {
 		slog.Default().Warn("database connection is disabled due to --no-db flag")
 	}
 
 	// 4. Usecaseなどの依存関係を初期化
 	var tachibanaClient *client.TachibanaClientImpl
+	var unifiedClient *client.TachibanaUnifiedClient
+	var unifiedClientAdapter *client.TachibanaUnifiedClientAdapter
 	var appSession *client.Session
+
+	// 4-Z. イベントクライアントの初期化は不要（エージェント専用）
 
 	if !*noTachibana {
 		// 4-1. 証券会社APIクライアントを初期化
 		tachibanaClient = client.NewTachibanaClient(cfg)
 
-		slog.Default().Info("logging in to Tachibana API...")
-		loginReq := request_auth.ReqLogin{
-			UserId:   cfg.TachibanaUserID,
-			Password: cfg.TachibanaPassword,
-		}
+		// 4-1b. 統合クライアントを初期化
+		unifiedClient = client.NewTachibanaUnifiedClient(
+			tachibanaClient, // AuthClient
+			tachibanaClient, // BalanceClient
+			tachibanaClient, // OrderClient
+			tachibanaClient, // PriceInfoClient
+			tachibanaClient, // MasterDataClient
+			nil,             // EventClient (エージェント専用のため不要)
+			cfg.TachibanaUserID,
+			cfg.TachibanaPassword,
+			cfg.TachibanaSecondPassword,
+			slog.Default(),
+		)
 
-		appSession, err = tachibanaClient.LoginWithPost(context.Background(), loginReq)
+		// 4-1c. 統合クライアントアダプターを初期化
+		unifiedClientAdapter = client.NewTachibanaUnifiedClientAdapter(unifiedClient)
+
+		slog.Default().Info("logging in to Tachibana API via unified client...")
+
+		// 統合クライアント経由でログイン（自動認証）
+		appSession, err = unifiedClient.GetSession(context.Background())
 		if err != nil {
-			slog.Default().Error("failed to login", slog.Any("error", err))
+			slog.Default().Error("failed to login via unified client", slog.Any("error", err))
 			os.Exit(1)
 		}
 
-		slog.Default().Info("login successful")
-		appSession.SecondPassword = cfg.TachibanaSecondPassword // configから読み込んだ第二パスワードをSessionに設定
+		slog.Default().Info("login successful via unified client")
 	} else {
 		slog.Default().Warn("Tachibana API client and login are disabled due to --no-tachibana flag.")
 	}
@@ -152,7 +164,7 @@ func main() {
 	if !*noDB && !*noTachibana {
 		orderUsecase = app.NewOrderUseCaseImpl(tachibanaClient, orderRepo)
 		masterUsecase = app.NewMasterUseCaseImpl(tachibanaClient, masterRepo)
-		executionUseCase = app.NewExecutionUseCaseImpl(orderRepo, positionRepo) // Initialize executionUseCase
+		// executionUseCase は不要（エージェント専用） // Initialize executionUseCase
 
 		if !*skipSync {
 			slog.Default().Info("Starting initial master data synchronization...")
@@ -167,28 +179,27 @@ func main() {
 		}
 
 		// 4-Y. エージェント用トレードサービスの初期化
-		goaTradeService = agent.NewGoaTradeService(
-			tachibanaClient, // *TachibanaClientImpl implements BalanceClient
-			tachibanaClient, // *TachibanaClientImpl implements OrderClient
-			tachibanaClient, // *TachibanaClientImpl implements PriceInfoClient
+		goaTradeService = tradeservice.NewGoaTradeService(
+			unifiedClientAdapter, // TachibanaUnifiedClientAdapter implements BalanceClient
+			unifiedClientAdapter, // TachibanaUnifiedClientAdapter implements OrderClient
+			unifiedClientAdapter, // TachibanaUnifiedClientAdapter implements PriceInfoClient
 			orderRepo,
 			appSession,
 			slog.Default(),
 		)
 	}
 
-	// 4-Z. イベントクライアントの初期化
-	eventClient := client.NewEventClient(slog.Default())
-
 	// 5. Goaサービスの実装を初期化
 	var balanceSvc balance.Service
 	var positionSvc positiongen.Service
 	var priceSvc pricegen.Service
+	var tradeSvc tradegen.Service
 
 	if !*noTachibana {
 		balanceSvc = web.NewBalanceService(balanceUsecase, slog.Default(), appSession)
 		positionSvc = web.NewPositionService(positionUsecase, slog.Default(), appSession)
 		priceSvc = web.NewPriceService(priceUsecase, slog.Default(), appSession)
+		tradeSvc = web.NewTradeService(goaTradeService, slog.Default(), appSession)
 	}
 	if !*noDB && !*noTachibana {
 		orderSvc = web.NewOrderService(orderUsecase, slog.Default(), appSession)
@@ -205,10 +216,12 @@ func main() {
 		balanceEndpoints := balance.NewEndpoints(balanceSvc)
 		positionEndpoints := positiongen.NewEndpoints(positionSvc)
 		priceEndpoints := pricegen.NewEndpoints(priceSvc)
+		tradeEndpoints := tradegen.NewEndpoints(tradeSvc)
 
 		balancesvr.Mount(mux, balancesvr.New(balanceEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil))
 		positionsvr.Mount(mux, positionsvr.New(positionEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil))
 		pricesvr.Mount(mux, pricesvr.New(priceEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil))
+		tradesvr.Mount(mux, tradesvr.New(tradeEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil))
 
 		// DB依存かつTachibana API依存のエンドポイント
 		if !*noDB {
@@ -232,23 +245,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	// 7-1. エージェントの初期化と起動 (DB依存)
-	if !*noDB && !*noTachibana {
-		stockAgent, err = agent.NewAgent(agentConfigPath, goaTradeService, eventClient, positionRepo, executionUseCase)
-		if err != nil {
-			slog.Default().Error("failed to create agent", "config", agentConfigPath, slog.Any("error", err))
-			os.Exit(1)
-		}
-		wg.Add(1)
-		go func() {
-			defer wg.Done()
-			stockAgent.Start()
-		}()
-	} else {
-		slog.Default().Warn("Skipping agent initialization due to --no-db or --no-tachibana flag.")
-	}
-
-	// 7-2. HTTPサーバーの起動
+	// 7. HTTPサーバーの起動
 	srv := &http.Server{
 		Addr:    u.Host,
 		Handler: middleware.Log(goaLogger)(mux),
@@ -272,11 +269,6 @@ func main() {
 	case <-ctx.Done():
 	case sig := <-c:
 		slog.Default().Info(fmt.Sprintf("received signal %s, shutting down", sig))
-	}
-
-	// エージェントを停止 (DB依存)
-	if !*noDB && !*noTachibana && stockAgent != nil {
-		stockAgent.Stop()
 	}
 
 	// サーバーを停止

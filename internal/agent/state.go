@@ -2,14 +2,9 @@ package agent
 
 import (
 	"stock-bot/domain/model"
+	"stock-bot/domain/service"
 	"sync"
 )
-
-// Balance は口座残高の情報を保持する
-type Balance struct {
-	Cash        float64 // 現金残高
-	BuyingPower float64 // 買付余力
-}
 
 // State はエージェントの内部状態を管理する
 // 全てのフィールドへのアクセスはスレッドセーフである必要がある
@@ -18,7 +13,7 @@ type State struct {
 	positions map[string]*model.Position // キーは銘柄コード(Symbol)
 	orders    map[string]*model.Order    // キーは証券会社の注文ID(OrderID)
 	prices    map[string]float64         // キーは銘柄コード(Symbol), 値は現在の価格
-	balance   *Balance
+	balance   *service.Balance
 }
 
 // NewState は新しいStateを初期化して返す
@@ -27,7 +22,7 @@ func NewState() *State {
 		positions: make(map[string]*model.Position),
 		orders:    make(map[string]*model.Order),
 		prices:    make(map[string]float64), // pricesマップを初期化
-		balance:   &Balance{},
+		balance:   &service.Balance{},
 	}
 }
 
@@ -94,7 +89,6 @@ func (s *State) GetPosition(symbol string) (*model.Position, bool) {
 	return pos, ok
 }
 
-
 // UpdateOrders は発注中注文の情報を更新する
 func (s *State) UpdateOrders(orders []*model.Order) {
 	s.mutex.Lock()
@@ -126,14 +120,14 @@ func (s *State) AddOrder(order *model.Order) {
 }
 
 // UpdateBalance は口座残高の情報を更新する
-func (s *State) UpdateBalance(balance *Balance) {
+func (s *State) UpdateBalance(balance *service.Balance) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	s.balance = balance
 }
 
 // GetBalance は現在の口座残高の情報を取得する
-func (s *State) GetBalance() *Balance {
+func (s *State) GetBalance() *service.Balance {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
 	// 読み取り専用で返すためにコピーを返す

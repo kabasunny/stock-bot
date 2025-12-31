@@ -6,7 +6,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"stock-bot/domain/model" // Add this import
+	"stock-bot/domain/model"
+	"stock-bot/domain/service"
 	"stock-bot/internal/infrastructure/client"
 	"strconv"
 	"testing"
@@ -101,6 +102,9 @@ type mockTradeService struct {
 	mock.Mock
 }
 
+// Ensure mockTradeService implements service.TradeService
+var _ service.TradeService = (*mockTradeService)(nil)
+
 func (m *mockTradeService) GetSession() *client.Session {
 	args := m.Called()
 	if args.Get(0) == nil {
@@ -125,12 +129,12 @@ func (m *mockTradeService) GetOrders(ctx context.Context) ([]*model.Order, error
 	return args.Get(0).([]*model.Order), args.Error(1)
 }
 
-func (m *mockTradeService) GetBalance(ctx context.Context) (*Balance, error) {
+func (m *mockTradeService) GetBalance(ctx context.Context) (*service.Balance, error) {
 	args := m.Called(ctx)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).(*Balance), args.Error(1)
+	return args.Get(0).(*service.Balance), args.Error(1)
 }
 
 func (m *mockTradeService) GetPrice(ctx context.Context, symbol string) (float64, error) {
@@ -138,15 +142,15 @@ func (m *mockTradeService) GetPrice(ctx context.Context, symbol string) (float64
 	return args.Get(0).(float64), args.Error(1)
 }
 
-func (m *mockTradeService) GetPriceHistory(ctx context.Context, symbol string, days int) ([]*HistoricalPrice, error) {
+func (m *mockTradeService) GetPriceHistory(ctx context.Context, symbol string, days int) ([]*service.HistoricalPrice, error) {
 	args := m.Called(ctx, symbol, days)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
 	}
-	return args.Get(0).([]*HistoricalPrice), args.Error(1)
+	return args.Get(0).([]*service.HistoricalPrice), args.Error(1)
 }
 
-func (m *mockTradeService) PlaceOrder(ctx context.Context, req *PlaceOrderRequest) (*model.Order, error) {
+func (m *mockTradeService) PlaceOrder(ctx context.Context, req *service.PlaceOrderRequest) (*model.Order, error) {
 	args := m.Called(ctx, req)
 	if args.Get(0) == nil {
 		return nil, args.Error(1)
@@ -191,8 +195,8 @@ func (m *mockPositionRepository) UpsertPositionByExecution(ctx context.Context, 
 	return args.Error(0)
 }
 
-func (m *mockPositionRepository) DeletePosition(ctx context.Context, symbol string) error {
-	args := m.Called(ctx, symbol)
+func (m *mockPositionRepository) DeletePosition(ctx context.Context, symbol string, accountType model.PositionAccountType) error {
+	args := m.Called(ctx, symbol, accountType)
 	return args.Error(0)
 }
 
@@ -208,12 +212,12 @@ func (m *mockExecutionUseCase) Execute(ctx context.Context, execution *model.Exe
 func TestCheckPositionsForExit(t *testing.T) {
 	// --- Test Setup ---
 	setup := func(t *testing.T) (*Agent, *mockTradeService, *mockPositionRepository, *mockExecutionUseCase) {
-		// 一時的なagent_config.yamlを作成
+		// 一時的なagent_config.yamlを作�E
 		tmpFile, err := os.CreateTemp("", "agent_config_test_*.yaml")
 		if err != nil {
 			t.Fatalf("Failed to create temp config file: %v", err)
 		}
-		defer os.Remove(tmpFile.Name()) // テスト終了時に削除
+		defer os.Remove(tmpFile.Name()) // チE�E��E�ト終亁E�E��E�に削除
 
 		configContent := `
 agent:
@@ -242,7 +246,7 @@ strategy_settings:
 		mockRepo := new(mockPositionRepository)
 		mockExecUseCase := new(mockExecutionUseCase) // Initialize mockExecutionUseCase
 
-		// eventClientはこれらのテストでは使われないのでnil
+		// eventClientはこれら�EチE�E��E�トでは使われなぁE�E�Eでnil
 		agent, err := NewAgent(tmpFile.Name(), mockService, nil, mockRepo, mockExecUseCase) // Pass mockExecUseCase
 		if err != nil {
 			t.Fatalf("failed to create agent for test: %v", err)
@@ -262,9 +266,9 @@ strategy_settings:
 		pos := *basePosition // Make a copy
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
-		historicalData := make([]*HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
+		historicalData := make([]*service.HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
 		for i := range historicalData {
-			historicalData[i] = &HistoricalPrice{}
+			historicalData[i] = &service.HistoricalPrice{}
 		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Maybe()
 
@@ -304,9 +308,9 @@ strategy_settings:
 		pos := *basePosition // copy
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
-		historicalData := make([]*HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
+		historicalData := make([]*service.HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
 		for i := range historicalData {
-			historicalData[i] = &HistoricalPrice{}
+			historicalData[i] = &service.HistoricalPrice{}
 		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Maybe()
 
@@ -330,9 +334,9 @@ strategy_settings:
 		pos.TrailingStopPrice = 1050.0 * (1 - 0.03) // 1018.5
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
-		historicalData := make([]*HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
+		historicalData := make([]*service.HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
 		for i := range historicalData {
-			historicalData[i] = &HistoricalPrice{}
+			historicalData[i] = &service.HistoricalPrice{}
 		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Maybe()
 
@@ -356,9 +360,9 @@ strategy_settings:
 		pos.TrailingStopPrice = 1020.0 * (1 - 0.03) // 989.4
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
-		historicalData := make([]*HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
+		historicalData := make([]*service.HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
 		for i := range historicalData {
-			historicalData[i] = &HistoricalPrice{}
+			historicalData[i] = &service.HistoricalPrice{}
 		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Maybe()
 
@@ -396,9 +400,9 @@ strategy_settings:
 		pos := *basePosition // Make a copy
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
-		historicalData := make([]*HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
+		historicalData := make([]*service.HistoricalPrice, agent.config.StrategySettings.Swingtrade.ATRPeriod+1)
 		for i := range historicalData {
-			historicalData[i] = &HistoricalPrice{}
+			historicalData[i] = &service.HistoricalPrice{}
 		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Maybe()
 
@@ -418,16 +422,16 @@ strategy_settings:
 		pos := *basePosition // Make a copy
 		agent.state.UpdatePositions([]*model.Position{&pos})
 
-		historicalData := make([]*HistoricalPrice, 15)
+		historicalData := make([]*service.HistoricalPrice, 15)
 		for i := 0; i < 15; i++ {
-			historicalData[i] = &HistoricalPrice{High: 1010.0, Low: 1000.0, Close: 1000.0}
+			historicalData[i] = &service.HistoricalPrice{High: 1010.0, Low: 1000.0, Close: 1000.0}
 		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", 15).Return(historicalData, nil).Once()
 
 		currentPrice := 979.0 // Below ATR stop loss
 		mockService.On("GetPrice", mock.Anything, "1234").Return(currentPrice, nil).Once()
 		mockRepo.On("UpdateHighestPrice", mock.Anything, "1234", currentPrice).Return(nil).Once()
-		mockService.On("PlaceOrder", mock.Anything, mock.MatchedBy(func(req *PlaceOrderRequest) bool {
+		mockService.On("PlaceOrder", mock.Anything, mock.MatchedBy(func(req *service.PlaceOrderRequest) bool {
 			return req.Symbol == "1234" && req.TradeType == model.TradeTypeSell
 		})).Return(&model.Order{OrderID: "order-atr-sl"}, nil).Once()
 
@@ -474,7 +478,7 @@ strategy_settings:
 		currentPrice := 1000.0
 		mockService.On("GetPrice", mock.Anything, "1234").Return(currentPrice, nil).Once()
 		mockRepo.On("UpdateHighestPrice", mock.Anything, "1234", currentPrice).Return(nil).Once()
-		historicalData := make([]*HistoricalPrice, 10)
+		historicalData := make([]*service.HistoricalPrice, 10)
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Once()
 
 		agent.checkPositionsForExit(context.Background())
@@ -491,9 +495,9 @@ strategy_settings:
 		mockService.On("GetPrice", mock.Anything, "1234").Return(currentPrice, nil).Once()
 		mockRepo.On("UpdateHighestPrice", mock.Anything, "1234", currentPrice).Return(nil).Once()
 
-		historicalData := make([]*HistoricalPrice, 15)
+		historicalData := make([]*service.HistoricalPrice, 15)
 		for i := 0; i < 15; i++ {
-			historicalData[i] = &HistoricalPrice{High: 1000.0, Low: 1000.0, Close: 1000.0}
+			historicalData[i] = &service.HistoricalPrice{High: 1000.0, Low: 1000.0, Close: 1000.0}
 		}
 		mockService.On("GetPriceHistory", mock.Anything, "1234", mock.Anything).Return(historicalData, nil).Once()
 
@@ -506,12 +510,12 @@ strategy_settings:
 func TestCheckSignalsForEntry_ATRBasedSizing(t *testing.T) {
 	// --- Test Setup ---
 	setup := func(t *testing.T) (*Agent, *mockTradeService, *mockPositionRepository, *mockExecutionUseCase) {
-		// 一時的なagent_config.yamlを作成
+		// 一時的なagent_config.yamlを作�E
 		tmpFile, err := os.CreateTemp("", "agent_config_test_*.yaml")
 		if err != nil {
 			t.Fatalf("Failed to create temp config file: %v", err)
 		}
-		defer os.Remove(tmpFile.Name()) // テスト終了時に削除
+		defer os.Remove(tmpFile.Name()) // チE�E��E�ト終亁E�E��E�に削除
 
 		configContent := `
 agent:
@@ -558,17 +562,17 @@ strategy_settings:
 		// Mock FindSignalFile and ReadSignalFile
 		agent.signalPattern = filepath.Join(os.TempDir(), "*.bin")
 		// Set initial balance in agent's state
-		buyingPower := 1_000_000.0 // 100万円の買付余力
-		agent.state.UpdateBalance(&Balance{Cash: buyingPower, BuyingPower: buyingPower})
+		buyingPower := 1_000_000.0 // 100丁E�E�Eの買付余力
+		agent.state.UpdateBalance(&service.Balance{Cash: buyingPower, BuyingPower: buyingPower})
 
 		// Mock GetPrice for current price
 		currentPrice := 1000.0
 		mockService.On("GetPrice", mock.Anything, "1234").Return(currentPrice, nil)
 
 		// Mock GetPriceHistory for ATR calculation
-		historicalData := make([]*HistoricalPrice, 15)
+		historicalData := make([]*service.HistoricalPrice, 15)
 		for i := 0; i < 15; i++ {
-			historicalData[i] = &HistoricalPrice{
+			historicalData[i] = &service.HistoricalPrice{
 				Open:  1000.0,
 				High:  1010.0,
 				Low:   1000.0,
@@ -580,7 +584,7 @@ strategy_settings:
 		expectedQuantity := 200
 
 		// Mock PlaceOrder
-		mockService.On("PlaceOrder", mock.Anything, mock.MatchedBy(func(req *PlaceOrderRequest) bool {
+		mockService.On("PlaceOrder", mock.Anything, mock.MatchedBy(func(req *service.PlaceOrderRequest) bool {
 			return req.Symbol == "1234" &&
 				req.TradeType == model.TradeTypeBuy &&
 				req.OrderType == model.OrderTypeMarket &&

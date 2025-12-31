@@ -17,6 +17,7 @@ import (
 	orderc "stock-bot/gen/http/order/client"
 	positionc "stock-bot/gen/http/position/client"
 	pricec "stock-bot/gen/http/price/client"
+	tradec "stock-bot/gen/http/trade/client"
 
 	goahttp "goa.design/goa/v3/http"
 	goa "goa.design/goa/v3/pkg"
@@ -32,16 +33,17 @@ func UsageCommands() []string {
 		"price (get|get-history)",
 		"position list",
 		"master (get-stock|update)",
+		"trade (get-session|get-positions|get-orders|get-balance|get-price-history|place-order|cancel-order)",
 	}
 }
 
 // UsageExamples produces an example of a valid invocation of the CLI tool.
 func UsageExamples() string {
-	return os.Args[0] + " " + "order create --body '{\n      \"order_type\": \"LIMIT\",\n      \"position_account_type\": \"CASH\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'" + "\n" +
+	return os.Args[0] + " " + "order create --body '{\n      \"order_type\": \"MARKET\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.6621056743497284,\n      \"quantity\": 6129373346072046161,\n      \"symbol\": \"Magni eum omnis dolorem non.\",\n      \"trade_type\": \"BUY\"\n   }'" + "\n" +
 		os.Args[0] + " " + "balance get" + "\n" +
-		os.Args[0] + " " + "price get --symbol \"Quia ut id.\"" + "\n" +
+		os.Args[0] + " " + "price get --symbol \"Quas aut sit est aperiam minus.\"" + "\n" +
 		os.Args[0] + " " + "position list --type \"margin\"" + "\n" +
-		os.Args[0] + " " + "master get-stock --symbol \"Aperiam minus.\"" + "\n" +
+		os.Args[0] + " " + "master get-stock --symbol \"Culpa et et perspiciatis.\"" + "\n" +
 		""
 }
 
@@ -84,6 +86,26 @@ func ParseEndpoint(
 		masterGetStockSymbolFlag = masterGetStockFlags.String("symbol", "REQUIRED", "Stock symbol to look up")
 
 		masterUpdateFlags = flag.NewFlagSet("update", flag.ExitOnError)
+
+		tradeFlags = flag.NewFlagSet("trade", flag.ContinueOnError)
+
+		tradeGetSessionFlags = flag.NewFlagSet("get-session", flag.ExitOnError)
+
+		tradeGetPositionsFlags = flag.NewFlagSet("get-positions", flag.ExitOnError)
+
+		tradeGetOrdersFlags = flag.NewFlagSet("get-orders", flag.ExitOnError)
+
+		tradeGetBalanceFlags = flag.NewFlagSet("get-balance", flag.ExitOnError)
+
+		tradeGetPriceHistoryFlags      = flag.NewFlagSet("get-price-history", flag.ExitOnError)
+		tradeGetPriceHistorySymbolFlag = tradeGetPriceHistoryFlags.String("symbol", "REQUIRED", "銘柄コード")
+		tradeGetPriceHistoryDaysFlag   = tradeGetPriceHistoryFlags.String("days", "30", "")
+
+		tradePlaceOrderFlags    = flag.NewFlagSet("place-order", flag.ExitOnError)
+		tradePlaceOrderBodyFlag = tradePlaceOrderFlags.String("body", "REQUIRED", "")
+
+		tradeCancelOrderFlags       = flag.NewFlagSet("cancel-order", flag.ExitOnError)
+		tradeCancelOrderOrderIDFlag = tradeCancelOrderFlags.String("order-id", "REQUIRED", "注文ID")
 	)
 	orderFlags.Usage = orderUsage
 	orderCreateFlags.Usage = orderCreateUsage
@@ -101,6 +123,15 @@ func ParseEndpoint(
 	masterFlags.Usage = masterUsage
 	masterGetStockFlags.Usage = masterGetStockUsage
 	masterUpdateFlags.Usage = masterUpdateUsage
+
+	tradeFlags.Usage = tradeUsage
+	tradeGetSessionFlags.Usage = tradeGetSessionUsage
+	tradeGetPositionsFlags.Usage = tradeGetPositionsUsage
+	tradeGetOrdersFlags.Usage = tradeGetOrdersUsage
+	tradeGetBalanceFlags.Usage = tradeGetBalanceUsage
+	tradeGetPriceHistoryFlags.Usage = tradeGetPriceHistoryUsage
+	tradePlaceOrderFlags.Usage = tradePlaceOrderUsage
+	tradeCancelOrderFlags.Usage = tradeCancelOrderUsage
 
 	if err := flag.CommandLine.Parse(os.Args[1:]); err != nil {
 		return nil, nil, err
@@ -127,6 +158,8 @@ func ParseEndpoint(
 			svcf = positionFlags
 		case "master":
 			svcf = masterFlags
+		case "trade":
+			svcf = tradeFlags
 		default:
 			return nil, nil, fmt.Errorf("unknown service %q", svcn)
 		}
@@ -180,6 +213,31 @@ func ParseEndpoint(
 
 			case "update":
 				epf = masterUpdateFlags
+
+			}
+
+		case "trade":
+			switch epn {
+			case "get-session":
+				epf = tradeGetSessionFlags
+
+			case "get-positions":
+				epf = tradeGetPositionsFlags
+
+			case "get-orders":
+				epf = tradeGetOrdersFlags
+
+			case "get-balance":
+				epf = tradeGetBalanceFlags
+
+			case "get-price-history":
+				epf = tradeGetPriceHistoryFlags
+
+			case "place-order":
+				epf = tradePlaceOrderFlags
+
+			case "cancel-order":
+				epf = tradeCancelOrderFlags
 
 			}
 
@@ -242,6 +300,27 @@ func ParseEndpoint(
 			case "update":
 				endpoint = c.Update()
 			}
+		case "trade":
+			c := tradec.NewClient(scheme, host, doer, enc, dec, restore)
+			switch epn {
+			case "get-session":
+				endpoint = c.GetSession()
+			case "get-positions":
+				endpoint = c.GetPositions()
+			case "get-orders":
+				endpoint = c.GetOrders()
+			case "get-balance":
+				endpoint = c.GetBalance()
+			case "get-price-history":
+				endpoint = c.GetPriceHistory()
+				data, err = tradec.BuildGetPriceHistoryPayload(*tradeGetPriceHistorySymbolFlag, *tradeGetPriceHistoryDaysFlag)
+			case "place-order":
+				endpoint = c.PlaceOrder()
+				data, err = tradec.BuildPlaceOrderPayload(*tradePlaceOrderBodyFlag)
+			case "cancel-order":
+				endpoint = c.CancelOrder()
+				data, err = tradec.BuildCancelOrderPayload(*tradeCancelOrderOrderIDFlag)
+			}
 		}
 	}
 	if err != nil {
@@ -276,7 +355,7 @@ func orderCreateUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"order_type\": \"LIMIT\",\n      \"position_account_type\": \"CASH\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "order create --body '{\n      \"order_type\": \"MARKET\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.6621056743497284,\n      \"quantity\": 6129373346072046161,\n      \"symbol\": \"Magni eum omnis dolorem non.\",\n      \"trade_type\": \"BUY\"\n   }'")
 }
 
 // balanceUsage displays the usage of the balance command and its subcommands.
@@ -331,7 +410,7 @@ func priceGetUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get --symbol \"Quia ut id.\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get --symbol \"Quas aut sit est aperiam minus.\"")
 }
 
 func priceGetHistoryUsage() {
@@ -351,7 +430,7 @@ func priceGetHistoryUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get-history --symbol \"Ratione non repudiandae quibusdam accusantium ut.\" --days 13375599974161852885")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "price get-history --symbol \"In perferendis quia.\" --days 8640151950192558662")
 }
 
 // positionUsage displays the usage of the position command and its subcommands.
@@ -408,7 +487,7 @@ func masterGetStockUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master get-stock --symbol \"Aperiam minus.\"")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master get-stock --symbol \"Culpa et et perspiciatis.\"")
 }
 
 func masterUpdateUsage() {
@@ -425,4 +504,140 @@ func masterUpdateUsage() {
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
 	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "master update")
+}
+
+// tradeUsage displays the usage of the trade command and its subcommands.
+func tradeUsage() {
+	fmt.Fprintln(os.Stderr, `The trade service provides unified trading operations.`)
+	fmt.Fprintf(os.Stderr, "Usage:\n    %s [globalflags] trade COMMAND [flags]\n\n", os.Args[0])
+	fmt.Fprintln(os.Stderr, "COMMAND:")
+	fmt.Fprintln(os.Stderr, `    get-session: Get current API session information.`)
+	fmt.Fprintln(os.Stderr, `    get-positions: Get current trading positions.`)
+	fmt.Fprintln(os.Stderr, `    get-orders: Get current orders.`)
+	fmt.Fprintln(os.Stderr, `    get-balance: Get account balance.`)
+	fmt.Fprintln(os.Stderr, `    get-price-history: Get price history for a symbol.`)
+	fmt.Fprintln(os.Stderr, `    place-order: Place a new order.`)
+	fmt.Fprintln(os.Stderr, `    cancel-order: Cancel an existing order.`)
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Additional help:")
+	fmt.Fprintf(os.Stderr, "    %s trade COMMAND --help\n", os.Args[0])
+}
+func tradeGetSessionUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade get-session", os.Args[0])
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Get current API session information.`)
+
+	// Flags list
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade get-session")
+}
+
+func tradeGetPositionsUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade get-positions", os.Args[0])
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Get current trading positions.`)
+
+	// Flags list
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade get-positions")
+}
+
+func tradeGetOrdersUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade get-orders", os.Args[0])
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Get current orders.`)
+
+	// Flags list
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade get-orders")
+}
+
+func tradeGetBalanceUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade get-balance", os.Args[0])
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Get account balance.`)
+
+	// Flags list
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade get-balance")
+}
+
+func tradeGetPriceHistoryUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade get-price-history", os.Args[0])
+	fmt.Fprint(os.Stderr, " -symbol STRING")
+	fmt.Fprint(os.Stderr, " -days UINT")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Get price history for a symbol.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -symbol STRING: 銘柄コード`)
+	fmt.Fprintln(os.Stderr, `    -days UINT: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade get-price-history --symbol \"Fugiat ut ipsam et.\" --days 2259591567393035264")
+}
+
+func tradePlaceOrderUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade place-order", os.Args[0])
+	fmt.Fprint(os.Stderr, " -body JSON")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Place a new order.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -body JSON: `)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade place-order --body '{\n      \"order_type\": \"MARKET\",\n      \"position_account_type\": \"CASH\",\n      \"price\": 0.5029484076227678,\n      \"quantity\": 11455506375708637715,\n      \"symbol\": \"Laborum earum.\",\n      \"trade_type\": \"BUY\",\n      \"trigger_price\": 0.4347058532188131\n   }'")
+}
+
+func tradeCancelOrderUsage() {
+	// Header with flags
+	fmt.Fprintf(os.Stderr, "%s [flags] trade cancel-order", os.Args[0])
+	fmt.Fprint(os.Stderr, " -order-id STRING")
+	fmt.Fprintln(os.Stderr)
+
+	// Description
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, `Cancel an existing order.`)
+
+	// Flags list
+	fmt.Fprintln(os.Stderr, `    -order-id STRING: 注文ID`)
+
+	fmt.Fprintln(os.Stderr)
+	fmt.Fprintln(os.Stderr, "Example:")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade cancel-order --order-id \"Vel officia quia.\"")
 }

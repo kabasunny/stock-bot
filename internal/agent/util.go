@@ -5,6 +5,7 @@ import (
 	"math"
 	"os"
 	"path/filepath"
+	"stock-bot/domain/service"
 	"time"
 )
 
@@ -44,7 +45,7 @@ func FindSignalFile(pattern string) (string, error) {
 }
 
 // calculateATR は指定された期間のATR (Average True Range) を計算する
-func calculateATR(history []*HistoricalPrice, atrPeriod int) (float64, error) {
+func calculateATR(history []*service.HistoricalPrice, atrPeriod int) (float64, error) {
 	if len(history) < atrPeriod+1 { // ATR計算には少なくともATRPeriod+1個のデータが必要
 		return 0, fmt.Errorf("not enough historical data to calculate ATR for period %d. Requires at least %d data points, got %d", atrPeriod, atrPeriod+1, len(history))
 	}

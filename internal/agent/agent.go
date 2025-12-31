@@ -9,7 +9,8 @@ import (
 	"os"
 	"stock-bot/domain/model"
 	"stock-bot/domain/repository"
-	"stock-bot/internal/app" // Add this import
+	"stock-bot/domain/service"
+	"stock-bot/internal/app"
 	"stock-bot/internal/infrastructure/client"
 	"strings"
 	"time"
@@ -26,16 +27,16 @@ type Agent struct {
 	cancel           context.CancelFunc
 	signalPattern    string
 	state            *State
-	tradeService     TradeService
+	tradeService     service.TradeService
 	eventClient      client.EventClient
 	positionRepo     repository.PositionRepository
-	executionUseCase app.ExecutionUseCase // New field
-	gyouNoToSymbol   map[string]string    // 行番号(文字列)から銘柄コードへのマッピング
+	executionUseCase app.ExecutionUseCase
+	gyouNoToSymbol   map[string]string // 行番号(文字列)から銘柄コードへのマッピング
 }
 
 // NewAgent は新しいエージェントのインスタンスを作成する
-// tradeService はトレードサービス（Go APIラッパー）の実装
-func NewAgent(configPath string, tradeService TradeService, eventClient client.EventClient, positionRepo repository.PositionRepository, executionUseCase app.ExecutionUseCase) (*Agent, error) {
+// tradeService はトレードサービス（ドメインサービス）の実装
+func NewAgent(configPath string, tradeService service.TradeService, eventClient client.EventClient, positionRepo repository.PositionRepository, executionUseCase app.ExecutionUseCase) (*Agent, error) {
 	// 先に設定を読み込んでおく
 	cfg, err := LoadAgentConfig(configPath)
 	if err != nil {
@@ -639,7 +640,7 @@ func (a *Agent) shouldStopLossTrailing(pos *model.Position, currentPrice float64
 
 // placeExitOrder は決済注文を生成し、発行するヘルパー関数
 func (a *Agent) placeExitOrder(ctx context.Context, pos *model.Position, reason string) {
-	req := &PlaceOrderRequest{
+	req := &service.PlaceOrderRequest{
 		Symbol:              pos.Symbol,
 		TradeType:           model.TradeTypeSell,
 		OrderType:           model.OrderTypeMarket,
@@ -823,7 +824,7 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 			}
 
 			// 注文リクエストを作成
-			req := &PlaceOrderRequest{
+			req := &service.PlaceOrderRequest{
 				Symbol:              symbolStr,
 				TradeType:           model.TradeTypeBuy,
 				OrderType:           model.OrderTypeMarket,
@@ -850,7 +851,7 @@ func (a *Agent) checkSignalsForEntry(ctx context.Context) {
 			a.logger.Info("preparing to place sell order", "symbol", symbolStr, "quantity", position.Quantity)
 
 			// 注文リクエストを作成
-			req := &PlaceOrderRequest{
+			req := &service.PlaceOrderRequest{
 				Symbol:              symbolStr,
 				TradeType:           model.TradeTypeSell,
 				OrderType:           model.OrderTypeMarket,

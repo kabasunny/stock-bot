@@ -23,7 +23,7 @@ func BuildCreatePayload(orderCreateBody string) (*order.CreatePayload, error) {
 	{
 		err = json.Unmarshal([]byte(orderCreateBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"order_type\": \"LIMIT\",\n      \"position_account_type\": \"CASH\",\n      \"price\": 0.8645194880324857,\n      \"quantity\": 2610519601393672180,\n      \"symbol\": \"Facilis mollitia perferendis eaque laboriosam dolore ipsa.\",\n      \"trade_type\": \"BUY\"\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"order_type\": \"MARKET\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.6621056743497284,\n      \"quantity\": 6129373346072046161,\n      \"symbol\": \"Magni eum omnis dolorem non.\",\n      \"trade_type\": \"BUY\"\n   }'")
 		}
 		if !(body.TradeType == "BUY" || body.TradeType == "SELL") {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.trade_type", body.TradeType, []any{"BUY", "SELL"}))

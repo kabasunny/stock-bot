@@ -2,6 +2,7 @@ package agent_test
 
 import (
 	"stock-bot/domain/model"
+	"stock-bot/domain/service"
 	"stock-bot/internal/agent"
 	"sync"
 	"testing"
@@ -93,7 +94,7 @@ func TestState_Balance(t *testing.T) {
 	assert.Equal(t, 0.0, balance.BuyingPower)
 
 	// 残高の更新
-	newBalance := &agent.Balance{Cash: 1000000, BuyingPower: 500000}
+	newBalance := &service.Balance{Cash: 1000000, BuyingPower: 500000}
 	state.UpdateBalance(newBalance)
 
 	// 更新後の取得確認
@@ -118,10 +119,10 @@ func TestState_ThreadSafety(t *testing.T) {
 		wg.Add(1)
 		go func(i int) {
 			defer wg.Done()
-			
+
 			// 書き込み
-			state.UpdateBalance(&agent.Balance{Cash: float64(i), BuyingPower: float64(i)})
-			
+			state.UpdateBalance(&service.Balance{Cash: float64(i), BuyingPower: float64(i)})
+
 			positions := []*model.Position{
 				{Symbol: "7203", Quantity: i},
 			}

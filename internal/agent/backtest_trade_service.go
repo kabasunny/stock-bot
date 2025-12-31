@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"stock-bot/domain/model"
+	"stock-bot/domain/service"
 	"stock-bot/internal/data"
 	"stock-bot/internal/infrastructure/client"
 	"time"
@@ -17,7 +18,7 @@ type BacktestTradeService struct {
 	historyReader  *data.PriceHistoryReader
 	AllHistory     map[string][]*data.HistoricalPrice // 銘柄ごとの全履歴データ
 	CurrentTick    time.Time                          // シミュレーション現在の時刻
-	Balance        *Balance                           // 擬似的な口座残高
+	Balance        *service.Balance                   // 擬似的な口座残高
 	Positions      map[string]*model.Position         // 擬似的な保有ポジション
 	Orders         map[string]*model.Order            // 擬似的な注文情報
 	OrderIDCounter int
@@ -28,7 +29,7 @@ func NewBacktestTradeService(dataDir string, initialCash float64) *BacktestTrade
 	return &BacktestTradeService{
 		historyReader: data.NewPriceHistoryReader(dataDir),
 		AllHistory:    make(map[string][]*data.HistoricalPrice),
-		Balance: &Balance{
+		Balance: &service.Balance{
 			Cash:        initialCash,
 			BuyingPower: initialCash,
 		},
@@ -97,7 +98,7 @@ func (s *BacktestTradeService) GetOrders(ctx context.Context) ([]*model.Order, e
 }
 
 // GetBalance は現在の擬似的な口座残高を返します。
-func (s *BacktestTradeService) GetBalance(ctx context.Context) (*Balance, error) {
+func (s *BacktestTradeService) GetBalance(ctx context.Context) (*service.Balance, error) {
 	return s.Balance, nil
 }
 
@@ -126,7 +127,7 @@ func (s *BacktestTradeService) GetPrice(ctx context.Context, symbol string) (flo
 
 // GetPriceHistory は現在のシミュレーション時刻より過去の履歴データを返します。
 // シミュレーション時刻のデータがない場合でも、その直近の過去データを基準に履歴を返します。
-func (s *BacktestTradeService) GetPriceHistory(ctx context.Context, symbol string, days int) ([]*HistoricalPrice, error) {
+func (s *BacktestTradeService) GetPriceHistory(ctx context.Context, symbol string, days int) ([]*service.HistoricalPrice, error) {
 	allHist, ok := s.AllHistory[symbol]
 	if !ok {
 		return nil, fmt.Errorf("history not loaded for symbol: %s", symbol)
@@ -153,11 +154,11 @@ func (s *BacktestTradeService) GetPriceHistory(ctx context.Context, symbol strin
 	if effectiveIndex+1 < actualDays {
 		actualDays = effectiveIndex + 1 // 取得可能な最大日数に制限
 	}
-	
-	result := make([]*HistoricalPrice, actualDays)
+
+	result := make([]*service.HistoricalPrice, actualDays)
 	for i := 0; i < actualDays; i++ {
-		src := allHist[effectiveIndex-i] // effectiveIndex を基準に過去に遡る
-		result[actualDays-1-i] = &HistoricalPrice{ // 古い方から新しい方へソートされるように逆順にコピー
+		src := allHist[effectiveIndex-i]                   // effectiveIndex を基準に過去に遡る
+		result[actualDays-1-i] = &service.HistoricalPrice{ // 古い方から新しい方へソートされるように逆順にコピー
 			Date:   src.Date,
 			Open:   src.Open,
 			High:   src.High,
@@ -170,7 +171,7 @@ func (s *BacktestTradeService) GetPriceHistory(ctx context.Context, symbol strin
 }
 
 // PlaceOrder は注文を処理し、内部状態を更新します。
-func (s *BacktestTradeService) PlaceOrder(ctx context.Context, req *PlaceOrderRequest) (*model.Order, error) {
+func (s *BacktestTradeService) PlaceOrder(ctx context.Context, req *service.PlaceOrderRequest) (*model.Order, error) {
 	currentPrice, err := s.GetPrice(ctx, req.Symbol)
 	if err != nil {
 		return nil, fmt.Errorf("failed to get current price for order placement: %w", err)

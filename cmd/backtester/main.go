@@ -8,7 +8,7 @@ import (
 	"stock-bot/domain/model"
 	"stock-bot/domain/repository"
 	"stock-bot/internal/agent"
-	"stock-bot/internal/app" // Add this import
+	"stock-bot/internal/app"
 	"time"
 )
 
@@ -18,8 +18,8 @@ func main() {
 
 	// 1. バックテスト設定
 	dataDir := "./data/history"
-	configPath := "./agent_config.yaml" // エージェントのコンフィグファイル
-	initialCash := 10_000_000.0         // 初期資金 1000万円
+	configPath := "./agent_config.yaml"               // エージェントのコンフィグファイル
+	initialCash := 10_000_000.0                       // 初期資金 1000万円
 	targetSymbols := []string{"7203", "6758", "9984"} // バックテスト対象銘柄
 
 	// 2. BacktestTradeServiceの初期化
@@ -39,7 +39,7 @@ func main() {
 		logger.Error("failed to create agent for backtest", "error", err)
 		os.Exit(1)
 	}
-	stockAgent.SetLogger(logger) // バックテスト用にロガーを設定
+	stockAgent.SetLogger(logger)  // バックテスト用にロガーを設定
 	stockAgent.SyncInitialState() // バックテスト開始前に状態を同期
 
 	// 4. バックテストのメインループ
@@ -52,7 +52,7 @@ func main() {
 			}
 		}
 	}
-	
+
 	var dates []time.Time
 	for date := range dateSet {
 		dates = append(dates, date)
@@ -65,16 +65,15 @@ func main() {
 		logger.Error("no history data loaded or invalid date range")
 		os.Exit(1)
 	}
-	
+
 	logger.Info("Starting backtest...", "startDate", dates[0].Format("2006-01-02"), "endDate", dates[len(dates)-1].Format("2006-01-02"))
 
 	for _, currentDate := range dates {
 		backtestService.SetCurrentTick(currentDate)
 		stockAgent.Tick()
-		
+
 		logger.Info("Backtest tick completed", "date", currentDate.Format("2006-01-02"), "balance", backtestService.Balance.Cash, "positions", len(backtestService.Positions))
 	}
-
 
 	logger.Info("Backtest finished.")
 	logger.Info("Final Balance", "cash", backtestService.Balance.Cash, "buying_power", backtestService.Balance.BuyingPower)
@@ -91,12 +90,24 @@ type dummyPositionRepository struct{}
 // Ensure dummyPositionRepository implements repository.PositionRepository
 var _ repository.PositionRepository = (*dummyPositionRepository)(nil)
 
-func (d *dummyPositionRepository) Save(ctx context.Context, position *model.Position) error { return nil }
-func (d *dummyPositionRepository) FindBySymbol(ctx context.Context, symbol string) (*model.Position, error) { return nil, nil }
-func (d *dummyPositionRepository) FindAll(ctx context.Context) ([]*model.Position, error) { return nil, nil }
-func (d *dummyPositionRepository) UpdateHighestPrice(ctx context.Context, symbol string, price float64) error { return nil }
-func (d *dummyPositionRepository) UpsertPositionByExecution(ctx context.Context, execution *model.Execution) error { return nil }
-func (d *dummyPositionRepository) DeletePosition(ctx context.Context, symbol string) error { return nil }
+func (d *dummyPositionRepository) Save(ctx context.Context, position *model.Position) error {
+	return nil
+}
+func (d *dummyPositionRepository) FindBySymbol(ctx context.Context, symbol string) (*model.Position, error) {
+	return nil, nil
+}
+func (d *dummyPositionRepository) FindAll(ctx context.Context) ([]*model.Position, error) {
+	return nil, nil
+}
+func (d *dummyPositionRepository) UpdateHighestPrice(ctx context.Context, symbol string, price float64) error {
+	return nil
+}
+func (d *dummyPositionRepository) UpsertPositionByExecution(ctx context.Context, execution *model.Execution) error {
+	return nil
+}
+func (d *dummyPositionRepository) DeletePosition(ctx context.Context, symbol string, accountType model.PositionAccountType) error {
+	return nil
+}
 
 // dummyExecutionUseCase はバックテスト時に使用するダミーのExecutionUseCaseです。
 type dummyExecutionUseCase struct{}
