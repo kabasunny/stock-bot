@@ -122,7 +122,7 @@ func main() {
 		tradesvr.Mount(mux, tradesvr.New(tradeEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil))
 
 		// DB依存かつTachibana API依存のエンドポイント
-		if !*noDB {
+		if !*noDB && !*noTachibana {
 			orderEndpoints := order.NewEndpoints(orderSvc)
 			masterEndpoints := mastergen.NewEndpoints(masterSvc)
 			ordersvr.Mount(mux, ordersvr.New(orderEndpoints, mux, goahttp.RequestDecoder, goahttp.ResponseEncoder, nil, nil))

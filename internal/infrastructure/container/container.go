@@ -37,6 +37,7 @@ type Container struct {
 	orderRepo    repository.OrderRepository
 	masterRepo   repository.MasterRepository
 	positionRepo repository.PositionRepository
+	strategyRepo repository.StrategyRepository
 
 	// Use Case Layer
 	balanceUseCase   app.BalanceUseCase
@@ -45,9 +46,11 @@ type Container struct {
 	positionUseCase  app.PositionUseCase
 	priceUseCase     app.PriceUseCase
 	executionUseCase app.ExecutionUseCase
+	strategyUseCase  app.StrategyUseCase
 
 	// Domain Service Layer
-	tradeService service.TradeService
+	tradeService    service.TradeService
+	strategyService service.StrategyService
 
 	// Domain Event System
 	eventPublisher event.EventPublisher
@@ -135,6 +138,7 @@ func (c *Container) initRepositories() error {
 	c.orderRepo = repository_impl.NewOrderRepository(c.db)
 	c.masterRepo = repository_impl.NewMasterRepository(c.db)
 	c.positionRepo = repository_impl.NewPositionRepository(c.db, c.orderRepo)
+	c.strategyRepo = repository_impl.NewStrategyRepository(c.db)
 	return nil
 }
 
@@ -188,14 +192,17 @@ func (c *Container) initUseCases() error {
 	if c.orderRepo != nil && c.positionRepo != nil {
 		c.executionUseCase = app.NewExecutionUseCaseImpl(c.orderRepo, c.positionRepo)
 	}
+	if c.strategyRepo != nil {
+		c.strategyUseCase = app.NewStrategyUseCaseImpl(c.strategyRepo, c.strategyService, c.unitOfWork, c.logger)
+	}
 
 	return nil
 }
 
-// initDomainServices はドメインサービス層を初期化する
+// ドメインサービス層を初期化する
 func (c *Container) initDomainServices() error {
 	if c.unifiedClientAdapter != nil && c.orderRepo != nil && c.masterRepo != nil {
-		c.tradeService = tradeservice.NewGoaTradeService(
+		tradeService := tradeservice.NewGoaTradeService(
 			c.unifiedClientAdapter, // BalanceClient
 			c.unifiedClientAdapter, // OrderClient
 			c.unifiedClientAdapter, // PriceInfoClient
@@ -204,6 +211,13 @@ func (c *Container) initDomainServices() error {
 			c.appSession,
 			c.logger,
 		)
+
+		// セッション回復用の統合クライアントを設定
+		tradeService.SetUnifiedClient(c.unifiedClient)
+		c.tradeService = tradeService
+	}
+	if c.strategyRepo != nil && c.eventPublisher != nil {
+		c.strategyService = tradeservice.NewStrategyService(c.strategyRepo, c.eventPublisher, c.logger)
 	}
 	return nil
 }
@@ -384,4 +398,15 @@ func (c *Container) GetEventPublisher() event.EventPublisher {
 
 func (c *Container) GetUnitOfWork() repository.UnitOfWork {
 	return c.unitOfWork
+}
+func (c *Container) GetStrategyRepo() repository.StrategyRepository {
+	return c.strategyRepo
+}
+
+func (c *Container) GetStrategyUseCase() app.StrategyUseCase {
+	return c.strategyUseCase
+}
+
+func (c *Container) GetStrategyService() service.StrategyService {
+	return c.strategyService
 }

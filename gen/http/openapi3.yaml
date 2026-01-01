@@ -342,7 +342,7 @@ paths:
                         schema:
                             $ref: '#/components/schemas/PlaceOrderRequestBody'
                         example:
-                            order_type: STOP
+                            order_type: MARKET
                             position_account_type: MARGIN_REPAY
                             price: 0.035352781886726636
                             quantity: 11753193439472030627
@@ -1191,11 +1191,12 @@ components:
                 order_type:
                     type: string
                     description: 注文種別
-                    example: LIMIT
+                    example: STOP_LIMIT
                     enum:
                         - MARKET
                         - LIMIT
                         - STOP
+                        - STOP_LIMIT
                 position_account_type:
                     type: string
                     description: 口座区分
@@ -1234,7 +1235,7 @@ components:
                     example: 0.6572855451569828
                     format: double
             example:
-                order_type: MARKET
+                order_type: STOP
                 position_account_type: MARGIN_NEW
                 price: 0.499660116502031
                 quantity: 3676548180469711423

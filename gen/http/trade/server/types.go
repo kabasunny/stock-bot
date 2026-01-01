@@ -528,8 +528,8 @@ func ValidatePlaceOrderRequestBody(body *PlaceOrderRequestBody) (err error) {
 		}
 	}
 	if body.OrderType != nil {
-		if !(*body.OrderType == "MARKET" || *body.OrderType == "LIMIT" || *body.OrderType == "STOP") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.order_type", *body.OrderType, []any{"MARKET", "LIMIT", "STOP"}))
+		if !(*body.OrderType == "MARKET" || *body.OrderType == "LIMIT" || *body.OrderType == "STOP" || *body.OrderType == "STOP_LIMIT") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.order_type", *body.OrderType, []any{"MARKET", "LIMIT", "STOP", "STOP_LIMIT"}))
 		}
 	}
 	if body.PositionAccountType != nil {

@@ -144,3 +144,33 @@ func NewRiskLimitExceededEvent(riskType string, currentValue, limit float64, sym
 		Symbol:          symbol,
 	}
 }
+
+// 戦略関連のドメインイベント
+
+// StrategyActivatedEvent は戦略アクティブ化イベント
+type StrategyActivatedEvent struct {
+	BaseDomainEvent
+	Strategy *model.Strategy `json:"strategy"`
+}
+
+// NewStrategyActivatedEvent は新しい戦略アクティブ化イベントを作成
+func NewStrategyActivatedEvent(strategy *model.Strategy) *StrategyActivatedEvent {
+	return &StrategyActivatedEvent{
+		BaseDomainEvent: NewBaseDomainEvent("StrategyActivated", strategy.ID, 1),
+		Strategy:        strategy,
+	}
+}
+
+// StrategyDeactivatedEvent は戦略非アクティブ化イベント
+type StrategyDeactivatedEvent struct {
+	BaseDomainEvent
+	Strategy *model.Strategy `json:"strategy"`
+}
+
+// NewStrategyDeactivatedEvent は新しい戦略非アクティブ化イベントを作成
+func NewStrategyDeactivatedEvent(strategy *model.Strategy) *StrategyDeactivatedEvent {
+	return &StrategyDeactivatedEvent{
+		BaseDomainEvent: NewBaseDomainEvent("StrategyDeactivated", strategy.ID, 1),
+		Strategy:        strategy,
+	}
+}

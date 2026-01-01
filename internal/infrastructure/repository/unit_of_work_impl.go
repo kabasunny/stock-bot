@@ -59,7 +59,7 @@ func (uow *UnitOfWorkImpl) Begin(ctx context.Context) error {
 	uow.orderRepo = NewOrderRepository(uow.tx)
 	uow.positionRepo = NewPositionRepository(uow.tx, uow.orderRepo)
 	uow.masterRepo = NewMasterRepository(uow.tx)
-	// uow.strategyRepo = NewStrategyRepository(uow.tx) // 実装後に有効化
+	uow.strategyRepo = NewStrategyRepository(uow.tx)
 
 	uow.logger.Debug("transaction started")
 	return nil
@@ -215,7 +215,6 @@ func (uow *UnitOfWorkImpl) StrategyRepository() repository.StrategyRepository {
 	if uow.inTransaction {
 		return uow.strategyRepo
 	}
-	// トランザクション外では通常のリポジトリを返す（実装後に有効化）
-	// return NewStrategyRepository(uow.db)
-	return nil // 暫定実装
+	// トランザクション外では通常のリポジトリを返す
+	return NewStrategyRepository(uow.db)
 }

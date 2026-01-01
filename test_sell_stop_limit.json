@@ -1,0 +1,9 @@
+{
+    "symbol": "3632",
+    "trade_type": "SELL",
+    "order_type": "STOP_LIMIT",
+    "quantity": 100,
+    "price": 450,
+    "trigger_price": 445,
+    "position_account_type": "CASH"
+}

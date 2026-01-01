@@ -1574,11 +1574,12 @@ definitions:
             order_type:
                 type: string
                 description: 注文種別
-                example: MARKET
+                example: LIMIT
                 enum:
                     - MARKET
                     - LIMIT
                     - STOP
+                    - STOP_LIMIT
             position_account_type:
                 type: string
                 description: 口座区分
@@ -1617,7 +1618,7 @@ definitions:
                 example: 0.8739645026051018
                 format: double
         example:
-            order_type: LIMIT
+            order_type: STOP
             position_account_type: CASH
             price: 0.39443595813140914
             quantity: 1893521645458672636

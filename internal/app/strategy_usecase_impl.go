@@ -59,12 +59,68 @@ func (uc *StrategyUseCaseImpl) GetStrategy(ctx context.Context, id string) (*mod
 	return strategy, nil
 }
 
-// ListStrategies は戦略一覧を取得
-func (uc *StrategyUseCaseImpl) ListStrategies(ctx context.Context, status *model.StrategyStatus) ([]*model.Strategy, error) {
-	if status != nil {
-		return uc.strategyRepo.FindByStatus(ctx, *status)
+// ListStrategies は戦略一覧を取得（フィルター対応）
+func (uc *StrategyUseCaseImpl) ListStrategies(ctx context.Context, filter StrategyFilter) ([]*model.Strategy, error) {
+	var strategies []*model.Strategy
+	var err error
+
+	// フィルター条件に応じて検索
+	if filter.Type != nil && filter.Status != nil {
+		// 両方指定された場合は、まずタイプで検索してからステータスでフィルタ
+		typeStrategies, err := uc.strategyRepo.FindByType(ctx, *filter.Type)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find strategies by type: %w", err)
+		}
+
+		// ステータスでフィルタ
+		for _, strategy := range typeStrategies {
+			if strategy.Status == *filter.Status {
+				strategies = append(strategies, strategy)
+			}
+		}
+	} else if filter.Type != nil {
+		strategies, err = uc.strategyRepo.FindByType(ctx, *filter.Type)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find strategies by type: %w", err)
+		}
+	} else if filter.Status != nil {
+		strategies, err = uc.strategyRepo.FindByStatus(ctx, *filter.Status)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find strategies by status: %w", err)
+		}
+	} else {
+		strategies, err = uc.strategyRepo.FindAll(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("failed to find all strategies: %w", err)
+		}
 	}
-	return uc.strategyRepo.FindAll(ctx)
+
+	// 件数制限を適用
+	if filter.Limit > 0 && len(strategies) > filter.Limit {
+		strategies = strategies[:filter.Limit]
+	}
+
+	return strategies, nil
+}
+
+// GetActiveStrategies はアクティブな戦略を取得
+func (uc *StrategyUseCaseImpl) GetActiveStrategies(ctx context.Context) ([]*model.Strategy, error) {
+	return uc.strategyRepo.FindActive(ctx)
+}
+
+// UpdateStatistics は戦略の統計を更新
+func (uc *StrategyUseCaseImpl) UpdateStatistics(ctx context.Context, strategyID string, pl float64, isWin bool) error {
+	uc.logger.Info("updating strategy statistics",
+		slog.String("strategy_id", strategyID),
+		slog.Float64("pl", pl),
+		slog.Bool("is_win", isWin))
+
+	if err := uc.strategyService.UpdateStatistics(ctx, strategyID, pl, isWin); err != nil {
+		return fmt.Errorf("failed to update strategy statistics: %w", err)
+	}
+
+	uc.logger.Info("strategy statistics updated successfully", slog.String("strategy_id", strategyID))
+	return nil
 }
 
 // UpdateStrategy は戦略を更新

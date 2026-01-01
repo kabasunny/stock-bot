@@ -2,16 +2,12 @@ package client
 
 import (
 	"context"
-	"fmt"
 	"log/slog"
-	"stock-bot/internal/infrastructure/client/dto/auth/request"
 	balance_response "stock-bot/internal/infrastructure/client/dto/balance/response"
 	order_request "stock-bot/internal/infrastructure/client/dto/order/request"
 	order_response "stock-bot/internal/infrastructure/client/dto/order/response"
 	price_request "stock-bot/internal/infrastructure/client/dto/price/request"
 	price_response "stock-bot/internal/infrastructure/client/dto/price/response"
-	"sync"
-	"time"
 )
 
 // TachibanaUnifiedClient は立花証券の3つのI/F（認証、REQUEST、EVENT）を統合したクライアント
@@ -23,18 +19,8 @@ type TachibanaUnifiedClient struct {
 	masterClient  MasterDataClient
 	eventClient   EventClient
 
-	session      *Session
-	sessionMutex sync.RWMutex
-	logger       *slog.Logger
-
-	// 認証情報
-	userID         string
-	password       string
-	secondPassword string
-
-	// セッション管理
-	lastLoginTime time.Time
-	loginMutex    sync.Mutex
+	sessionManager SessionManager
+	logger         *slog.Logger
 }
 
 // NewTachibanaUnifiedClient は新しいTachibanaUnifiedClientを作成します
@@ -48,6 +34,19 @@ func NewTachibanaUnifiedClient(
 	userID, password, secondPassword string,
 	logger *slog.Logger,
 ) *TachibanaUnifiedClient {
+	// セッションディレクトリのパス
+	sessionDir := "./data/sessions"
+
+	// 日付ベースセッション管理を初期化
+	sessionManager := NewDateBasedSessionManager(
+		authClient,
+		userID,
+		password,
+		secondPassword,
+		sessionDir,
+		logger,
+	)
+
 	return &TachibanaUnifiedClient{
 		authClient:     authClient,
 		balanceClient:  balanceClient,
@@ -55,86 +54,24 @@ func NewTachibanaUnifiedClient(
 		priceClient:    priceClient,
 		masterClient:   masterClient,
 		eventClient:    eventClient,
-		userID:         userID,
-		password:       password,
-		secondPassword: secondPassword,
+		sessionManager: sessionManager,
 		logger:         logger,
 	}
 }
 
 // EnsureAuthenticated はセッションが有効であることを確認し、必要に応じて再認証を行います
 func (c *TachibanaUnifiedClient) EnsureAuthenticated(ctx context.Context) error {
-	c.loginMutex.Lock()
-	defer c.loginMutex.Unlock()
-
-	// セッションが存在し、まだ有効な場合はそのまま使用
-	if c.session != nil && time.Since(c.lastLoginTime) < 8*time.Hour {
-		return nil
-	}
-
-	c.logger.Info("performing authentication to Tachibana API")
-
-	// ログインリクエストを作成
-	loginReq := request.ReqLogin{
-		UserId:   c.userID,
-		Password: c.password,
-	}
-
-	// 認証実行
-	session, err := c.authClient.LoginWithPost(ctx, loginReq)
-	if err != nil {
-		return fmt.Errorf("failed to authenticate: %w", err)
-	}
-
-	// セッション情報を設定
-	session.SecondPassword = c.secondPassword
-
-	c.sessionMutex.Lock()
-	c.session = session
-	c.lastLoginTime = time.Now()
-	c.sessionMutex.Unlock()
-
-	c.logger.Info("authentication successful")
-	return nil
+	return c.sessionManager.EnsureAuthenticated(ctx)
 }
 
 // GetSession は現在のセッションを取得します（認証が必要な場合は自動で実行）
 func (c *TachibanaUnifiedClient) GetSession(ctx context.Context) (*Session, error) {
-	if err := c.EnsureAuthenticated(ctx); err != nil {
-		return nil, err
-	}
-
-	c.sessionMutex.RLock()
-	defer c.sessionMutex.RUnlock()
-	return c.session, nil
+	return c.sessionManager.GetSession(ctx)
 }
 
 // Logout はセッションを終了します
 func (c *TachibanaUnifiedClient) Logout(ctx context.Context) error {
-	c.sessionMutex.RLock()
-	session := c.session
-	c.sessionMutex.RUnlock()
-
-	if session == nil {
-		return nil // 既にログアウト済み
-	}
-
-	// ログアウトリクエストを作成
-	logoutReq := request.ReqLogout{}
-
-	// ログアウト実行
-	_, err := c.authClient.LogoutWithPost(ctx, session, logoutReq)
-	if err != nil {
-		c.logger.Warn("logout request failed", "error", err)
-		// ログアウトエラーでもセッションはクリアする
-	}
-
-	c.sessionMutex.Lock()
-	c.session = nil
-	c.sessionMutex.Unlock()
-
-	c.logger.Info("logout completed")
-	return err
+	return c.sessionManager.Logout(ctx)
 }
 
 // --- BalanceClient methods ---
@@ -231,7 +168,5 @@ func (c *TachibanaUnifiedClient) CloseEvents() {
 
 // IsAuthenticated はセッションが有効かどうかを確認します
 func (c *TachibanaUnifiedClient) IsAuthenticated() bool {
-	c.sessionMutex.RLock()
-	defer c.sessionMutex.RUnlock()
-	return c.session != nil && time.Since(c.lastLoginTime) < 8*time.Hour
+	return c.sessionManager.IsAuthenticated()
 }

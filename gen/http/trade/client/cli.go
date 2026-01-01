@@ -50,13 +50,13 @@ func BuildPlaceOrderPayload(tradePlaceOrderBody string) (*trade.PlaceOrderPayloa
 	{
 		err = json.Unmarshal([]byte(tradePlaceOrderBody), &body)
 		if err != nil {
-			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"order_type\": \"STOP\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.035352781886726636,\n      \"quantity\": 11753193439472030627,\n      \"symbol\": \"Ab voluptates accusantium ut.\",\n      \"trade_type\": \"BUY\",\n      \"trigger_price\": 0.23317448032527996\n   }'")
+			return nil, fmt.Errorf("invalid JSON for body, \nerror: %s, \nexample of valid JSON:\n%s", err, "'{\n      \"order_type\": \"MARKET\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.035352781886726636,\n      \"quantity\": 11753193439472030627,\n      \"symbol\": \"Ab voluptates accusantium ut.\",\n      \"trade_type\": \"BUY\",\n      \"trigger_price\": 0.23317448032527996\n   }'")
 		}
 		if !(body.TradeType == "BUY" || body.TradeType == "SELL") {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.trade_type", body.TradeType, []any{"BUY", "SELL"}))
 		}
-		if !(body.OrderType == "MARKET" || body.OrderType == "LIMIT" || body.OrderType == "STOP") {
-			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.order_type", body.OrderType, []any{"MARKET", "LIMIT", "STOP"}))
+		if !(body.OrderType == "MARKET" || body.OrderType == "LIMIT" || body.OrderType == "STOP" || body.OrderType == "STOP_LIMIT") {
+			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.order_type", body.OrderType, []any{"MARKET", "LIMIT", "STOP", "STOP_LIMIT"}))
 		}
 		if !(body.PositionAccountType == "CASH" || body.PositionAccountType == "MARGIN_NEW" || body.PositionAccountType == "MARGIN_REPAY") {
 			err = goa.MergeErrors(err, goa.InvalidEnumValueError("body.position_account_type", body.PositionAccountType, []any{"CASH", "MARGIN_NEW", "MARGIN_REPAY"}))

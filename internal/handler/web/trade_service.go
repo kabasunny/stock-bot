@@ -265,6 +265,8 @@ func convertOrderType(ot model.OrderType) string {
 		return "LIMIT"
 	case model.OrderTypeStop:
 		return "STOP"
+	case model.OrderTypeStopLimit:
+		return "STOP_LIMIT"
 	default:
 		return "MARKET"
 	}
@@ -306,6 +308,8 @@ func convertOrderTypeFromAPI(ot string) model.OrderType {
 		return model.OrderTypeLimit
 	case "STOP":
 		return model.OrderTypeStop
+	case "STOP_LIMIT":
+		return model.OrderTypeStopLimit
 	default:
 		return model.OrderTypeMarket
 	}

@@ -348,7 +348,7 @@ var _ = Service("trade", func() {
 				Enum("BUY", "SELL")
 			})
 			Attribute("order_type", String, "注文種別", func() {
-				Enum("MARKET", "LIMIT", "STOP")
+				Enum("MARKET", "LIMIT", "STOP", "STOP_LIMIT")
 			})
 			Attribute("quantity", UInt, "数量")
 			Attribute("price", Float64, "価格 (指値の場合)", func() {
@@ -574,3 +574,5 @@ var TradeExecutionResult = Type("TradeExecutionResult", func() {
 	Attribute("executed_at", String, "約定日時 (RFC3339)")
 	Required("execution_id", "executed_quantity", "executed_price", "executed_at")
 })
+
+// 戦略管理はエージェント側で実装するため、Goaサービスからは削除

@@ -1,4 +1,4 @@
-package app_test
+package app
 
 import (
 	"context"
@@ -41,8 +41,8 @@ func TestPriceUseCase_Get(t *testing.T) {
 		}
 
 		mockPriceInfoClient.On("GetPriceInfo",
-			mock.Anything,                            // context.Background()
-			mock.Anything,                            // session *Session
+			mock.Anything, // context.Background()
+			mock.Anything, // session *Session
 			client_request.ReqGetPriceInfo{CLMID: "CLMMfdsGetMarketPrice", TargetIssueCode: symbol, TargetColumn: "CurrentPrice,Timestamp"}, // req request.ReqGetPriceInfo
 		).Return(mockResponse, nil).Once()
 
@@ -60,8 +60,8 @@ func TestPriceUseCase_Get(t *testing.T) {
 	t.Run("エラーケース: 価格取得に失敗した場合、エラーを返すこと", func(t *testing.T) {
 		expectedErr := errors.New("APIエラー")
 		mockPriceInfoClient.On("GetPriceInfo",
-			mock.Anything,                            // context.Background()
-			mock.Anything,                            // session *Session
+			mock.Anything, // context.Background()
+			mock.Anything, // session *Session
 			client_request.ReqGetPriceInfo{CLMID: "CLMMfdsGetMarketPrice", TargetIssueCode: symbol, TargetColumn: "CurrentPrice,Timestamp"}, // req request.ReqGetPriceInfo
 		).Return(nil, expectedErr).Once()
 
@@ -80,8 +80,8 @@ func TestPriceUseCase_Get(t *testing.T) {
 			CLMMfdsMarketPrice: []client_response.ResMarketPriceInfoItem{},
 		}
 		mockPriceInfoClient.On("GetPriceInfo",
-			mock.Anything,                            // context.Background()
-			mock.Anything,                            // session *Session
+			mock.Anything, // context.Background()
+			mock.Anything, // session *Session
 			client_request.ReqGetPriceInfo{CLMID: "CLMMfdsGetMarketPrice", TargetIssueCode: symbol, TargetColumn: "CurrentPrice,Timestamp"}, // req request.ReqGetPriceInfo
 		).Return(mockResponse, nil).Once()
 
@@ -107,8 +107,8 @@ func TestPriceUseCase_Get(t *testing.T) {
 			},
 		}
 		mockPriceInfoClient.On("GetPriceInfo",
-			mock.Anything,                            // context.Background()
-			mock.Anything,                            // session *Session
+			mock.Anything, // context.Background()
+			mock.Anything, // session *Session
 			client_request.ReqGetPriceInfo{CLMID: "CLMMfdsGetMarketPrice", TargetIssueCode: symbol, TargetColumn: "CurrentPrice,Timestamp"}, // req request.ReqGetPriceInfo
 		).Return(mockResponse, nil).Once()
 
@@ -134,8 +134,8 @@ func TestPriceUseCase_Get(t *testing.T) {
 			},
 		}
 		mockPriceInfoClient.On("GetPriceInfo",
-			mock.Anything,                            // context.Background()
-			mock.Anything,                            // session *Session
+			mock.Anything, // context.Background()
+			mock.Anything, // session *Session
 			client_request.ReqGetPriceInfo{CLMID: "CLMMfdsGetMarketPrice", TargetIssueCode: symbol, TargetColumn: "CurrentPrice,Timestamp"}, // req request.ReqGetPriceInfo
 		).Return(mockResponse, nil).Once()
 
@@ -162,8 +162,8 @@ func TestPriceUseCase_Get(t *testing.T) {
 			},
 		}
 		mockPriceInfoClient.On("GetPriceInfo",
-			mock.Anything,                            // context.Background()
-			mock.Anything,                            // session *Session
+			mock.Anything, // context.Background()
+			mock.Anything, // session *Session
 			client_request.ReqGetPriceInfo{CLMID: "CLMMfdsGetMarketPrice", TargetIssueCode: symbol, TargetColumn: "CurrentPrice,Timestamp"}, // req request.ReqGetPriceInfo
 		).Return(mockResponse, nil).Once()
 

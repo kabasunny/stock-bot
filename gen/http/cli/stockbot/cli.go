@@ -675,7 +675,7 @@ func tradePlaceOrderUsage() {
 
 	fmt.Fprintln(os.Stderr)
 	fmt.Fprintln(os.Stderr, "Example:")
-	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade place-order --body '{\n      \"order_type\": \"STOP\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.035352781886726636,\n      \"quantity\": 11753193439472030627,\n      \"symbol\": \"Ab voluptates accusantium ut.\",\n      \"trade_type\": \"BUY\",\n      \"trigger_price\": 0.23317448032527996\n   }'")
+	fmt.Fprintf(os.Stderr, "    %s %s\n", os.Args[0], "trade place-order --body '{\n      \"order_type\": \"MARKET\",\n      \"position_account_type\": \"MARGIN_REPAY\",\n      \"price\": 0.035352781886726636,\n      \"quantity\": 11753193439472030627,\n      \"symbol\": \"Ab voluptates accusantium ut.\",\n      \"trade_type\": \"BUY\",\n      \"trigger_price\": 0.23317448032527996\n   }'")
 }
 
 func tradeCancelOrderUsage() {

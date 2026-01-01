@@ -115,17 +115,49 @@ func (r *positionRepositoryImpl) UpsertPositionByExecution(ctx context.Context, 
 		// ここでは、明示的に変更しない。必要であれば別のロジックで対応。
 	}
 
-	// ポジションが存在する場合
+	// ポジションが存在する場合の処理
 	if execution.TradeType == model.TradeTypeBuy {
-		// 買い増しの場合、平均取得単価と数量を更新
-		position.AveragePrice = (position.AveragePrice*float64(position.Quantity) + execution.Price*float64(execution.Quantity)) / float64(position.Quantity+execution.Quantity)
-		position.Quantity += execution.Quantity
+		// 買い約定の場合
+		if order.PositionAccountType == model.PositionAccountTypeMarginRepay {
+			// 信用返済（買返済）の場合：ショートポジションを減らす
+			if position.PositionType != model.PositionTypeShort {
+				return errors.Errorf("buy repayment for non-short position: %s", execution.Symbol)
+			}
+			position.Quantity -= execution.Quantity
+		} else {
+			// 通常の買い増し
+			position.AveragePrice = (position.AveragePrice*float64(position.Quantity) + execution.Price*float64(execution.Quantity)) / float64(position.Quantity+execution.Quantity)
+			position.Quantity += execution.Quantity
+			position.PositionType = model.PositionTypeLong
+		}
+
 		if execution.Price > position.HighestPrice {
 			position.HighestPrice = execution.Price
 		}
 	} else if execution.TradeType == model.TradeTypeSell {
-		// 売り約定の場合、数量を減らす
-		position.Quantity -= execution.Quantity
+		// 売り約定の場合
+		if order.PositionAccountType == model.PositionAccountTypeMarginRepay {
+			// 信用返済（売返済）の場合：ロングポジションを減らす
+			if position.PositionType != model.PositionTypeLong {
+				return errors.Errorf("sell repayment for non-long position: %s", execution.Symbol)
+			}
+			position.Quantity -= execution.Quantity
+		} else if order.PositionAccountType == model.PositionAccountTypeMarginNew {
+			// 信用新規売り（空売り）の場合
+			if position.Quantity == 0 {
+				// 新規ショートポジション
+				position.PositionType = model.PositionTypeShort
+				position.AveragePrice = execution.Price
+				position.Quantity = execution.Quantity
+			} else {
+				// 既存ショートポジションに追加
+				position.AveragePrice = (position.AveragePrice*float64(position.Quantity) + execution.Price*float64(execution.Quantity)) / float64(position.Quantity+execution.Quantity)
+				position.Quantity += execution.Quantity
+			}
+		} else {
+			// 現物売り：ロングポジションを減らす
+			position.Quantity -= execution.Quantity
+		}
 	}
 
 	// 最高値の更新 (買い・売り両方で可能性あり)
