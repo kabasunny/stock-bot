@@ -1,151 +1,278 @@
-# Stock Trading Bot
+# 株式取引システム (Stock Trading System)
 
-このプロジェクトは、証券会社APIを利用して株式の自動取引を行うための取引ボットです。
+立花証券APIを使用した自動株式取引システムです。Clean Architectureに基づく設計で、高い拡張性と保守性を実現しています。
 
-## 概要
-柔軟な取引戦略を実装できる「エージェント」を中心に据えた、拡張性の高い自動取引システムです。証券会社APIとの通信、シグナルに基づいた注文執行、状態管理などの機能を提供します。
+## 🎯 主要機能
 
-## アーキテクチャ (エージェント中心モデル)
-このシステムは、責務が明確に分離された3つのコンポーネントで構成されます。
+- **自動取引**: 戦略に基づく自動売買
+- **リアルタイム監視**: WebSocketによる価格・約定監視
+- **注文管理**: 成行・指値・逆指値注文対応
+- **ポートフォリオ管理**: ポジション・残高管理
+- **バックテスト**: 過去データでの戦略検証
+- **REST API**: HTTP APIによる外部連携
 
-1.  **Go製 APIラッパー**
-    -   **役割**: 証券会社APIとの通信をすべて担当し、その複雑さを抽象化します。
-    -   **機能**: Goaフレームワークを用いて構築されたHTTP APIを公開し、外部からのリクエストに応じて注文執行やデータ取得を行います。
-    -   **ディレクトリ**: `internal/infrastructure/client`, `internal/handler/web` など
+## 🏗️ アーキテクチャ
 
-2.  **Python製 シグナル生成サービス**
-    -   **役割**: 高度な計算や機械学習モデルを用いて、売買シグナル（BUY/SELL/HOLD）を生成します。
-    -   **機能**: 外部から市場データを受け取り、分析結果のシグナルを返すHTTPサーバーとして動作します。（このリポジトリ外で管理）
-
-3.  **エージェント**
-    -   **役割**: システム全体の「頭脳」として、主体的に意思決定を行う中央司令塔です。
-    -   **機能**: 取引戦略のメインループとして、Go APIラッパー（データ取得/注文）とPythonサービス（シグナル問合せ）を呼び出し、全体のワークフローを指揮します。
-    -   **ディレクトリ**: `internal/agent`
-
-### 実装計画
-
--   **短期計画**: まず、Go APIラッパーとエージェントを単一のGoアプリケーションとして実装します。コンポーネント間の通信もGoaで定義したHTTP API (`localhost`経由) で行い、将来のサービス分割を見据えた疎結合な設計を維持します。
--   **長期目標**: システム安定稼働後、エージェントを**Rust製のマイクロサービス**として再実装し、パフォーマンスと安全性を極限まで高めることを目指します。
-
-## ディレクトリ構造
-
-このプロジェクトは、クリーンアーキテクチャと思想を参考に、責務に基づいたディレクトリ分割を行っています。
-
--   **/cmd**: アプリケーションのエントリーポイント（起動スクリプト）が配置されます。
-    -   `main.go` は、依存関係の注入（DI）やサーバーの起動など、アプリケーション全体の初期化処理を担当します。
-
--   **/design**: GoaフレームワークのAPI設計ファイル (`design.go`) が配置されます。
-    -   APIのエンドポイント、リクエスト/レスポンスのデータ構造などを定義します。`goa gen` コマンドは、この設計に基づいて `/gen` ディレクトリにコードを自動生成します。
-
--   **/domain**: システムの核となるビジネスルールとデータ構造（ドメインモデル）を定義します。
-    -   **/model**: `Order` や `Position` といった、ビジネス上最も重要な概念を表現する構造体を定義します。
-    -   **/repository**: データベースなどへの永続化処理のインターフェース（`OrderRepository`など）を定義します。具体的な実装は `infrastructure` 層が担当します。
-
--   **/gen**: Goaによって自動生成されたコードが格納されます。**このディレクトリ以下のファイルは直接編集しないでください。**
-
--   **/internal**: このプロジェクト内部でのみ使用されるGoパッケージを配置します。
-    -   **/agent**: 取引戦略を実行する「エージェント」のロジックを実装します。システムの「頭脳」にあたる部分です。
-    -   **/app**: ユースケース層です。アプリケーション固有のビジネスロジック（例: 「注文を実行する」）を実装します。ハンドラ層からの指示を受け、ドメインモデルを使って処理を行います。
-    -   **/handler**: 外部からの入力を受け付ける層です。
-        -   **/web**: Goaサービスの実装など、HTTPリクエストを処理するハンドラを配置します。リクエストを解釈し、対応するユースケースを呼び出します。
-    -   **/infrastructure**: データベース、外部API（証券会社など）との通信といった、技術的な詳細を実装する層です。
-        -   **/client**: 証券会社APIを呼び出すクライアントの実装などを配置します。
-        -   **/repository**: `domain/repository` で定義されたインターフェースの具体的な実装（例: GORMを使ったDB操作）を配置します。
-
--   **/planning**: `SYSTEM_DESIGN_MEMO.md` などの設計関連ドキュメントを格納します。
-
-## セットアップ方法
-
-### 1. 前提条件
-
-- Go 1.21 以上
-- `goa` v3 コマンド
-
-### 2. 設定
-
-プロジェクトのルートディレクトリに `.env` という名前のファイルを作成し、以下の内容を参考に設定を記述してください。
-
-```.env
-# .env.example
-
-# Tachibana Securities API Settings
-TACHIBANA_BASE_URL="https://demo-kabuka.e-shiten.jp/e_api_v4r6/"
-TACHIBANA_USER_ID="YOUR_USER_ID"
-TACHIBANA_PASSWORD="YOUR_PASSWORD"
-
-# WebSocket Event Settings
-EVENT_RID=""
-EVENT_BOARD_NO=""
-EVENT_NO=""
-EVENT_EVT_CMD=""
-
-# Database Settings (Optional)
-DB_HOST="localhost"
-DB_PORT="5432"
-DB_USER="user"
-DB_PASSWORD="password"
-DB_NAME="stockbot_db"
-
-# Log Level (debug, info, warn, error)
-LOG_LEVEL="debug"
-
-# HTTP Server Port (for Goa API)
-HTTP_PORT="8080"
+```
+┌─────────────────────────────────────────────────────────────┐
+│                    株式取引システム                          │
+├─────────────────────────────────────────────────────────────┤
+│  Web API     │  Trading Bot  │  Backtester                 │
+│  (HTTP/REST) │  (Agent)      │  (Analysis)                 │
+├─────────────────────────────────────────────────────────────┤
+│              Application Layer                              │
+│  Trade Service │ Event Handler │ State Manager              │
+├─────────────────────────────────────────────────────────────┤
+│             Infrastructure Layer                            │
+│  Tachibana API │ Database      │ WebSocket                  │
+├─────────────────────────────────────────────────────────────┤
+│               External APIs                                 │
+│  立花証券 API   │ Market Data   │ Price Feed                 │
+└─────────────────────────────────────────────────────────────┘
 ```
 
-### 3. 依存関係のインストール
+詳細は [システムアーキテクチャ概要](SYSTEM_ARCHITECTURE_OVERVIEW.md) を参照してください。
 
-```sh
-go mod tidy
+## 🚀 クイックスタート
+
+### 前提条件
+
+- Go 1.21+
+- Docker & Docker Compose
+- PostgreSQL 15
+- 立花証券API アクセス権限
+
+### セットアップ
+
+1. **リポジトリクローン**
+```bash
+git clone <repository-url>
+cd stock-bot
 ```
 
-## データベース (Database)
-
-### マイグレーション
-
-このプロジェクトは `golang-migrate/migrate` を使用してデータベースのスキーマを管理します。
-アプリケーションを起動する前に、データベースのスキーマをセットアップまたは更新する必要があります。
-
-1.  **`migrate` CLIのインストール (初回のみ)**
-    ```sh
-    go install -tags 'postgres' github.com/golang-migrate/migrate/v4/cmd/migrate@latest
-    ```
-
-2.  **マイグレーションの適用**
-    以下のコマンドを実行して、最新のスキーマをデータベースに適用します。
-    コマンド内の `postgres://user:password@host:port/dbname` の部分は、ご自身の `.env` ファイルの内容に合わせて書き換えてください。
-
-    ```sh
-    # 例: migrate -database "postgres://user:password@localhost:5432/stockbot_db?sslmode=disable" -path ./migrations up
-    migrate -database "YOUR_DATABASE_CONNECTION_STRING" -path ./migrations up
-    ```
-
-    マイグレーションを1つ前のバージョンに戻す場合は `down 1` を使用します。
-    ```sh
-    migrate -database "YOUR_DATABASE_CONNECTION_STRING" -path ./migrations down 1
-    ```
-
-## 実行
-
-### アプリケーションの起動
-
-```sh
-go run ./cmd/myapp/main.go
+2. **環境変数設定**
+```bash
+cp .env.example .env
+# .envファイルを編集して認証情報を設定
 ```
 
-### APIのテスト
+3. **データベース起動**
+```bash
+docker-compose up -d postgres
+```
 
-サーバー起動後、以下のコマンドで注文APIをテストできます。
+4. **マイグレーション実行**
+```bash
+go run migrations/migrate.go
+```
 
-```sh
-curl -X POST \
+5. **アプリケーション起動**
+```bash
+go run cmd/myapp/main.go
+```
+
+### API使用例
+
+```bash
+# セッション確認
+curl http://localhost:8080/trade/session
+
+# 残高照会
+curl http://localhost:8080/trade/balance
+
+# 注文発行
+curl -X POST http://localhost:8080/trade/orders \
   -H "Content-Type: application/json" \
-  -d '{"symbol": "7203", "trade_type": "BUY", "order_type": "MARKET", "quantity": 100}' \
-  http://localhost:8080/order
+  -d '{
+    "symbol": "1301",
+    "trade_type": "BUY",
+    "order_type": "LIMIT",
+    "quantity": 100,
+    "price": 1500.0,
+    "position_account_type": "CASH"
+  }'
 ```
 
-### テストの実行
+## 📊 パフォーマンス
 
-```sh
-go test -v ./...
+- **スループット**: 758 req/sec (同時接続)
+- **注文処理速度**: 1,345 orders/sec
+- **平均レスポンス時間**: 1.2ms
+- **95パーセンタイル**: 4.9ms
+- **並行処理**: 100並行セッション対応
+
+## 🧪 テスト
+
+包括的なテストスイートを提供しています：
+
+```bash
+# 全テスト実行
+go test ./...
+
+# カバレッジ付きテスト
+go test -cover ./...
+
+# パフォーマンステスト
+go test -v ./internal/handler/web/tests/performance_test.go
+
+# E2Eテスト
+go test -v ./internal/handler/web/tests/e2e_test.go
 ```
+
+**テスト完了率**: 95% (114/120項目)
+
+詳細は [テストプラン](TEST_PLAN.md) を参照してください。
+
+## 📁 プロジェクト構造
+
+```
+stock-bot/
+├── cmd/                    # エントリーポイント
+│   ├── myapp/             # メインアプリケーション
+│   ├── backtester/        # バックテスト機能
+│   └── test-session/      # セッション管理テスト
+├── domain/                # ドメイン層
+│   ├── model/            # ドメインモデル
+│   └── service/          # ドメインサービス
+├── internal/              # 内部実装
+│   ├── handler/web/      # HTTP APIハンドラー
+│   ├── tradeservice/     # アプリケーション層
+│   ├── infrastructure/   # インフラストラクチャ層
+│   └── eventprocessing/  # イベント処理
+├── gen/                   # Goa生成コード
+├── migrations/            # データベースマイグレーション
+└── data/                  # データファイル
+```
+
+## 🔧 設定
+
+### 環境変数
+
+```bash
+# データベース設定
+DB_HOST=localhost
+DB_PORT=5432
+DB_NAME=stock_trading
+DB_USER=postgres
+DB_PASSWORD=password
+
+# 立花証券API設定
+TACHIBANA_USER_ID=your_user_id
+TACHIBANA_PASSWORD=your_password
+TACHIBANA_SECOND_PASSWORD=your_second_password
+
+# アプリケーション設定
+HTTP_PORT=8080
+LOG_LEVEL=info
+SESSION_STRATEGY=time_based
+```
+
+### Docker Compose
+
+```bash
+# 全サービス起動
+docker-compose up -d
+
+# ログ確認
+docker-compose logs -f app
+
+# サービス停止
+docker-compose down
+```
+
+## 📚 ドキュメント
+
+- [システムアーキテクチャ概要](SYSTEM_ARCHITECTURE_OVERVIEW.md) - 全体設計と図解
+- [現在のアーキテクチャ](CURRENT_ARCHITECTURE.md) - 詳細な技術仕様
+- [テストプラン](TEST_PLAN.md) - テスト戦略と進捗
+- [セッション管理戦略](SESSION_MANAGEMENT_ARCHITECTURE.md) - セッション管理設計
+- [マルチブローカー対応](MULTI_BROKER_ARCHITECTURE.md) - 拡張アーキテクチャ
+
+## 🔒 セキュリティ
+
+- セッションベース認証
+- HTTPS通信必須
+- 認証情報の環境変数管理
+- API通信の暗号化
+- ログでの機密情報マスキング
+
+## 📈 監視・運用
+
+### ヘルスチェック
+```bash
+curl http://localhost:8080/trade/health
+```
+
+### ログ監視
+```bash
+# アプリケーションログ
+tail -f logs/app.log
+
+# エラーログ
+tail -f logs/error.log
+```
+
+### メトリクス
+- リクエスト数・レスポンス時間
+- エラー率
+- データベース接続数
+- メモリ・CPU使用率
+
+## 🛠️ 開発
+
+### 開発環境セットアップ
+
+```bash
+# 依存関係インストール
+go mod download
+
+# 開発用データベース起動
+docker-compose -f docker-compose.dev.yml up -d
+
+# ホットリロード（Air使用）
+air
+```
+
+### コード生成
+
+```bash
+# Goaコード生成
+goa gen stock-bot/design
+
+# モック生成
+go generate ./...
+```
+
+### 品質チェック
+
+```bash
+# リント
+golangci-lint run
+
+# フォーマット
+gofmt -s -w .
+
+# 脆弱性チェック
+gosec ./...
+```
+
+## 🤝 コントリビューション
+
+1. フォークしてブランチを作成
+2. 変更を実装
+3. テストを追加・実行
+4. プルリクエストを作成
+
+## 📄 ライセンス
+
+MIT License - 詳細は [LICENSE](LICENSE) ファイルを参照
+
+## 🆘 サポート
+
+- Issues: GitHub Issues
+- ドキュメント: `/docs` ディレクトリ
+- API仕様: OpenAPI仕様書
+
+---
+
+**注意**: 本システムは教育・研究目的で作成されています。実際の取引での使用は自己責任でお願いします。
